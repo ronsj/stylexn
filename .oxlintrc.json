@@ -5,7 +5,18 @@
     "correctness": "error",
     "suspicious": "warn"
   },
-  "rules": {},
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off"
+  },
+  "overrides": [
+    {
+      "files": ["apps/mobile/**", "**/*.native.{ts,tsx}"],
+      "rules": {
+        "react/style-prop-object": "off"
+      }
+    }
+  ],
   "env": {
     "builtin": true
   },

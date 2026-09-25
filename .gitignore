@@ -5,6 +5,8 @@ build/
 .expo/
 coverage/
 *.tsbuildinfo
+next-env.d.ts
+expo-env.d.ts
 .DS_Store
 *.log
 .env*.local
