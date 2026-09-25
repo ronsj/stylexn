@@ -125,7 +125,11 @@ Build Layer 3 first (it's the source of truth and needed anyway), then Layer 1 (
   - Mobile: Expo SDK 57 / RN 0.86 / React 19.2.3 (pinned across the workspace), isolated pnpm installs, no custom Metro config needed.
   - Interim: `packages/shared` ships `Hello.tsx` (StyleX, web) and `Hello.native.tsx` (RN `StyleSheet`); the native file goes away once StyleXN exists.
   - TypeScript is pinned to 6.x: 7.x (Go port) drops the JS compiler API that Next/Expo/vitest tooling still call.
-- [ ] Add vitest (web, shared, stylexn) and Playwright (web) with one passing test each.
+- [x] Add vitest (web, shared, stylexn) and Playwright (web) with one passing test each.
+  - Root `vitest.config.ts` fans out via `test.projects`; each package has its own `vitest.config.ts` (Vitest 5 no longer searches parent dirs). `pnpm test` at root runs everything; `pnpm test:e2e` runs Playwright.
+  - `vitest.shared.ts` holds a small Vite plugin that runs `@stylexjs/babel-plugin` over test modules, so unit tests assert against compiled StyleX output. No `@vitejs/plugin-react` (Vite 8 compiles TSX natively; the plugin is for HMR).
+  - `apps/web` must set `oxc.jsx.runtime: "automatic"` because its tsconfig has `jsx: "preserve"` for Next.
+  - Playwright specs live in `apps/web/e2e/` and are excluded from Vitest's glob; the e2e test asserts the computed color, proving StyleX CSS from `packages/shared` actually ships.
 - [ ] Spike: prototype a component on React Strict DOM and note what's missing for our use case.
 - [ ] Decide: adopt RSD vs. build StyleXN as a custom layer. (If adopting RSD, StyleXN may become a thin compatibility-checking layer on top of it.)
 - [ ] In `packages/stylexn`: write the compatibility table first, then shorthand expansion + last-wins merge with tests first. Babel plugin, runtime, types and lint rules can be separate entry points in the same package.
