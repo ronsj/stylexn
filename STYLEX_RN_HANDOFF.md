@@ -119,8 +119,12 @@ Build Layer 3 first (it's the source of truth and needed anyway), then Layer 1 (
 
 ## Suggested first steps in Claude Code
 
-- [ ] Scaffold the pnpm monorepo: root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, oxlint + oxfmt config, `lefthook.yml`.
-- [ ] Create `apps/web` (Next.js + StyleX) and `apps/mobile` (Expo). Get both running with a trivial component imported from `packages/shared`.
+- [x] Scaffold the pnpm monorepo: root `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, oxlint + oxfmt config, `lefthook.yml`.
+- [x] Create `apps/web` (Next.js + StyleX) and `apps/mobile` (Expo). Get both running with a trivial component imported from `packages/shared`.
+  - Web: Next 16 (Turbopack) + `@stylexjs/babel-plugin` + `@stylexjs/postcss-plugin`; `transpilePackages` + an explicit postcss `include` glob make the compiler reach `packages/shared`.
+  - Mobile: Expo SDK 57 / RN 0.86 / React 19.2.3 (pinned across the workspace), isolated pnpm installs, no custom Metro config needed.
+  - Interim: `packages/shared` ships `Hello.tsx` (StyleX, web) and `Hello.native.tsx` (RN `StyleSheet`); the native file goes away once StyleXN exists.
+  - TypeScript is pinned to 6.x: 7.x (Go port) drops the JS compiler API that Next/Expo/vitest tooling still call.
 - [ ] Add vitest (web, shared, stylexn) and Playwright (web) with one passing test each.
 - [ ] Spike: prototype a component on React Strict DOM and note what's missing for our use case.
 - [ ] Decide: adopt RSD vs. build StyleXN as a custom layer. (If adopting RSD, StyleXN may become a thin compatibility-checking layer on top of it.)
