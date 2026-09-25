@@ -62,11 +62,11 @@ export const properties = {
   right: some(SIZE, UNITLESS),
   bottom: some(SIZE, UNITLESS),
   left: some(SIZE, UNITLESS),
-  inset: some(SIZE, UNITLESS),
-  insetBlock: some(SIZE, UNITLESS),
+  inset: some(SIZE, UNITLESS, { expandsTo: ["top", "right", "bottom", "left"] }),
+  insetBlock: some(SIZE, UNITLESS, { expandsTo: ["insetBlockStart", "insetBlockEnd"] }),
   insetBlockStart: some(SIZE, UNITLESS),
   insetBlockEnd: some(SIZE, UNITLESS),
-  insetInline: some(SIZE, UNITLESS),
+  insetInline: some(SIZE, UNITLESS, { expandsTo: ["insetInlineStart", "insetInlineEnd"] }),
   insetInlineStart: some(SIZE, UNITLESS),
   insetInlineEnd: some(SIZE, UNITLESS),
   zIndex: ok(),
@@ -99,7 +99,10 @@ export const properties = {
   clear: no(NO_FLOW),
 
   // --- Flexbox -----------------------------------------------------------
-  flex: ok(),
+  flex: ok({
+    note: "Numbers keep React Native semantics; multi-value strings expand to CSS longhands.",
+    expandsTo: ["flexGrow", "flexShrink", "flexBasis"],
+  }),
   flexBasis: some(SIZE, UNITLESS),
   flexDirection: ok(),
   flexGrow: ok(),
@@ -134,7 +137,9 @@ export const properties = {
   }),
   placeItems: no("Only meaningful in grid layout."),
   placeSelf: no("Only meaningful in grid layout."),
-  gap: some(LENGTH, "Length or percentage only."),
+  gap: some(LENGTH, "Length or percentage only; expanded when multi-value.", {
+    expandsTo: ["rowGap", "columnGap"],
+  }),
   rowGap: some(LENGTH, "Length or percentage only."),
   columnGap: some(LENGTH, "Length or percentage only."),
 
@@ -177,10 +182,10 @@ export const properties = {
   marginRight: some(SIZE, UNITLESS),
   marginBottom: some(SIZE, UNITLESS),
   marginLeft: some(SIZE, UNITLESS),
-  marginBlock: some(SIZE, UNITLESS),
+  marginBlock: some(SIZE, UNITLESS, { expandsTo: ["marginBlockStart", "marginBlockEnd"] }),
   marginBlockStart: some(SIZE, UNITLESS),
   marginBlockEnd: some(SIZE, UNITLESS),
-  marginInline: some(SIZE, UNITLESS),
+  marginInline: some(SIZE, UNITLESS, { expandsTo: ["marginInlineStart", "marginInlineEnd"] }),
   marginInlineStart: some(SIZE, UNITLESS),
   marginInlineEnd: some(SIZE, UNITLESS),
 
@@ -192,10 +197,10 @@ export const properties = {
   paddingRight: some(LENGTH, UNITLESS),
   paddingBottom: some(LENGTH, UNITLESS),
   paddingLeft: some(LENGTH, UNITLESS),
-  paddingBlock: some(LENGTH, UNITLESS),
+  paddingBlock: some(LENGTH, UNITLESS, { expandsTo: ["paddingBlockStart", "paddingBlockEnd"] }),
   paddingBlockStart: some(LENGTH, UNITLESS),
   paddingBlockEnd: some(LENGTH, UNITLESS),
-  paddingInline: some(LENGTH, UNITLESS),
+  paddingInline: some(LENGTH, UNITLESS, { expandsTo: ["paddingInlineStart", "paddingInlineEnd"] }),
   paddingInlineStart: some(LENGTH, UNITLESS),
   paddingInlineEnd: some(LENGTH, UNITLESS),
 
@@ -234,7 +239,7 @@ export const properties = {
   borderRightColor: ok(),
   borderBottomColor: ok(),
   borderLeftColor: ok(),
-  borderBlockColor: ok(),
+  borderBlockColor: ok({ expandsTo: ["borderBlockStartColor", "borderBlockEndColor"] }),
   borderBlockStartColor: ok(),
   borderBlockEndColor: ok(),
   borderInlineColor: poly("Expanded to start and end colors.", {
@@ -244,7 +249,13 @@ export const properties = {
   borderInlineEndColor: ok({ native: "borderEndColor" }),
 
   // --- Border: style -------------------------------------------------------
-  borderStyle: some(["solid", "dotted", "dashed", "none"], "none is emulated with borderWidth: 0."),
+  borderStyle: some(
+    ["solid", "dotted", "dashed", "none"],
+    "none is emulated with borderWidth: 0.",
+    {
+      expandsTo: ["borderTopStyle", "borderRightStyle", "borderBottomStyle", "borderLeftStyle"],
+    },
+  ),
   borderTopStyle: poly(
     "React Native has one borderStyle for all sides; per-side styles are merged.",
   ),
@@ -259,6 +270,7 @@ export const properties = {
   ),
   borderBlockStyle: poly(
     "React Native has one borderStyle for all sides; per-side styles are merged.",
+    { expandsTo: ["borderBlockStartStyle", "borderBlockEndStyle"] },
   ),
   borderBlockStartStyle: poly(
     "React Native has one borderStyle for all sides; per-side styles are merged.",
@@ -268,6 +280,7 @@ export const properties = {
   ),
   borderInlineStyle: poly(
     "React Native has one borderStyle for all sides; per-side styles are merged.",
+    { expandsTo: ["borderInlineStartStyle", "borderInlineEndStyle"] },
   ),
   borderInlineStartStyle: poly(
     "React Native has one borderStyle for all sides; per-side styles are merged.",
@@ -524,7 +537,7 @@ export const properties = {
   textDecorationThickness: no("Not supported by React Native."),
   textUnderlineOffset: no("Not supported by React Native."),
   textShadow: poly("Parsed and expanded to React Native's textShadow* keys.", {
-    expandsTo: ["textShadowColor", "textShadowOffset", "textShadowRadius"],
+    expandsTo: ["textShadowOffsetX", "textShadowOffsetY", "textShadowRadius", "textShadowColor"],
   }),
   textTransform: ok(),
   textIndent: no("Not supported by React Native text layout."),
@@ -588,8 +601,9 @@ export const properties = {
 export type KnownProperty = keyof typeof properties;
 
 /**
- * React Native style keys with no CSS equivalent that `native` renames and
- * `expandsTo` expansions are allowed to target.
+ * Keys outside CSS that `native` renames and `expandsTo` expansions may
+ * target: React Native-only style keys, plus StyleXN pseudo-longhands that
+ * the lowering step folds into React Native shapes (textShadowOffset).
  */
 export const rnOnlyKeys: ReadonlySet<string> = new Set([
   "borderStartWidth",
@@ -597,7 +611,8 @@ export const rnOnlyKeys: ReadonlySet<string> = new Set([
   "borderStartColor",
   "borderEndColor",
   "textShadowColor",
-  "textShadowOffset",
+  "textShadowOffsetX",
+  "textShadowOffsetY",
   "textShadowRadius",
   "experimental_backgroundImage",
   "experimental_backgroundSize",
