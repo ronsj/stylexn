@@ -130,7 +130,8 @@ Build Layer 3 first (it's the source of truth and needed anyway), then Layer 1 (
   - `vitest.shared.ts` holds a small Vite plugin that runs `@stylexjs/babel-plugin` over test modules, so unit tests assert against compiled StyleX output. No `@vitejs/plugin-react` (Vite 8 compiles TSX natively; the plugin is for HMR).
   - `apps/web` must set `oxc.jsx.runtime: "automatic"` because its tsconfig has `jsx: "preserve"` for Next.
   - Playwright specs live in `apps/web/e2e/` and are excluded from Vitest's glob; the e2e test asserts the computed color, proving StyleX CSS from `packages/shared` actually ships.
-- [ ] Spike: prototype a component on React Strict DOM and note what's missing for our use case.
-- [ ] Decide: adopt RSD vs. build StyleXN as a custom layer. (If adopting RSD, StyleXN may become a thin compatibility-checking layer on top of it.)
+- [x] Spike: prototype a component on React Strict DOM and note what's missing for our use case. See `docs/rsd-spike.md` (branch `spike/rsd` has the code).
+- [x] Decide: adopt RSD vs. build StyleXN as a custom layer. **Decision: build StyleXN as a custom layer (option B in the spike doc)**, with RSD's native implementation as the reference. `react-strict-dom` is not a dependency on `main`.
+  - This also sets the direction for the "Shared components" open question: RN-primitive semantics via StyleXN wrappers that render DOM on web and RN on native; react-native-web not planned. Confirm when designing the wrappers (architecture item 4).
 - [ ] In `packages/stylexn`: write the compatibility table first, then shorthand expansion + last-wins merge with tests first. Babel plugin, runtime, types and lint rules can be separate entry points in the same package.
 - [ ] Implement compatibility checking in the order recommended above.
