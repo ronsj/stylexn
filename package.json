@@ -1,19 +1,29 @@
 {
   "name": "react-stylexn-app",
   "private": true,
+  "type": "module",
   "scripts": {
     "prepare": "lefthook install",
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test"
+    "test": "vitest run",
+    "test:e2e": "pnpm --filter @stylexn/web test:e2e"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@stylexjs/babel-plugin": "^0.19.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/babel__core": "^7.20.5",
+    "jsdom": "^30.1.1",
     "lefthook": "^2.1.14",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
   },
   "engines": {
     "node": ">=22"
