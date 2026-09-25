@@ -9,3 +9,5 @@
 export * from "./compat/index.ts";
 export * from "./expand/index.ts";
 export * from "./lower/index.ts";
+export * from "./check/index.ts";
+export * from "./compile/index.ts";

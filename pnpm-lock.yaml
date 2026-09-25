@@ -131,6 +131,15 @@ importers:
 
   packages/stylexn:
     devDependencies:
+      '@babel/core':
+        specifier: ^7.28.0
+        version: 7.29.7
+      '@types/babel__core':
+        specifier: ^7.20.5
+        version: 7.20.5
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.6
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

@@ -2,6 +2,7 @@ import { properties } from "../compat/table.ts";
 import { splitComma, splitSpace } from "../expand/tokenize.ts";
 import type { ConditionalValue, Diagnostic, Expanded, Leaf } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
+import { isSentinel } from "../sentinel.ts";
 import { normalizeAngles, toNumber } from "./units.ts";
 
 /**
@@ -148,6 +149,13 @@ function lowerLeaf(
   path: string,
 ): LeafOutput {
   const diag = (message: string) => diagnostics.push({ property: path, value, message });
+  if (isSentinel(value)) {
+    // Only known at runtime: rename/prop-map it, never inspect it.
+    const entry = properties[property as keyof typeof properties];
+    return entry?.prop
+      ? { props: { [entry.prop]: value } }
+      : { style: { [entry?.native ?? property]: value } };
+  }
   if (value === null) {
     const entry = properties[property as keyof typeof properties];
     return entry?.prop

@@ -810,7 +810,7 @@ export const functions = {
   "env()": no("Safe-area insets come from react-native-safe-area-context, not styles."),
   "attr()": no("No attribute access from styles."),
   "counter()": no("No generated content."),
-  "url()": some(["backgroundImage"], "Not supported in styles; use <Image source>."),
+  "url()": no("Not supported in styles; use <Image source>."),
   "rgb()": ok(),
   "rgba()": ok(),
   "hsl()": ok(),
