@@ -1,5 +1,7 @@
 // StyleXN: StyleX authoring API -> React Native output.
-// Skeleton only. First real module is the compatibility table
-// (src/compat/table.ts); see STYLEX_RN_HANDOFF.md.
+//
+// The compatibility table is the first and central module; every enforcement
+// layer (types, lint, Babel plugin, runtime) reads it. See
+// STYLEX_RN_HANDOFF.md, "Compatibility checking".
 
-export const PACKAGE_NAME = "stylexn";
+export * from "./compat/index.ts";
