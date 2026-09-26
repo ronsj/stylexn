@@ -7,8 +7,22 @@ export type { Props } from "./api.ts";
 export { createTheme, defineConsts, defineVars } from "./vars.ts";
 export type { VarGroup } from "./vars.ts";
 export { config, configure } from "./env.ts";
-export { FontSizeProvider, ThemeProvider, useInteraction, useProps } from "./hooks.ts";
-export type { InteractionHandlers, ThemeProviderProps, UsePropsOptions } from "./hooks.ts";
+export {
+  FontSizeProvider,
+  TextStyleProvider,
+  ThemeProvider,
+  useInheritedTextStyle,
+  useInteraction,
+  useProps,
+} from "./hooks.ts";
+export type {
+  InteractionHandlers,
+  TextStyleProviderProps,
+  ThemeProviderProps,
+  UsePropsOptions,
+} from "./hooks.ts";
+export { INHERITED_TEXT_KEYS, splitInherited } from "./inherit.ts";
+export type { InheritedTextStyle } from "./inherit.ts";
 export { analyzeNeeds, resolve } from "./resolve.ts";
 export { matchesMedia } from "./media.ts";
 export type {

@@ -18,6 +18,7 @@ import {
   setReducedMotion,
   windowMetrics,
 } from "./env.ts";
+import { shallowEqual, type InheritedTextStyle } from "./inherit.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
 import type { Env, InteractionState, StyleArg, Theme, VarScope, WindowMetrics } from "./types.ts";
 import { scopeWith } from "./vars.ts";
@@ -67,7 +68,7 @@ const noop = () => () => {};
 // ---------------------------------------------------------------------------
 
 const VarsContext = createContext<VarScope>({});
-const FontSizeContext = createContext<number | null>(null);
+const TextStyleContext = createContext<InheritedTextStyle>({});
 
 export type ThemeProviderProps = Readonly<{
   theme: Theme | readonly Theme[];
@@ -84,6 +85,37 @@ export function ThemeProvider({ theme, children }: ThemeProviderProps) {
   return createElement(VarsContext.Provider, { value }, children);
 }
 
+/** Keep the previous object while the new one is shallow-equal, so context consumers do not re-render. */
+function useShallowStable<T extends Readonly<Record<string, unknown>>>(value: T): T {
+  const [stable, setStable] = useState(value);
+  if (stable === value || shallowEqual(stable, value)) return stable;
+  setStable(value); // derived state: React re-renders once with the new object
+  return value;
+}
+
+export type TextStyleProviderProps = Readonly<{
+  /** Inherited text properties (see INHERITED_TEXT_KEYS) for the subtree; merged over the parent's. */
+  style: InheritedTextStyle;
+  children?: ReactNode;
+}>;
+
+/**
+ * The native stand-in for CSS text inheritance: `color`, `fontSize`, ... set
+ * on a View reach nested Text through this context. `em` units resolve
+ * against its `fontSize`.
+ */
+export function TextStyleProvider({ style, children }: TextStyleProviderProps) {
+  const parent = useContext(TextStyleContext);
+  const stable = useShallowStable(style);
+  const value = useMemo(() => ({ ...parent, ...stable }), [parent, stable]);
+  return createElement(TextStyleContext.Provider, { value }, children);
+}
+
+/** Text properties inherited from enclosing elements. */
+export function useInheritedTextStyle(): InheritedTextStyle {
+  return useContext(TextStyleContext);
+}
+
 /** Provide the inherited font size for `em` units in a subtree. */
 export function FontSizeProvider({
   fontSize,
@@ -92,7 +124,8 @@ export function FontSizeProvider({
   fontSize: number;
   children?: ReactNode;
 }) {
-  return createElement(FontSizeContext.Provider, { value: fontSize }, children);
+  const style = useMemo(() => ({ fontSize }), [fontSize]);
+  return createElement(TextStyleProvider, { style }, children);
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +193,7 @@ export function useProps(
     needs.reducedMotion ? getReducedMotion : () => false,
   );
   const vars = useContext(VarsContext);
-  const inheritedFontSize = useContext(FontSizeContext);
+  const inheritedFontSize = useContext(TextStyleContext).fontSize;
   const [ownInteraction, handlers] = useInteraction();
 
   const env: Env = {
@@ -171,7 +204,7 @@ export function useProps(
     interaction: { ...ownInteraction, ...options.interaction, disabled: options.disabled },
     vars,
     rootFontSize: config.rootFontSize,
-    fontSize: inheritedFontSize ?? config.fontSize,
+    fontSize: typeof inheritedFontSize === "number" ? inheritedFontSize : config.fontSize,
     platform: platform(),
   };
   const { style, props: extra } = resolve(args, env);

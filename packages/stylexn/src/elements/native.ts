@@ -1,15 +1,29 @@
 // Cross-platform elements, React Native implementation: the primitives,
 // styled through the StyleXN runtime. Interaction handlers from `useProps`
 // are attached only when a rule has :hover/:active/:focus conditions.
+//
+// Text inheritance: CSS cascades `color`, `fontSize`, ... from any element to
+// the text inside it; React Native only inherits between nested Text. So
+// View and Pressable move those keys off their own style and into
+// TextStyleProvider, and Text merges the inherited values under its own.
 import { createElement, type ReactNode } from "react";
 import { Pressable as RNPressable, Text as RNText, View as RNView, type Role } from "react-native";
-import { FontSizeProvider, useProps } from "../runtime/hooks.ts";
+import { TextStyleProvider, useInheritedTextStyle, useProps } from "../runtime/hooks.ts";
+import { splitInherited } from "../runtime/inherit.ts";
+import type { RNLeaf } from "../lower/lower.ts";
 import type { StyleArg } from "../runtime/types.ts";
 
 export type SxProp = StyleArg | readonly StyleArg[];
 
 const toList = (sx: SxProp | undefined): readonly StyleArg[] =>
   sx === undefined ? [] : Array.isArray(sx) ? (sx as readonly StyleArg[]) : [sx as StyleArg];
+
+/** Children wrapped in a TextStyleProvider when there is anything to inherit. */
+function inheriting(inherited: Readonly<Record<string, RNLeaf>>, children: ReactNode): ReactNode {
+  return Object.keys(inherited).length
+    ? createElement(TextStyleProvider, { style: inherited }, children)
+    : children;
+}
 
 export type ViewProps = Readonly<{
   sx?: SxProp;
@@ -21,10 +35,11 @@ export type ViewProps = Readonly<{
 
 export function View({ sx, children, ...rest }: ViewProps) {
   const { style, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { own, inherited } = splitInherited(style);
   return createElement(
     RNView,
-    { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style },
-    children,
+    { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
+    inheriting(inherited, children),
   );
 }
 
@@ -46,12 +61,15 @@ export function Text({ sx, children, ...rest }: TextProps) {
     onBlur: _b,
     ...extra
   } = useProps(toList(sx));
-  const fontSize = (style as { fontSize?: unknown }).fontSize;
-  const element = createElement(RNText, { ...rest, ...extra, style }, children);
-  // Nested text and `em` units are relative to this font size.
-  return typeof fontSize === "number"
-    ? createElement(FontSizeProvider, { fontSize }, element)
-    : element;
+  // Inherited text properties sit under the element's own (the CSS cascade).
+  const inherited = useInheritedTextStyle();
+  const merged = { ...inherited, ...style };
+  // Nested text and `em` units are relative to this element's text style.
+  return createElement(
+    RNText,
+    { ...rest, ...extra, style: merged },
+    inheriting(splitInherited(style).inherited, children),
+  );
 }
 
 export type PressableProps = Readonly<{
@@ -65,9 +83,10 @@ export type PressableProps = Readonly<{
 
 export function Pressable({ sx, children, disabled, onPress, ...rest }: PressableProps) {
   const { style, ...extra } = useProps(toList(sx), { disabled });
+  const { own, inherited } = splitInherited(style);
   return createElement(
     RNPressable,
-    { ...rest, ...extra, disabled, onPress, style, role: "button" },
-    children,
+    { ...rest, ...extra, disabled, onPress, style: own, role: "button" },
+    inheriting(inherited, children),
   );
 }
