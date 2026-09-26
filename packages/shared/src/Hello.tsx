@@ -17,10 +17,15 @@ const pulse = stylex.keyframes({
   to: { opacity: 1 },
 });
 
+const DARK = "@media (prefers-color-scheme: dark)";
+
 const styles = stylex.create({
   root: {
     padding: 16,
     gap: 12,
+    // Android draws `elevation` shadows through a transparent view: give
+    // elevated views an opaque background.
+    backgroundColor: { default: "#fff", [DARK]: "#1c1c1e" },
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: colors.accent,
@@ -81,7 +86,7 @@ const styles = stylex.create({
     borderBottomColor: { default: "#bbb", ":focus": colors.accent },
     paddingBlock: 6,
     fontSize: 16,
-    color: { default: "#222", "::placeholder": "#999" },
+    color: { default: "#222", [DARK]: "#eee", "::placeholder": "#999" },
     caretColor: colors.accent,
   },
   chips: {
@@ -95,9 +100,10 @@ const styles = stylex.create({
     paddingBlock: 4,
     paddingInline: 10,
     borderRadius: 999,
-    backgroundColor: "#eee",
-    color: "#333",
+    backgroundColor: { default: "#eee", [DARK]: "#333" },
+    color: { default: "#333", [DARK]: "#eee" },
     fontSize: 14,
+    verticalAlign: "middle", // Android-only on native; ignored on iOS
   },
   avatar: {
     width: 40,
