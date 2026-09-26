@@ -9,9 +9,11 @@
     "format:check": "oxfmt --check",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
-    "test:e2e": "pnpm --filter @stylexn/example-web --filter @stylexn/docs-site test:e2e",
+    "test:e2e": "pnpm --filter @stylexn/example-web test:e2e",
+    "test:e2e:docs": "pnpm --filter @stylexn/docs-site test:e2e",
     "check:styles": "node packages/stylexn/dist/bin.mjs check --report-web-only --strict packages/shared/src apps/example-mobile",
     "build": "pnpm --filter stylexn build",
+    "build:docs": "pnpm --filter @stylexn/docs-site build",
     "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:styles && pnpm --filter stylexn compat:check && pnpm --filter stylexn pack:check"
   },
   "devDependencies": {
