@@ -94,6 +94,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "bench": "STYLEXN_BENCH=1 vitest run src/runtime/props.bench.test.tsx",
     "build": "node scripts/build.mjs",
     "compat:docs": "node --experimental-strip-types scripts/compat-docs.ts",
     "compat:check": "node --experimental-strip-types scripts/compat-docs.ts --check",
