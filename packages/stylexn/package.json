@@ -35,7 +35,8 @@
     "./check": {
       "types": "./src/cli/check.ts",
       "default": "./dist/check.mjs"
-    }
+    },
+    "./testing/react-native": "./src/testing/react-native.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

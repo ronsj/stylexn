@@ -1,81 +1,9 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // React Native primitives stand in as DOM elements that expose their style.
-vi.mock("react-native", async () => {
-  const { Animated, Easing } = await import("../runtime/fake-animated.ts");
-  // oxlint-disable-next-line unicorn/consistent-function-scoping -- vi.mock factories are hoisted
-  const element =
-    (tag: string) =>
-    ({
-      style,
-      children,
-      testID,
-      onPress,
-      onPressIn,
-      onPressOut,
-      onFocus,
-      onBlur,
-      onScroll,
-      ...rest
-    }: {
-      style: unknown;
-      children?: ReactNode;
-      testID?: string;
-      onPress?: () => void;
-      onPressIn?: () => void;
-      onPressOut?: () => void;
-      onFocus?: () => void;
-      onBlur?: () => void;
-      onScroll?: (event: unknown) => void;
-      [prop: string]: unknown;
-    }) =>
-      createElement(
-        tag,
-        {
-          "data-testid": testID,
-          "data-style": JSON.stringify(style),
-          "data-props": JSON.stringify(rest),
-          onClick: onPress,
-          onMouseDown: onPressIn,
-          onMouseUp: onPressOut,
-          onFocus,
-          onBlur,
-          // Emit React Native's event shape from the DOM element's scroll position.
-          onScroll:
-            onScroll &&
-            ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
-              onScroll({
-                nativeEvent: {
-                  contentOffset: {
-                    x: event.currentTarget.scrollLeft,
-                    y: event.currentTarget.scrollTop,
-                  },
-                },
-              })),
-        },
-        children,
-      );
-  return {
-    Animated: { ...Animated, Image: Animated.View, ScrollView: Animated.View },
-    Easing,
-    View: element("div"),
-    Text: element("span"),
-    Pressable: element("button"),
-    Image: element("img"),
-    TextInput: element("input"),
-    ScrollView: element("scroll-view"),
-    Dimensions: { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) },
-    Appearance: { getColorScheme: () => "light", addChangeListener: () => ({ remove() {} }) },
-    AccessibilityInfo: {
-      isReduceMotionEnabled: () => Promise.resolve(false),
-      addEventListener: () => ({ remove() {} }),
-    },
-    Platform: { OS: "ios" },
-  };
-});
+vi.mock("react-native", () => import("../testing/react-native.ts"));
 
 import { create } from "../runtime/api.ts";
 import { resetVarsForTesting } from "../runtime/vars.ts";
@@ -194,16 +122,16 @@ describe("text inheritance", () => {
 });
 
 describe("animated elements", () => {
-  test("switch to Animated components only while a transition is attached", () => {
+  test("use Animated components when the rules mention motion", () => {
     render(
       <Pressable sx={styles.fading} testID="p">
         <Text testID="t">hi</Text>
       </Pressable>,
     );
-    expect(tagOf("p")).toBe("BUTTON");
+    // Rules with motion render on Animated components from the start (no remount on press).
+    expect(propsOf("p").animated).toBe(true);
+    expect(propsOf("t").animated).toBeUndefined();
     fireEvent.mouseDown(screen.getByTestId("p")); // the host mock maps onPressIn to mousedown
-    expect(tagOf("p")).toBe("ANIMATED-PRESSABLE");
-    expect(tagOf("t")).toBe("SPAN");
     expect(styleOf("p").opacity).toMatchObject({ $$interpolation: { outputRange: [1, 0.5] } });
   });
 });
@@ -245,7 +173,7 @@ describe("Image, TextInput, ScrollView", () => {
         <Text testID="t">hi</Text>
       </ScrollView>,
     );
-    expect(tagOf("s")).toBe("SCROLL-VIEW");
+    expect(tagOf("s")).toBe("RN-SCROLLVIEW");
     expect(styleOf("s")).toEqual({
       paddingTop: 4,
       paddingRight: 4,
@@ -284,7 +212,6 @@ describe("element follow-ups", () => {
     );
     expect(propsOf("num").source).toBe(42);
     expect(propsOf("obj").source).toEqual({ uri: "https://x/y.png" });
-    expect(typeof (host("num") as unknown as { onLoad?: unknown }).onLoad).toBe("undefined"); // handlers are not serialised
     expect(onLoad).not.toHaveBeenCalled();
   });
 

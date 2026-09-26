@@ -2,7 +2,8 @@
  * Test double for React Native's Animated: records what the runtime builds
  * (values, interpolations, timings, loops) without running any timers.
  */
-import { createElement, type ReactNode } from "react";
+import { createElement, type ComponentType } from "react";
+import { host } from "../testing/host.ts";
 
 export type Recorded = {
   kind: "timing" | "sequence" | "loop" | "delay";
@@ -61,10 +62,11 @@ function recorded(partial: Partial<Recorded> & Pick<Recorded, "kind">): Recorded
   return r;
 }
 
-const host =
-  (tag: string) =>
-  ({ style, children, testID }: { style: unknown; children?: ReactNode; testID?: string }) =>
-    createElement(tag, { "data-testid": testID, "data-style": JSON.stringify(style) }, children);
+function animated(Component: ComponentType<Record<string, unknown>>) {
+  return function AnimatedHost(props: Record<string, unknown>) {
+    return createElement(Component, { ...props, animated: true });
+  };
+}
 
 export const Animated = {
   Value: FakeValue,
@@ -74,9 +76,13 @@ export const Animated = {
   loop: (child: Recorded, config: Record<string, unknown>) =>
     recorded({ kind: "loop", children: [child], config }),
   delay: (ms: number) => recorded({ kind: "delay", config: { ms } }),
-  View: host("animated-view"),
-  Text: host("animated-text"),
-  createAnimatedComponent: () => host("animated-pressable"),
+  // Animated components render the same hosts, flagged with `animated: true` in data-props.
+  View: animated(host("rn-view")),
+  Text: animated(host("rn-text")),
+  Image: animated(host("rn-image")),
+  ScrollView: animated(host("rn-scrollview")),
+  createAnimatedComponent: (component: ComponentType<Record<string, unknown>>) =>
+    animated(component),
 };
 
 export const Easing = {
