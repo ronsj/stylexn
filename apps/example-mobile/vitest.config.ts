@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   test: {
-    name: "mobile",
+    name: "example-mobile",
     environment: "jsdom",
     setupFiles: ["../../vitest.setup.ts"],
     include: ["**/*.test.{ts,tsx}"],

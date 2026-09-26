@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
+      "name": "example-web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@stylexn/web", "dev"],
+      "runtimeArgs": ["--filter", "@stylexn/example-web", "dev"],
       "port": 3000
     }
   ]

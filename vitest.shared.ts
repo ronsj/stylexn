@@ -8,7 +8,7 @@ const monorepoRoot = import.meta.dirname;
 // Runs the StyleX compiler over test modules so unit tests see the same
 // compiled output (class names, injected CSS) the web build produces,
 // rather than StyleX's uncompiled runtime fallback. Mirrors the options in
-// apps/web/babel.config.js.
+// apps/example-web/babel.config.js.
 export function stylexTestPlugin(): Plugin {
   return {
     name: "stylexn:stylex-test-transform",

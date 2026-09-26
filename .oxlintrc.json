@@ -11,13 +11,13 @@
   },
   "overrides": [
     {
-      "files": ["apps/mobile/**", "**/*.native.{ts,tsx}"],
+      "files": ["apps/example-mobile/**", "**/*.native.{ts,tsx}"],
       "rules": {
         "react/style-prop-object": "off"
       }
     },
     {
-      "files": ["packages/shared/**", "apps/mobile/**"],
+      "files": ["packages/shared/**", "apps/example-mobile/**"],
       "rules": {
         "stylexn/compat": [
           "error",

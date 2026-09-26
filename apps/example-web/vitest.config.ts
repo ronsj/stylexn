@@ -7,7 +7,7 @@ export default defineConfig({
   // leave JSX uncompiled in tests, so force the automatic runtime here.
   oxc: { jsx: { runtime: "automatic" } },
   test: {
-    name: "web",
+    name: "example-web",
     environment: "jsdom",
     setupFiles: ["../../vitest.setup.ts"],
     // Playwright specs live in e2e/ and must not be picked up here.
