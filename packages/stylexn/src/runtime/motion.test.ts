@@ -4,6 +4,8 @@ import {
   EASE,
   expandTransitionProperty,
   parseEasing,
+  pointsCurve,
+  stepsCurve,
   parseMotion,
   parseTime,
   parseTransform,
@@ -31,8 +33,102 @@ describe("parseTime / parseEasing", () => {
       x2: 0.2,
       y2: 1,
     });
-    expect(parseEasing("steps(4, end)", warn)).toEqual({ type: "linear" });
-    expect(warn).toHaveBeenCalledWith("easing:steps(4, end)", expect.stringMatching(/linear/));
+    expect(parseEasing("bounce", warn)).toEqual({ type: "linear" });
+    expect(warn).toHaveBeenCalledWith("easing:bounce", expect.stringMatching(/linear/));
+  });
+
+  test("steps() and the step keywords", () => {
+    expect(parseEasing("steps(4, end)", warn)).toEqual({
+      type: "steps",
+      count: 4,
+      position: "jump-end",
+    });
+    expect(parseEasing("steps(3)", warn)).toMatchObject({ count: 3, position: "jump-end" });
+    expect(parseEasing("steps(2, jump-both)", warn)).toMatchObject({ position: "jump-both" });
+    expect(parseEasing("step-start", warn)).toEqual({
+      type: "steps",
+      count: 1,
+      position: "jump-start",
+    });
+    expect(parseEasing("step-end", warn)).toEqual({
+      type: "steps",
+      count: 1,
+      position: "jump-end",
+    });
+    // Malformed: zero steps, jump-none with one step, unknown position.
+    for (const bad of ["steps(0)", "steps(1, jump-none)", "steps(2, middle)"]) {
+      expect(parseEasing(bad, warn)).toEqual({ type: "linear" });
+    }
+    expect(warn).toHaveBeenCalledTimes(3);
+  });
+
+  test("linear() stops: missing inputs are spread, inputs never decrease", () => {
+    expect(parseEasing("linear(0, 1)", warn)).toEqual({
+      type: "points",
+      points: [
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    expect(parseEasing("linear(0, 0.25, 1)", warn)).toMatchObject({
+      points: [
+        [0, 0],
+        [0.5, 0.25],
+        [1, 1],
+      ],
+    });
+    // Two percentages make a flat segment; an input below the running maximum is raised to it.
+    expect(parseEasing("linear(0, 0.5 25% 75%, 0.2 50%, 1)", warn)).toMatchObject({
+      points: [
+        [0, 0],
+        [0.25, 0.5],
+        [0.75, 0.5],
+        [0.75, 0.2],
+        [1, 1],
+      ],
+    });
+    expect(parseEasing("linear(1)", warn)).toEqual({ type: "linear" });
+    expect(parseEasing("linear(0, 1 10px)", warn)).toEqual({ type: "linear" });
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+});
+
+/** A curve sampled at the start, the ends of the first and last tenth, the middle and the end. */
+const at = (curve: (t: number) => number) => [0, 0.1, 0.5, 0.9, 1].map(curve);
+
+describe("easing curves", () => {
+  test("steps: each position jumps where CSS says", () => {
+    expect(at(stepsCurve(2, "jump-end"))).toEqual([0, 0, 0.5, 0.5, 1]);
+    expect(at(stepsCurve(2, "jump-start"))).toEqual([0.5, 0.5, 1, 1, 1]);
+    expect(at(stepsCurve(3, "jump-none"))).toEqual([0, 0, 0.5, 1, 1]);
+    expect(at(stepsCurve(2, "jump-both")).map((v) => Math.round(v * 3) / 3)).toEqual([
+      1 / 3,
+      1 / 3,
+      2 / 3,
+      2 / 3,
+      1,
+    ]);
+    expect(at(stepsCurve(1, "jump-start"))).toEqual([1, 1, 1, 1, 1]); // step-start
+    expect(at(stepsCurve(1, "jump-end"))).toEqual([0, 0, 0, 0, 1]); // step-end
+  });
+
+  test("points: piecewise linear with extrapolation past the ends", () => {
+    const curve = pointsCurve([
+      [0, 0],
+      [0.5, 1],
+      [1, 0.5],
+    ]);
+    expect([0, 0.25, 0.5, 0.75, 1].map(curve)).toEqual([0, 0.5, 1, 0.75, 0.5]);
+    expect(curve(-0.5)).toBe(-1); // continues the first segment
+    expect(curve(1.5)).toBe(0); // continues the last segment
+    // Coincident inputs (a flat step) resolve to the later point at that input.
+    const step = pointsCurve([
+      [0, 0],
+      [0.5, 0],
+      [0.5, 1],
+      [1, 1],
+    ]);
+    expect([0.25, 0.5, 0.75].map(step)).toEqual([0, 1, 1]);
   });
 });
 

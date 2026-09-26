@@ -276,6 +276,61 @@ describe("keyframe animations", () => {
     vi.useRealTimers();
   });
 
+  test("pausing during the delay keeps the remainder; resuming waits it out, not the whole delay", () => {
+    vi.useFakeTimers();
+    const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
+    const s = create({
+      a: (state: string) => ({
+        opacity: 0.8,
+        animationName: fade,
+        animationDuration: "500ms",
+        animationDelay: "100ms",
+        animationPlayState: state,
+      }),
+    });
+    const { result, rerender } = renderHook(({ state }) => useProps([s.a(state)]), {
+      initialProps: { state: "running" },
+    });
+    act(() => {
+      vi.advanceTimersByTime(40);
+    });
+    rerender({ state: "paused" });
+    act(() => {
+      vi.advanceTimersByTime(1000); // paused: the delay does not run down
+    });
+    expect(started).toHaveLength(0);
+    expect(result.current.style).toEqual({ opacity: 0.8 }); // still the base style
+    rerender({ state: "running" });
+    act(() => {
+      vi.advanceTimersByTime(59);
+    });
+    expect(started).toHaveLength(0);
+    act(() => {
+      vi.advanceTimersByTime(1); // the remaining 60ms are up
+    });
+    expect(started).toHaveLength(1);
+    expect(started[0]?.config).toMatchObject({ toValue: 1, duration: 500 });
+    expect(interp(result.current.style.opacity).outputRange).toEqual([0, 1]);
+    vi.useRealTimers();
+  });
+
+  test("steps() and linear() easings become progress functions Animated can sample", () => {
+    const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
+    const s = create({
+      a: {
+        animationName: `${fade}, ${fade}`,
+        animationDuration: "1s",
+        animationTimingFunction: "steps(4, jump-start), linear(0, 0.5 50%, 1)",
+      },
+    });
+    renderHook(() => useProps([s.a]));
+    const [steps, points] = started.map((r) => r.config?.easing as (t: number) => number);
+    expect(typeof steps).toBe("function");
+    expect([0, 0.3, 1].map(steps as (t: number) => number)).toEqual([0.25, 0.5, 1]);
+    expect([0, 0.25, 1].map(points as (t: number) => number)).toEqual([0, 0.25, 1]);
+    expect(started[0]?.config).toMatchObject({ useNativeDriver: true });
+  });
+
   test("pausing stops the current cycle and resuming continues from the current progress", () => {
     const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
     const s = create({

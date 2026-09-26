@@ -11,13 +11,16 @@
  * - Transform strings are parsed to React Native's array form so their parts
  *   can be interpolated; the functions must match across the values.
  *
- * Opacity and transform run on the native driver (see `config.nativeDriver`);
- * everything else on the JS driver. Keyframe cycles are scheduled here rather
- * than with Animated.sequence/loop so that pause/resume can continue from the
- * current progress and a delay can show the base style (`fill-mode: none`).
+ * Opacity, transform, colours, radii and shadows run on the native driver
+ * (see `config.nativeDriver` and NATIVE_KEYS); layout keys such as width or
+ * margins keep the element on the JS driver. Keyframe cycles are scheduled
+ * here rather than with Animated.sequence/loop so that pause/resume can
+ * continue from the current progress (or wait out the rest of a delay) and a
+ * delay can show the base style (`fill-mode: none`). `steps()` and `linear()`
+ * easings are plain progress functions; Animated samples them into frames
+ * for the native driver like any other easing.
  *
- * Known simplifications: resuming during a delay restarts the delay; `steps()`
- * easing runs as linear; a removed key animates to a CSS initial value only
+ * Known simplification: a removed key animates to a CSS initial value only
  * for the keys in INITIAL_VALUES, otherwise it jumps.
  */
 import { useEffect, useState } from "react";
@@ -31,7 +34,9 @@ import type { Keyframes } from "./keyframes.ts";
 import {
   canInterpolate,
   parseTransform,
+  pointsCurve,
   sameTransformShape,
+  stepsCurve,
   timingFor,
   type AnimationSpec,
   type EasingSpec,
@@ -54,14 +59,27 @@ export type MotionEnv = Readonly<{
   resolveFrame: (rule: CompiledRule) => Style;
 }>;
 
-const easingFn = (e: EasingSpec) =>
-  e.type === "linear" ? Easing.linear : Easing.bezier(e.x1, e.y1, e.x2, e.y2);
+function easingFn(e: EasingSpec): (t: number) => number {
+  switch (e.type) {
+    case "linear":
+      return Easing.linear;
+    case "bezier":
+      return Easing.bezier(e.x1, e.y1, e.x2, e.y2);
+    case "steps":
+      return stepsCurve(e.count, e.position);
+    case "points":
+      return pointsCurve(e.points);
+  }
+}
 
 /**
- * Keys Animated can drive on the native thread (React Native's
- * NativeAnimatedAllowlist: opacity, transform, colours, radii, shadows on
- * every version this package supports). The choice is per element, not per
- * key: once one prop of a component is driven natively, React Native
+ * Keys Animated can drive on the native thread: React Native's
+ * NativeAnimatedAllowlist, which lists opacity, transform, colours, every
+ * radius, shadows, elevation and zIndex on every version this package
+ * supports (checked against 0.79 and 0.86). Layout keys (width, height,
+ * margins, insets) are only in the allowlist behind the shared-backend
+ * feature flag, so they stay JS-driven here. The choice is per element, not
+ * per key: once one prop of a component is driven natively, React Native
  * rejects JS-driven animations on its other props.
  */
 const NATIVE_KEYS: ReadonlySet<string> = new Set([
@@ -82,6 +100,14 @@ const NATIVE_KEYS: ReadonlySet<string> = new Set([
   "borderTopRightRadius",
   "borderBottomLeftRadius",
   "borderBottomRightRadius",
+  "borderTopStartRadius",
+  "borderTopEndRadius",
+  "borderBottomStartRadius",
+  "borderBottomEndRadius",
+  "borderStartStartRadius",
+  "borderStartEndRadius",
+  "borderEndStartRadius",
+  "borderEndEndRadius",
   "shadowOpacity",
   "shadowRadius",
   "elevation",
@@ -320,6 +346,9 @@ class KeyframeRun {
   private readonly invalidate: () => void;
   private cycle = 0;
   private begun = false;
+  /** Delay still to wait out; pausing during the delay keeps the remainder. */
+  private delayLeft: number;
+  private delayStartedAt = 0;
   private paused: boolean;
   private last: number;
   private current: Animated.CompositeAnimation | null = null;
@@ -343,6 +372,7 @@ class KeyframeRun {
     this.alternate = spec.direction === "alternate" || spec.direction === "alternate-reverse";
     this.iterations = spec.iterations === Infinity ? Infinity : Math.round(spec.iterations);
     this.paused = spec.playState === "paused";
+    this.delayLeft = Math.max(0, spec.delay);
     const lastForward = this.isForward(this.iterations === Infinity ? 0 : this.iterations - 1);
     const endValue = lastForward ? 1 : 0;
     const skip = env.reducedMotion || this.iterations <= 0 || spec.duration <= 0;
@@ -407,22 +437,30 @@ class KeyframeRun {
   start(useNativeDriver?: boolean): void {
     if (useNativeDriver !== undefined) this.nativeDriver = useNativeDriver;
     if (this.finished || this.paused || this.current || this.timer) return;
+    if (this.delayLeft > 0) {
+      this.begun = true;
+      this.wait(); // the first start, or a resume during the delay
+      return;
+    }
     if (!this.begun) {
       this.begun = true;
-      if (this.spec.delay > 0) {
-        this.timer = setTimeout(() => {
-          this.timer = null;
-          const wasWaiting = this.waiting;
-          this.waiting = false;
-          this.runCycle();
-          if (wasWaiting) this.invalidate(); // attach the nodes now
-        }, this.spec.delay);
-        return;
-      }
       this.runCycle();
       return;
     }
     this.runCycle(this.last); // resume from where it was paused
+  }
+
+  /** Wait out what is left of the delay, then run the first cycle. */
+  private wait(): void {
+    this.delayStartedAt = Date.now();
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.delayLeft = 0;
+      const wasWaiting = this.waiting;
+      this.waiting = false;
+      this.runCycle();
+      if (wasWaiting) this.invalidate(); // attach the nodes now
+    }, this.delayLeft);
   }
 
   private runCycle(from?: number): void {
@@ -456,7 +494,7 @@ class KeyframeRun {
       if (this.timer) {
         clearTimeout(this.timer);
         this.timer = null;
-        this.begun = false; // resuming restarts the delay
+        this.delayLeft = Math.max(0, this.delayLeft - (Date.now() - this.delayStartedAt));
       }
     } else {
       this.start();

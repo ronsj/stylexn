@@ -8,8 +8,15 @@ import { isFunction, looksLikeColor, splitComma, splitSpace } from "../expand/to
 import type { RNLeaf } from "../lower/lower.ts";
 import { toNumber } from "../lower/units.ts";
 
+export type StepPosition = "jump-start" | "jump-end" | "jump-none" | "jump-both";
+
 export type EasingSpec = Readonly<
-  { type: "linear" } | { type: "bezier"; x1: number; y1: number; x2: number; y2: number }
+  | { type: "linear" }
+  | { type: "bezier"; x1: number; y1: number; x2: number; y2: number }
+  /** `steps()`, `step-start`, `step-end`: run as a JS easing function. */
+  | { type: "steps"; count: number; position: StepPosition }
+  /** `linear(<stops>)`: piecewise-linear `[input, output]` points, inputs ascending. */
+  | { type: "points"; points: readonly (readonly [number, number])[] }
 >;
 
 export type Timing = Readonly<{ duration: number; delay: number; easing: EasingSpec }>;
@@ -66,25 +73,120 @@ export function parseTime(token: string | number): number | null {
 
 export type Warn = (key: string, message: string) => void;
 
-/** Keyword or `cubic-bezier()`. `steps()` has no Animated equivalent and falls back to linear. */
+const STEP_POSITIONS: Readonly<Record<string, StepPosition>> = {
+  "jump-start": "jump-start",
+  start: "jump-start",
+  "jump-end": "jump-end",
+  end: "jump-end",
+  "jump-none": "jump-none",
+  "jump-both": "jump-both",
+};
+
+/** `steps(<count>[, <position>])`, or undefined when malformed. */
+function parseSteps(args: string): EasingSpec | undefined {
+  const [countToken, positionToken, ...rest] = args.split(",").map((a) => a.trim());
+  if (rest.length) return undefined;
+  const count = Number(countToken);
+  if (!Number.isInteger(count) || count < 1) return undefined;
+  const position = positionToken === undefined ? "jump-end" : STEP_POSITIONS[positionToken];
+  if (!position || (position === "jump-none" && count < 2)) return undefined;
+  return { type: "steps", count, position };
+}
+
+/**
+ * `linear(<stop>#)` where a stop is `<number> <percentage>{0,2}`: the
+ * CSS algorithm for missing inputs (first 0, last 1, the rest spread evenly
+ * between their neighbours) and non-decreasing inputs. Undefined when malformed.
+ */
+function parseLinearPoints(args: string): EasingSpec | undefined {
+  const points: { output: number; input?: number }[] = [];
+  for (const stop of splitComma(args)) {
+    const [outputToken, ...inputs] = splitSpace(stop);
+    const output = Number(outputToken);
+    if (outputToken === undefined || !Number.isFinite(output) || inputs.length > 2) {
+      return undefined;
+    }
+    if (inputs.length === 0) points.push({ output });
+    for (const token of inputs) {
+      const m = token.match(/^(-?\d*\.?\d+)%$/);
+      if (!m) return undefined;
+      points.push({ output, input: Number(m[1]) / 100 });
+    }
+  }
+  if (points.length < 2) return undefined;
+  const first = points[0] as { output: number; input?: number };
+  const last = points[points.length - 1] as { output: number; input?: number };
+  first.input ??= 0;
+  last.input ??= 1;
+  let largest = -Infinity;
+  for (const point of points) {
+    if (point.input === undefined) continue;
+    point.input = Math.max(point.input, largest);
+    largest = point.input;
+  }
+  for (let i = 0; i < points.length; i++) {
+    if ((points[i] as { input?: number }).input !== undefined) continue;
+    let j = i;
+    while ((points[j] as { input?: number }).input === undefined) j++;
+    const from = (points[i - 1] as { input: number }).input;
+    const to = (points[j] as { input: number }).input;
+    for (let k = i; k < j; k++) {
+      (points[k] as { input?: number }).input = from + ((to - from) * (k - i + 1)) / (j - i + 1);
+    }
+    i = j;
+  }
+  return { type: "points", points: points.map((p) => [p.input as number, p.output] as const) };
+}
+
+/** Keyword, `cubic-bezier()`, `steps()` or `linear()`. Unknown functions fall back to linear. */
 export function parseEasing(token: string, warn: Warn): EasingSpec {
   const t = token.trim().toLowerCase();
   const keyword = KEYWORD_EASINGS[t];
   if (keyword) return keyword;
-  const bezier = t.match(/^cubic-bezier\((.+)\)$/);
-  if (bezier) {
-    const nums = (bezier[1] as string).split(",").map((n) => Number(n.trim()));
-    if (nums.length === 4 && nums.every(Number.isFinite)) {
-      const [x1, y1, x2, y2] = nums as [number, number, number, number];
-      return { type: "bezier", x1, y1, x2, y2 };
-    }
+  if (t === "step-start") return { type: "steps", count: 1, position: "jump-start" };
+  if (t === "step-end") return { type: "steps", count: 1, position: "jump-end" };
+  const fn = t.match(/^([a-z-]+)\((.*)\)$/s);
+  if (fn) {
+    const [, name, args] = fn as [string, string, string];
+    let spec: EasingSpec | undefined;
+    if (name === "cubic-bezier") {
+      const nums = args.split(",").map((n) => Number(n.trim()));
+      if (nums.length === 4 && nums.every(Number.isFinite)) {
+        const [x1, y1, x2, y2] = nums as [number, number, number, number];
+        spec = { type: "bezier", x1, y1, x2, y2 };
+      }
+    } else if (name === "steps") spec = parseSteps(args);
+    else if (name === "linear") spec = parseLinearPoints(args);
+    if (spec) return spec;
   }
-  if (t.startsWith("steps(") || t === "step-start" || t === "step-end") {
-    warn(`easing:${t}`, `${token} is not supported on native; using linear`);
-  } else {
-    warn(`easing:${t}`, `unknown timing function "${token}"; using linear`);
-  }
+  warn(`easing:${t}`, `unknown timing function "${token}"; using linear`);
   return LINEAR;
+}
+
+/**
+ * The CSS step easing as a progress function: `count` steps, jumping at the
+ * start, the end, both or neither (jump-none lands on 0 and 1 exactly).
+ */
+export function stepsCurve(count: number, position: StepPosition): (t: number) => number {
+  const jumps = position === "jump-none" ? count - 1 : position === "jump-both" ? count + 1 : count;
+  const lead = position === "jump-start" || position === "jump-both" ? 1 : 0;
+  return (t) => {
+    const step = Math.min(jumps, Math.max(0, Math.floor(t * count) + lead));
+    return step / jumps;
+  };
+}
+
+/** `linear()` points as a progress function, extrapolating past the ends like CSS. */
+export function pointsCurve(points: readonly (readonly [number, number])[]): (t: number) => number {
+  return (t) => {
+    const n = points.length;
+    let i = 1;
+    while (i < n - 1 && t >= (points[i] as readonly [number, number])[0]) i++;
+    const [x0, y0] = points[i - 1] as readonly [number, number];
+    const [x1, y1] = points[i] as readonly [number, number];
+    if (x1 === x0) return t < x0 ? y0 : y1;
+    return y0 + ((y1 - y0) * (t - x0)) / (x1 - x0);
+  };
 }
 
 const camel = (prop: string): string =>

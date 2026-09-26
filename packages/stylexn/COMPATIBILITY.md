@@ -26,7 +26,7 @@ This file is rendered from `src/compat/table.ts`, the table that the types, the 
 | At-rules        | 4       | 0         | 0          | 1       | 2        | 1           |
 | Media features  | 28      | 0         | 20         | 0       | 5        | 3           |
 | Units           | 39      | 6         | 23         | 1       | 0        | 9           |
-| Functions       | 30      | 7         | 9          | 4       | 0        | 10          |
+| Functions       | 30      | 7         | 11         | 4       | 0        | 8           |
 | StyleX API      | 14      | 6         | 4          | 0       | 1        | 3           |
 
 ## Properties
@@ -326,13 +326,13 @@ Keys are camelCase CSS property names, as written in `stylex.create`. Custom pro
 | `transition`               | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). Expanded to longhands. Expands to `transitionProperty`, `transitionDuration`, `transitionTimingFunction`, `transitionDelay`.                                                                                     |
 | `transitionProperty`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `transitionDuration`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `transitionTimingFunction` | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). steps() is not supported.                                                                                                                                                                                        |
+| `transitionTimingFunction` | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `transitionDelay`          | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `transitionBehavior`       | web-only    | Discrete transitions have no native meaning.                                                                                                                                                                                                                           |
 | `animation`                | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). Expanded to longhands. Expands to `animationName`, `animationDuration`, `animationTimingFunction`, `animationDelay`, `animationIterationCount`, `animationDirection`, `animationFillMode`, `animationPlayState`. |
 | `animationName`            | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). The name must come from stylex.keyframes().                                                                                                                                                                      |
 | `animationDuration`        | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationTimingFunction`  | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). steps() is not supported.                                                                                                                                                                                        |
+| `animationTimingFunction`  | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `animationDelay`           | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `animationIterationCount`  | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
 | `animationDirection`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
@@ -619,8 +619,8 @@ Value functions inside strings, such as `calc()` or `linear-gradient()`.
 | `repeating-radial-gradient()` | unsupported | Not supported by React Native backgrounds.                                                                                                                              |
 | `image-set()`                 | unsupported | Use `<Image source>` with scale variants.                                                                                                                               |
 | `cubic-bezier()`              | polyfilled  | Mapped to Easing.bezier().                                                                                                                                              |
-| `steps()`                     | unsupported | No step easing in Animated.                                                                                                                                             |
-| `linear()`                    | unsupported | No linear() easing in Animated.                                                                                                                                         |
+| `steps()`                     | polyfilled  | Run as a JS easing function (start, end, jump-* positions).                                                                                                             |
+| `linear()`                    | polyfilled  | Piecewise-linear easing, run as a JS easing function.                                                                                                                   |
 
 ## StyleX API
 
