@@ -20,11 +20,21 @@ export const started: Recorded[] = [];
 
 export class FakeValue {
   value: number;
+  private listeners = new Map<string, (state: { value: number }) => void>();
   constructor(value: number) {
     this.value = value;
   }
   setValue(v: number) {
     this.value = v;
+    for (const cb of this.listeners.values()) cb({ value: v });
+  }
+  addListener(cb: (state: { value: number }) => void): string {
+    const id = String(this.listeners.size + 1);
+    this.listeners.set(id, cb);
+    return id;
+  }
+  removeListener(id: string) {
+    this.listeners.delete(id);
   }
   stopAnimation(cb?: (v: number) => void) {
     cb?.(this.value);

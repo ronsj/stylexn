@@ -9,6 +9,8 @@ export const config = {
   fontSize: 14,
   /** Input capabilities assumed for `hover`/`pointer` media features. */
   pointer: "coarse" as Env["pointer"],
+  /** Drive opacity/transform-only motion on the native thread (Animated's native driver). */
+  nativeDriver: true,
 };
 
 export function configure(overrides: Partial<typeof config>): void {

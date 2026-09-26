@@ -75,13 +75,13 @@ describe("transitions", () => {
 
     const timings = started.filter((r) => r.kind === "timing");
     expect(timings.map((t) => t.config)).toEqual([
-      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: false },
+      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: true }, // opacity
       {
         toValue: 1,
         duration: 300,
         delay: 20,
         easing: { bezier: [0.42, 0, 1, 1] },
-        useNativeDriver: false,
+        useNativeDriver: false, // colors stay on the JS driver
       },
     ]);
   });
@@ -137,8 +137,11 @@ describe("transitions", () => {
   });
 });
 
+/** Complete the most recently started fake animation. */
+const finishCurrent = () => act(() => (started.at(-1) as Recorded).callback?.({ finished: true }));
+
 describe("keyframe animations", () => {
-  test("frames become interpolations over their offsets; infinite loops", () => {
+  test("frames become interpolations over their offsets; cycles run one after another", () => {
     const spin = keyframes({
       from: { transform: "rotate(0deg)" },
       to: { transform: "rotate(360deg)" },
@@ -160,36 +163,86 @@ describe("keyframe animations", () => {
       inputRange: [0, 0.5, 1],
       outputRange: [1, 0.4, 1],
     });
-    const [loop, seq] = started as [Recorded, Recorded];
-    expect(loop.kind).toBe("loop");
-    expect(loop.config).toEqual({ iterations: -1, resetBeforeIteration: false });
-    expect(seq.kind).toBe("sequence");
-    expect(seq.children).toHaveLength(3);
-    expect(seq.children?.[0]?.children?.[1]?.config).toMatchObject({ toValue: 1, duration: 2000 });
+    // One timing per animation per cycle; both are opacity/transform-only so they run natively.
+    expect(started.map((r) => r.config)).toEqual([
+      { toValue: 1, duration: 1000, easing: "linear", useNativeDriver: true },
+      { toValue: 1, duration: 2000, easing: "linear", useNativeDriver: true },
+    ]);
+    act(() => (started[0] as Recorded).callback?.({ finished: true }));
+    expect(started).toHaveLength(3); // the infinite one started its next cycle
+    expect(started[2]?.config).toMatchObject({ toValue: 1, duration: 1000 });
   });
 
-  test("delay, reverse direction, and fill-mode none restores the base style when done", () => {
+  test("alternate direction, reverse, and fill-mode none restores the base style when done", () => {
     const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
     const s = create({
       a: {
         opacity: 0.8,
         animationName: fade,
         animationDuration: "500ms",
-        animationDelay: "100ms",
-        animationDirection: "reverse",
+        animationDirection: "alternate-reverse",
+        animationIterationCount: "2",
       },
     });
     const { result } = renderHook(() => useProps([s.a]));
     expect(interp(result.current.style.opacity).outputRange).toEqual([0, 1]);
-    const [outer] = started as [Recorded];
-    expect(outer.children?.[0]).toMatchObject({ kind: "delay", config: { ms: 100 } });
-    // reverse: the cycle first jumps to 1, then runs to 0
-    expect(outer.children?.[1]?.children?.[0]?.children?.map((c) => c.config?.toValue)).toEqual([
-      1, 0,
-    ]);
-    act(() => outer.callback?.({ finished: true }));
+    // alternate-reverse: first cycle runs 1 -> 0, the second 0 -> 1
+    expect(started[0]?.config).toMatchObject({ toValue: 0, duration: 500 });
+    finishCurrent();
+    expect(started[1]?.config).toMatchObject({ toValue: 1, duration: 500 });
+    finishCurrent();
     expect(result.current.style).toEqual({ opacity: 0.8 });
     expect(result.current.animated).toBeUndefined();
+  });
+
+  test("delay: base style shows until the animation starts unless it fills backwards", () => {
+    vi.useFakeTimers();
+    const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
+    const s = create({
+      a: { opacity: 0.8, animationName: fade, animationDuration: "500ms", animationDelay: "100ms" },
+      b: {
+        opacity: 0.8,
+        animationName: fade,
+        animationDuration: "500ms",
+        animationDelay: "100ms",
+        animationFillMode: "backwards",
+      },
+    });
+    const none = renderHook(() => useProps([s.a]));
+    const backwards = renderHook(() => useProps([s.b]));
+    expect(none.result.current.style).toEqual({ opacity: 0.8 });
+    expect(interp(backwards.result.current.style.opacity).outputRange).toEqual([0, 1]);
+    expect(started).toHaveLength(0);
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(started).toHaveLength(2);
+    expect(interp(none.result.current.style.opacity).outputRange).toEqual([0, 1]);
+    vi.useRealTimers();
+  });
+
+  test("pausing stops the current cycle and resuming continues from the current progress", () => {
+    const fade = keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
+    const s = create({
+      a: (state: string) => ({
+        animationName: fade,
+        animationDuration: "1s",
+        animationPlayState: state,
+      }),
+    });
+    const { result, rerender } = renderHook(({ state }) => useProps([s.a(state)]), {
+      initialProps: { state: "running" },
+    });
+    const first = started[0] as Recorded;
+    expect(first.config).toMatchObject({ toValue: 1, duration: 1000 });
+    (result.current.style.opacity as { from: FakeValue }).from.setValue(0.25);
+    rerender({ state: "paused" });
+    expect(first.stopped).toBe(true);
+    act(() => first.callback?.({ finished: false }));
+    expect(started).toHaveLength(1);
+    rerender({ state: "running" });
+    expect(started).toHaveLength(2);
+    expect(started[1]?.config).toMatchObject({ toValue: 1, duration: 750 }); // the remaining 75%
   });
 
   test("fill-mode forwards keeps the end frame; missing 0%/100% values fall back to the element", () => {
@@ -202,7 +255,8 @@ describe("keyframe animations", () => {
       inputRange: [0, 0.5, 1],
       outputRange: [10, 100, 10],
     });
-    act(() => (started[0] as Recorded).callback?.({ finished: true }));
+    expect(started[0]?.config).toMatchObject({ useNativeDriver: false }); // width is a layout prop
+    finishCurrent();
     expect(result.current.animated).toBe(true); // still the interpolation, resting at its end
   });
 
@@ -224,5 +278,32 @@ describe("keyframe animations", () => {
     const { result } = renderHook(() => useProps([t.a]));
     expect(interp(result.current.style.opacity).outputRange).toEqual([0, 1]);
     expect(started).toHaveLength(0); // nothing runs; progress rests at the end
+  });
+});
+
+describe("removed keys", () => {
+  test("a key that leaves the style transitions to its CSS initial value, then goes away", () => {
+    const s = create({
+      a: {
+        opacity: { ":active": 0.5 },
+        transform: { ":active": "scale(0.9)" },
+        width: { ":active": 100 },
+        transitionDuration: "200ms",
+      },
+    });
+    const { result } = renderHook(() => useProps([s.a]));
+    act(() => result.current.onPressIn?.());
+    expect(result.current.style).toMatchObject({ opacity: 0.5, width: 100 });
+    act(() => result.current.onPressOut?.());
+    // opacity -> 1, scale -> 1; width has no known initial value and just disappears
+    expect(interp(result.current.style.opacity).outputRange).toEqual([0.5, 1]);
+    const [scale] = result.current.style.transform as [Record<string, unknown>];
+    expect(interp(scale.scale).outputRange).toEqual([0.9, 1]);
+    expect(result.current.style.width).toBeUndefined();
+    expect(result.current.animated).toBe(true);
+    // Once the removal has run out, the next render drops the keys.
+    for (const r of started) act(() => r.callback?.({ finished: true }));
+    act(() => result.current.onHoverIn?.());
+    expect(result.current.style).toEqual({});
   });
 });
