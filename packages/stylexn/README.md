@@ -109,7 +109,9 @@ import "stylexn/elements.css";
   `var()`), `lab()`/`lch()`/`oklab()`/`oklch()`/`color()`/`color-mix()`
   converted to `rgb()`, `light-dark()`.
 - **Motion**: `transition*` and `animation*` with `stylex.keyframes`, run
-  on React Native's `Animated` (native driver for opacity/transform).
+  on React Native's `Animated` (native driver for opacity, transform,
+  colours, radii and shadows; layout keys stay on the JS driver). Easing
+  keywords, `cubic-bezier()`, `steps()` and `linear()` are supported.
 - **Escape hatches**: `...web({ })` and `...native({ })` inside a rule for
   platform-only declarations; later keys win, so
   `display: "flex", ...web({ display: "grid" })` is the pattern for a
