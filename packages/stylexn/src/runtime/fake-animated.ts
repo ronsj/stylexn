@@ -40,7 +40,10 @@ export class FakeValue {
   stopAnimation(cb?: (v: number) => void) {
     cb?.(this.value);
   }
-  interpolate(config: { inputRange: number[]; outputRange: unknown[] }) {
+  interpolate(config: { inputRange: number[]; outputRange: unknown[] }): {
+    $$interpolation: { inputRange: number[]; outputRange: unknown[] };
+    from: FakeValue;
+  } {
     return { $$interpolation: config, from: this };
   }
 }

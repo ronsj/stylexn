@@ -1,13 +1,20 @@
 {
   "name": "stylexn",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Author styles with the StyleX API and render them on React Native.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ronsj/react-stylexn-app.git",
+    "directory": "packages/stylexn"
+  },
   "bin": {
     "stylexn": "./dist/bin.mjs"
   },
   "files": [
     "dist",
-    "src"
+    "README.md"
   ],
   "type": "module",
   "exports": {
@@ -38,10 +45,56 @@
     },
     "./testing/react-native": "./src/testing/react-native.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "react-native": {
+          "types": "./dist/runtime/index.d.ts",
+          "default": "./dist/runtime/index.js"
+        },
+        "types": "./dist/web.d.ts",
+        "default": "./dist/web.js"
+      },
+      "./native": {
+        "types": "./dist/runtime/index.d.ts",
+        "default": "./dist/runtime/index.js"
+      },
+      "./elements": {
+        "react-native": {
+          "types": "./dist/elements/native.d.ts",
+          "default": "./dist/elements/native.js"
+        },
+        "types": "./dist/elements/web.d.ts",
+        "default": "./dist/elements/web.js"
+      },
+      "./elements.css": "./dist/elements.css",
+      "./compiler": {
+        "types": "./dist/compiler.d.ts",
+        "default": "./dist/compiler.mjs"
+      },
+      "./babel": {
+        "types": "./dist/babel/index.d.ts",
+        "default": "./dist/babel.cjs"
+      },
+      "./eslint-plugin": {
+        "types": "./dist/lint/eslint-plugin.d.ts",
+        "default": "./dist/eslint-plugin.mjs"
+      },
+      "./check": {
+        "types": "./dist/cli/check.d.ts",
+        "default": "./dist/check.mjs"
+      },
+      "./testing/react-native": {
+        "types": "./dist/testing/react-native.d.ts",
+        "default": "./dist/testing/react-native.js"
+      }
+    }
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "pack:check": "node scripts/pack-check.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
