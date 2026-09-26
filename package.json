@@ -10,7 +10,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:e2e": "pnpm --filter @stylexn/web test:e2e",
-    "check:styles": "node packages/stylexn/dist/bin.mjs check packages/shared/src/*.ts packages/shared/src/*.tsx",
+    "check:styles": "node packages/stylexn/dist/bin.mjs check --report-web-only --strict packages/shared/src apps/mobile",
     "build": "pnpm --filter stylexn build"
   },
   "devDependencies": {

@@ -17,9 +17,14 @@
       }
     },
     {
-      "files": ["packages/shared/**"],
+      "files": ["packages/shared/**", "apps/mobile/**"],
       "rules": {
-        "stylexn/compat": "error"
+        "stylexn/compat": [
+          "error",
+          {
+            "reportWebOnly": true
+          }
+        ]
       }
     }
   ],
