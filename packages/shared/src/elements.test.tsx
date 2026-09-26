@@ -13,6 +13,7 @@ import {
 import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "stylexn/elements";
 import { expect, test, vi } from "vitest";
 import * as stylex from "stylexn";
+import { buttonColors } from "./examples/buttonTheme.stylex";
 
 // The web implementation of stylexn/elements, compiled by the real StyleX plugin.
 
@@ -238,8 +239,8 @@ test("refs expose focus/clear on TextInput and scrolling on ScrollView and FlatL
 });
 
 test("ThemeProvider wraps a subtree in a display: contents element carrying the theme", () => {
-  const tokens = stylex.defineVars({ tone: "red" });
-  const blue = stylex.createTheme(tokens, { tone: "blue" });
+  // defineVars must live in a *.stylex file; reuse the ThemeDemo's group.
+  const blue = stylex.createTheme(buttonColors, { background: "blue" });
   render(
     <stylex.ThemeProvider theme={blue}>
       <Text testID="t">x</Text>
