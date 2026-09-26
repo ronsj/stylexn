@@ -1,11 +1,11 @@
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 import type { PropRow } from "../_lib/props";
 import { colors, space } from "./tokens.stylex";
 import { Code, Table } from "./ui";
 
 const styles = stylex.create({
   name: {
-    whiteSpace: "nowrap",
+    ...stylex.web({ whiteSpace: "nowrap" }),
   },
   required: {
     marginLeft: space.xs,

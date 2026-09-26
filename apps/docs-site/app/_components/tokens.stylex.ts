@@ -1,4 +1,4 @@
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 
 // The site's design tokens. Colours follow prefers-color-scheme; there is no
 // toggle. StyleX requires defineVars in a *.stylex.ts file, as named exports.

@@ -1,6 +1,8 @@
 // Building blocks for the docs pages. Server components: layout comes from
-// stylexn's View and Text, prose from semantic HTML styled with StyleX.
-import * as stylex from "@stylexjs/stylex";
+// stylexn's View and Text, prose from semantic HTML styled with StyleX
+// through the `stylexn` entry, so the site's own rules pass the same Layer 1
+// checks as shared code; CSS-only declarations sit in `stylex.web({ })`.
+import * as stylex from "stylexn";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Text, View } from "stylexn/elements";
@@ -30,7 +32,7 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: space.lg,
     paddingTop: space.xxl,
-    scrollMarginTop: 72,
+    ...stylex.web({ scrollMarginTop: 72 }),
   },
   h2: {
     fontSize: 24,
@@ -40,7 +42,7 @@ const styles = stylex.create({
   },
   h2Standalone: {
     paddingTop: space.xxl,
-    scrollMarginTop: 72,
+    ...stylex.web({ scrollMarginTop: 72 }),
   },
   h3: {
     fontSize: 18,
@@ -48,7 +50,7 @@ const styles = stylex.create({
     fontWeight: 650,
     color: colors.text,
     paddingTop: space.sm,
-    scrollMarginTop: 72,
+    ...stylex.web({ scrollMarginTop: 72 }),
   },
   p: {
     maxWidth: "72ch",
@@ -64,12 +66,12 @@ const styles = stylex.create({
     borderRadius: 5,
     backgroundColor: colors.codeBg,
     color: colors.codeText,
-    overflowWrap: "anywhere",
+    ...stylex.web({ overflowWrap: "anywhere" }),
   },
   link: {
     color: colors.accent,
     textDecorationLine: { default: "underline", ":hover": "none" },
-    textUnderlineOffset: 3,
+    ...stylex.web({ textUnderlineOffset: 3 }),
     borderRadius: 3,
     outlineOffset: 2,
     outlineWidth: 2,
@@ -110,7 +112,7 @@ const styles = stylex.create({
   pre: {
     margin: 0,
     padding: space.lg,
-    overflow: "auto",
+    ...stylex.web({ overflow: "auto" }),
     maxHeight: 560,
     fontFamily: fonts.mono,
     fontSize: 13.5,
@@ -156,11 +158,11 @@ const styles = stylex.create({
     flexWrap: "wrap",
     columnGap: space.lg,
     rowGap: space.xs,
-    listStyle: "none",
+    ...stylex.web({ listStyle: "none" }),
     fontSize: 15,
   },
   tableWrap: {
-    overflowX: "auto",
+    ...stylex.web({ overflowX: "auto" }),
     borderRadius: radii.md,
     borderWidth: 1,
     borderStyle: "solid",
@@ -168,7 +170,7 @@ const styles = stylex.create({
   },
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    ...stylex.web({ borderCollapse: "collapse" }),
     fontSize: 14,
     lineHeight: 1.5,
     color: colors.text,
@@ -179,7 +181,7 @@ const styles = stylex.create({
     paddingBlock: space.sm,
     paddingInline: space.md,
     fontWeight: 650,
-    whiteSpace: "nowrap",
+    ...stylex.web({ whiteSpace: "nowrap" }),
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",

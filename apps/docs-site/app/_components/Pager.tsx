@@ -1,6 +1,6 @@
 "use client";
 
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Text, View } from "stylexn/elements";

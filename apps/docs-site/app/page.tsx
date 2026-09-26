@@ -55,6 +55,14 @@ export default function Introduction() {
             ["Motion", "CSS transitions and animations", "React Native's Animated"],
           ]}
         />
+        <P>
+          This site is written the same way. Its layout is <Code>View</Code> and <Code>Text</Code>{" "}
+          from <Code>stylexn/elements</Code>, and its own styles go through{" "}
+          <Code>stylex.create</Code> from <Code>stylexn</Code>, so the types that guard shared code
+          guard the site too; the few CSS-only declarations it needs, such as{" "}
+          <Code>position: &quot;sticky&quot;</Code> for the navigation, sit in{" "}
+          <Code>stylex.web({"{ }"})</Code>.
+        </P>
       </Section>
 
       <Section id="checks" title="One compatibility table, four checks">

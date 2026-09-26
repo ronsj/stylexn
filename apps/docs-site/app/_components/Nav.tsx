@@ -1,6 +1,6 @@
 "use client";
 
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -12,12 +12,12 @@ const WIDE = "@media (min-width: 900px)";
 
 const styles = stylex.create({
   nav: {
-    position: "sticky",
+    ...stylex.web({ position: "sticky" }),
     top: 0,
     zIndex: 1,
     width: { default: "100%", [WIDE]: 260 },
     height: { default: "auto", [WIDE]: "100vh" },
-    overflowY: { default: "visible", [WIDE]: "auto" },
+    ...stylex.web({ overflowY: { default: "visible", [WIDE]: "auto" } }),
     padding: space.lg,
     gap: space.lg,
     backgroundColor: colors.surface,
@@ -70,14 +70,14 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: space.xxs,
-    listStyle: "none",
+    ...stylex.web({ listStyle: "none" }),
   },
   // Narrow screens: the list is hidden until the menu is opened.
   closed: {
     display: { default: "none", [WIDE]: "flex" },
   },
   link: {
-    display: "block",
+    ...stylex.web({ display: "block" }),
     paddingBlock: space.sm,
     paddingInline: space.md,
     borderRadius: radii.sm,

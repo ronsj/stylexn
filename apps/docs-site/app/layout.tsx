@@ -1,4 +1,4 @@
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { View } from "stylexn/elements";

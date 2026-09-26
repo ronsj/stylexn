@@ -1,4 +1,4 @@
-import * as stylex from "@stylexjs/stylex";
+import * as stylex from "stylexn";
 import type { ReactNode } from "react";
 import { Text, View } from "stylexn/elements";
 import { examplePath, readRepoFile } from "../_lib/repo";
