@@ -322,6 +322,13 @@ describe("element follow-ups", () => {
   });
 });
 
+/** A React Native-only FlatList prop, for the pass-through test. */
+const getItemLayout = (_: ArrayLike<number> | null | undefined, index: number) => ({
+  length: 40,
+  offset: 40 * index,
+  index,
+});
+
 describe("more elements", () => {
   test("FlatList renders through React Native's FlatList with header, separator, empty and text cascade", () => {
     render(
@@ -358,11 +365,6 @@ describe("more elements", () => {
   });
 
   test("FlatList passes any other React Native FlatList prop through", () => {
-    const getItemLayout = (_: ArrayLike<number> | null | undefined, index: number) => ({
-      length: 40,
-      offset: 40 * index,
-      index,
-    });
     render(
       <FlatList
         data={[1, 2]}
