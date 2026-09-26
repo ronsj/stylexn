@@ -101,17 +101,12 @@ export default function GettingStarted() {
         </P>
         <H3 id="server-components">React Server Components</H3>
         <P>
-          <Code>stylexn/elements</Code> uses React hooks and is not marked as a client module, so
-          Next.js refuses to import it into a Server Component, even for <Code>View</Code> or{" "}
-          <Code>Text</Code>. Import the elements in files marked <Code>&quot;use client&quot;</Code>
-          , as the examples on this site are. To use them from server components, re-export them
-          from such a file; this site&apos;s pages do:
+          <Code>stylexn/elements</Code> is a client module (it uses React hooks), so Server
+          Components can import and render <Code>View</Code>, <Code>Text</Code> and the others
+          directly; <Code>sx</Code> values are plain objects and serialize across the boundary.
+          Components that call <Code>useProps</Code> or the interaction hooks themselves need their
+          own <Code>&quot;use client&quot;</Code> directive.
         </P>
-        <CodeBlock
-          code={readRepoFile("apps/docs-site/app/_components/elements.ts")}
-          lang="ts"
-          caption="apps/docs-site/app/_components/elements.ts"
-        />
       </Section>
 
       <Section id="first-component" title="A first component">

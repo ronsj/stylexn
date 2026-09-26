@@ -100,7 +100,10 @@ export default function CheckingStyles() {
         <CodeBlock code={lintProblems().join("\n")} lang="text" />
         <Ul>
           <li>Unsupported properties, conditions and functions are errors.</li>
-          <li>Values outside a partially supported property&apos;s list are warnings.</li>
+          <li>
+            Values outside a partially supported property&apos;s list are errors too: they would
+            reach React Native unchanged. Functions the compiler cannot fold are warnings.
+          </li>
           <li>
             With <Code>reportWebOnly</Code> (<Code>--report-web-only</Code>), web-only declarations
             outside <Code>web({"{ }"})</Code> are warnings too, and <Code>--strict</Code> makes
@@ -126,9 +129,10 @@ export default function CheckingStyles() {
         </P>
         <CodeBlock code={buildError()} lang="text" />
         <Note title="Partially supported values">
-          Only unsupported styles stop the build. A value outside a partially supported
-          property&apos;s list, like <Code>display: &quot;grid&quot;</Code> above, is reported by
-          the types and the lint rule but compiled as written, so keep those checks in CI.
+          A value outside a partially supported property&apos;s list, like{" "}
+          <Code>display: &quot;grid&quot;</Code> above, is treated like an unsupported property: the
+          strict build rejects it, a lenient build strips it, and the types and the lint rule report
+          it. A dynamic value the build never saw is dropped at runtime instead.
         </Note>
       </Section>
 

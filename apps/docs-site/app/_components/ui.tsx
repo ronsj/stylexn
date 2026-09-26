@@ -3,7 +3,7 @@
 import * as stylex from "@stylexjs/stylex";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Text, View } from "./elements";
+import { Text, View } from "stylexn/elements";
 import { highlight } from "../_lib/highlight";
 import { colors, fonts, radii, space } from "./tokens.stylex";
 

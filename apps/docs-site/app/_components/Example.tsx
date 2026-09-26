@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { Text, View } from "./elements";
+import { Text, View } from "stylexn/elements";
 import { examplePath, readRepoFile } from "../_lib/repo";
 import { colors, radii, space } from "./tokens.stylex";
 import { CodeBlock } from "./ui";

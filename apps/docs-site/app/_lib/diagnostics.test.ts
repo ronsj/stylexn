@@ -16,7 +16,7 @@ test("the lint core reports each problem with its position", () => {
   const problems = lintProblems();
   expect(problems).toEqual(
     expect.arrayContaining([
-      expect.stringMatching(/^packages\/shared\/src\/Card\.tsx:5:\d+ warning: display: "grid"/),
+      expect.stringMatching(/^packages\/shared\/src\/Card\.tsx:5:\d+ error: display: "grid"/),
       expect.stringMatching(/willChange/),
       expect.stringMatching(/error: :nth-child\(2\) on color/),
     ]),

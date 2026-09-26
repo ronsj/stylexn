@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { View } from "./_components/elements";
+import { View } from "stylexn/elements";
 // globals.css first: it declares the reset layer before StyleX's priority
 // layers, so the resets stay underneath every StyleX rule.
 import "./globals.css";
