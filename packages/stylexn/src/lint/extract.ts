@@ -193,6 +193,7 @@ export class CreateCallTracker {
   private readonly namespaces = new Set<string>();
   private readonly creates = new Set<string>();
   private readonly defineVars = new Set<string>();
+  private readonly keyframes = new Set<string>();
   private readonly helpers = new Map<string, HelperKind>();
   private readonly sources: ReadonlySet<string>;
 
@@ -213,6 +214,7 @@ export class CreateCallTracker {
           imported.type === "Identifier" ? (imported.name as string) : (imported.value as string);
         if (name === "create") this.creates.add(local);
         if (name === "defineVars") this.defineVars.add(local);
+        if (name === "keyframes") this.keyframes.add(local);
         if (name === "web" || name === "native") this.helpers.set(local, name);
       }
     }
@@ -230,6 +232,12 @@ export class CreateCallTracker {
     const callee = node.callee as AstNode;
     if (callee.type === "Identifier") return this.creates.has(callee.name as string);
     return this.memberOf(callee) === "create";
+  }
+
+  isKeyframesCall(node: AstNode): boolean {
+    const callee = node.callee as AstNode;
+    if (callee.type === "Identifier") return this.keyframes.has(callee.name as string);
+    return this.memberOf(callee) === "keyframes";
   }
 
   isDefineVarsCall(node: AstNode): boolean {

@@ -3,7 +3,7 @@
  * script), not run by Vitest: every `@ts-expect-error` must produce an error
  * and everything else must compile, or the typecheck fails.
  */
-import { create as nativeCreate } from "../runtime/api.ts";
+import { create as nativeCreate, keyframes as nativeKeyframes } from "../runtime/api.ts";
 import { defineVars } from "../runtime/vars.ts";
 import { create as webCreate } from "../web.ts";
 import type { NativeProperty, SupportedPseudoClass, UnsupportedProperty } from "./index.ts";
@@ -34,6 +34,9 @@ const valid = {
     opacity: { "@media (prefers-color-scheme: dark)": { default: 0.9, ":active": 1 } },
     fontWeight: 600,
     willChange: "transform", // web-only: allowed, ignored on native
+    transform: "rotate(45deg) scale(1.2)", // function syntax is judged by the build check
+    transitionProperty: "opacity, transform",
+    transitionDuration: "150ms",
     "--brand": "#639",
     backgroundColor: vars.accent,
     borderTopWidth: null,
@@ -45,7 +48,25 @@ const n = nativeCreate(valid);
 const w = webCreate(valid);
 void [n.box.static, n.fade(0.5).static, w.box.display, w.fade(1)];
 
+// --- keyframes are checked like rules ---------------------------------------
+
+const fade = nativeKeyframes({ from: { opacity: 0 }, to: { opacity: 1, transform: "scale(1)" } });
+void fade;
+nativeKeyframes({
+  from: {
+    // @ts-expect-error unsupported property in a keyframe
+    float: "left",
+  },
+});
+
 // --- invalid rules are errors on both entries --------------------------------
+
+nativeCreate({
+  a: {
+    // @ts-expect-error transform takes function syntax, not bare keywords
+    transform: "bogus",
+  },
+});
 
 nativeCreate({
   a: {

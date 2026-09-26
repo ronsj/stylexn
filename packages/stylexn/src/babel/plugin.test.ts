@@ -316,3 +316,30 @@ describe("rnVersion default", () => {
     expect(styles.a.static).toEqual({ mixBlendMode: "multiply" });
   });
 });
+
+describe("keyframes", () => {
+  test("native: frames are compiled like rules", () => {
+    const { code } = transform(
+      `${HEADER}const spin = stylex.keyframes({ from: { transform: "rotate(0deg)" }, "50%": { padding: "4px 8px" }, to: { transform: "rotate(360deg)" } });`,
+    );
+    expect(code).toContain("$$stylexn: 1");
+    expect(code).toContain('"paddingLeft": 8');
+    expect(code).toContain('"50%"');
+  });
+
+  test("frames are checked: unsupported styles fail strict builds", () => {
+    expect(() =>
+      transform(`${HEADER}const k = stylex.keyframes({ from: { float: "left" } });`, {
+        strict: true,
+      }),
+    ).toThrow(/keyframes from[\s\S]*float/);
+    expect(() => transform(`${HEADER}const k = stylex.keyframes({ from: other });`)).toThrow(
+      /object literal/,
+    );
+  });
+
+  test("web: keyframes are left for StyleX", () => {
+    const src = `${HEADER}const k = stylex.keyframes({ from: { opacity: 0 } });`;
+    expect(transform(src, { platform: "web" }).code).not.toContain("$$stylexn");
+  });
+});

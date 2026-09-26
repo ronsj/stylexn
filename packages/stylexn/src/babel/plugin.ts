@@ -231,6 +231,31 @@ export default function stylexnBabelPlugin(
     arg.replaceWith(T.objectExpression(compiled));
   }
 
+  /** `stylex.keyframes({ from: { }, to: { } })`: each frame is compiled like a rule. */
+  function compileKeyframesArgument(arg: NodePath<t.ObjectExpression>, state: State): void {
+    const compiled: t.ObjectProperty[] = [];
+    for (const propPath of arg.get("properties")) {
+      const prop = propPath.node;
+      if (!T.isObjectProperty(prop)) {
+        throw propPath.buildCodeFrameError(
+          "StyleXN: stylex.keyframes only accepts plain properties",
+        );
+      }
+      const key = prop.key;
+      const name = T.isIdentifier(key) ? key.name : T.isStringLiteral(key) ? key.value : "?";
+      if (!T.isObjectExpression(prop.value)) {
+        throw propPath.buildCodeFrameError("StyleXN: a keyframe must be an object literal");
+      }
+      try {
+        const body = compileObject(prop.value, `keyframes ${name}`, propPath, state);
+        compiled.push(T.objectProperty(prop.key, body, prop.computed));
+      } catch (error) {
+        rethrow(error, propPath);
+      }
+    }
+    arg.replaceWith(T.objectExpression(compiled));
+  }
+
   // -------------------------------------------------------------------------
   // native: give defineVars a stable id (see runtime/vars.ts)
   // -------------------------------------------------------------------------
@@ -314,6 +339,12 @@ export default function stylexnBabelPlugin(
         if (platform === "web") return;
         if (state.stylexn.isDefineVarsCall(asNode(path.node))) {
           stabilizeDefineVars(path, state);
+          return;
+        }
+        if (state.stylexn.isKeyframesCall(asNode(path.node))) {
+          const [frames] = path.get("arguments");
+          if (frames?.isObjectExpression()) compileKeyframesArgument(frames, state);
+          path.skip();
           return;
         }
         if (!state.stylexn.isCreateCall(asNode(path.node))) return;

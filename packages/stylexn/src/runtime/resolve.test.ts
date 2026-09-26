@@ -162,11 +162,19 @@ describe("finalization and not-yet-supported keys", () => {
     expect(style.textShadowOffset).toEqual({ width: 1, height: 2 });
   });
 
-  test("transition keys are dropped with a one-time warning", () => {
-    const r = rule({ transition: "opacity 150ms", opacity: 1 });
-    expect(resolve([r], env()).style).toEqual({ opacity: 1 });
-    resolve([r], env());
-    expect(console.warn).toHaveBeenCalledTimes(4); // one per transition longhand, once
+  test("transition and animation keys leave the style and become motion specs", () => {
+    const r = rule({ transition: "opacity 150ms ease-in", opacity: 1 });
+    const resolved = resolve([r], env());
+    expect(resolved.style).toEqual({ opacity: 1 });
+    expect(resolved.transition?.keys.get("opacity")).toEqual({
+      duration: 150,
+      delay: 0,
+      easing: { type: "bezier", x1: 0.42, y1: 0, x2: 1, y2: 1 },
+    });
+    expect(resolved.animations).toBeUndefined();
+    const a = resolve([rule({ animation: "spin 1s linear infinite" })], env());
+    expect(a.animations?.[0]).toMatchObject({ name: "spin", duration: 1000, iterations: Infinity });
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });
 
@@ -178,8 +186,13 @@ describe("analyzeNeeds", () => {
       colorScheme: false,
       reducedMotion: false,
       vars: false,
+      motion: false,
     });
     expect(analyzeNeeds([rule({ color: { ":hover": "red" } })]).interaction).toBe(true);
+    expect(analyzeNeeds([rule({ transitionDuration: "1s" })])).toMatchObject({
+      motion: true,
+      reducedMotion: true,
+    });
     expect(analyzeNeeds([rule({ width: { "@media (min-width: 1px)": 1 } })]).dimensions).toBe(true);
     expect(
       analyzeNeeds([rule({ width: { "@media (orientation: portrait)": 1 } })]).dimensions,

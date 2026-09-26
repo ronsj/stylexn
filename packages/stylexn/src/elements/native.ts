@@ -7,7 +7,13 @@
 // View and Pressable move those keys off their own style and into
 // TextStyleProvider, and Text merges the inherited values under its own.
 import { createElement, type ReactNode } from "react";
-import { Pressable as RNPressable, Text as RNText, View as RNView, type Role } from "react-native";
+import {
+  Animated,
+  Pressable as RNPressable,
+  Text as RNText,
+  View as RNView,
+  type Role,
+} from "react-native";
 import { TextStyleProvider, useInheritedTextStyle, useProps } from "../runtime/hooks.ts";
 import { splitInherited } from "../runtime/inherit.ts";
 import type { RNLeaf } from "../lower/lower.ts";
@@ -17,6 +23,9 @@ export type SxProp = StyleArg | readonly StyleArg[];
 
 const toList = (sx: SxProp | undefined): readonly StyleArg[] =>
   sx === undefined ? [] : Array.isArray(sx) ? (sx as readonly StyleArg[]) : [sx as StyleArg];
+
+// Animated variants are used only while a transition or animation is attached.
+const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
 
 /** Children wrapped in a TextStyleProvider when there is anything to inherit. */
 function inheriting(inherited: Readonly<Record<string, RNLeaf>>, children: ReactNode): ReactNode {
@@ -34,10 +43,10 @@ export type ViewProps = Readonly<{
 }>;
 
 export function View({ sx, children, ...rest }: ViewProps) {
-  const { style, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
-  const { own, inherited } = splitInherited(style);
+  const { style, animated, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   return createElement(
-    RNView,
+    animated ? Animated.View : RNView,
     { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
     inheriting(inherited, children),
   );
@@ -55,6 +64,7 @@ export function Text({ sx, children, ...rest }: TextProps) {
   // Text has no hover/focus events; drop those handlers.
   const {
     style,
+    animated,
     onHoverIn: _h,
     onHoverOut: _o,
     onFocus: _f,
@@ -66,9 +76,9 @@ export function Text({ sx, children, ...rest }: TextProps) {
   const merged = { ...inherited, ...style };
   // Nested text and `em` units are relative to this element's text style.
   return createElement(
-    RNText,
+    animated ? Animated.Text : RNText,
     { ...rest, ...extra, style: merged },
-    inheriting(splitInherited(style).inherited, children),
+    inheriting(splitInherited(style as Record<string, RNLeaf>).inherited, children),
   );
 }
 
@@ -82,10 +92,10 @@ export type PressableProps = Readonly<{
 }>;
 
 export function Pressable({ sx, children, disabled, onPress, ...rest }: PressableProps) {
-  const { style, ...extra } = useProps(toList(sx), { disabled });
-  const { own, inherited } = splitInherited(style);
+  const { style, animated, ...extra } = useProps(toList(sx), { disabled });
+  const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   return createElement(
-    RNPressable,
+    animated ? AnimatedPressable : RNPressable,
     { ...rest, ...extra, disabled, onPress, style: own, role: "button" },
     inheriting(inherited, children),
   );

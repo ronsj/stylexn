@@ -25,12 +25,14 @@ export const INHERITED_TEXT_KEYS: ReadonlySet<string> = new Set([
 export type InheritedTextStyle = Readonly<Record<string, RNLeaf>>;
 
 /** Split a resolved style into the element's own keys and the ones its text descendants inherit. */
-export function splitInherited(style: Readonly<Record<string, RNLeaf>>): {
-  own: Record<string, RNLeaf>;
-  inherited: Record<string, RNLeaf>;
+export function splitInherited<V = RNLeaf>(
+  style: Readonly<Record<string, V>>,
+): {
+  own: Record<string, V>;
+  inherited: Record<string, V>;
 } {
-  const own: Record<string, RNLeaf> = {};
-  const inherited: Record<string, RNLeaf> = {};
+  const own: Record<string, V> = {};
+  const inherited: Record<string, V> = {};
   for (const [key, value] of Object.entries(style)) {
     if (INHERITED_TEXT_KEYS.has(key)) inherited[key] = value;
     else own[key] = value;

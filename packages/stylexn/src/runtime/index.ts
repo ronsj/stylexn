@@ -20,9 +20,16 @@ export type {
   TextStyleProviderProps,
   ThemeProviderProps,
   UsePropsOptions,
+  UsePropsResult,
 } from "./hooks.ts";
 export { INHERITED_TEXT_KEYS, splitInherited } from "./inherit.ts";
 export type { InheritedTextStyle } from "./inherit.ts";
+export { getKeyframes } from "./keyframes.ts";
+export type { Keyframe, Keyframes } from "./keyframes.ts";
+export { MotionController, useMotion } from "./animated.ts";
+export type { AnimatedStyle, MotionEnv } from "./animated.ts";
+export { parseMotion, parseTransform } from "./motion.ts";
+export type { AnimationSpec, EasingSpec, Motion, Timing, TransitionSpec } from "./motion.ts";
 export { analyzeNeeds, resolve } from "./resolve.ts";
 export { matchesMedia } from "./media.ts";
 export type {

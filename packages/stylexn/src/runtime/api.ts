@@ -3,6 +3,7 @@ import type { CompiledRule } from "../compile/compile.ts";
 import type { Declarations } from "../expand/types.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import { snapshotEnv } from "./env.ts";
+import { keyframes as registerKeyframes } from "./keyframes.ts";
 import { resolve } from "./resolve.ts";
 import type { StyleArg } from "./types.ts";
 import type { Native, ValidateNative, ValidateStyles, Web } from "../types/index.ts";
@@ -91,10 +92,12 @@ export function firstThatWorks<T>(...values: readonly T[]): T | undefined {
   return values[0];
 }
 
-/** `stylex.keyframes`: not implemented on native yet; returns an inert name. */
-let keyframeCounter = 0;
-export function keyframes(_frames: Record<string, Declarations>): string {
-  const name = `stylexn-keyframes-${++keyframeCounter}`;
-  console.warn(`[stylexn] keyframes are not implemented on native yet (${name})`);
-  return name;
+/**
+ * `stylex.keyframes`: frames are compiled (by stylexn/babel, or here) and
+ * registered under the returned name for `animationName`.
+ */
+export function keyframes<const T extends Record<string, Record<string, unknown>>>(
+  frames: T & ValidateStyles<T>,
+): string {
+  return registerKeyframes(frames as Record<string, Declarations | CompiledRule>);
 }

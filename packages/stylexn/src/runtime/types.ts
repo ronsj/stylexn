@@ -1,5 +1,6 @@
 import type { CompiledLeaf, CompiledRule } from "../compile/compile.ts";
 import type { RNLeaf } from "../lower/lower.ts";
+import type { AnimationSpec, TransitionSpec } from "./motion.ts";
 
 export type { CompiledRule };
 
@@ -56,6 +57,8 @@ export type Needs = Readonly<{
   colorScheme: boolean;
   reducedMotion: boolean;
   vars: boolean;
+  /** Any transition or animation declaration: the element needs a motion controller. */
+  motion: boolean;
 }>;
 
 /** What `props()` accepts: compiled rules, themes, falsy, or nested arrays of those. */
@@ -65,6 +68,10 @@ export type Resolved = Readonly<{
   style: Readonly<Record<string, RNLeaf>>;
   props: Readonly<Record<string, RNLeaf>>;
   needs: Needs;
+  /** Parsed `transition*` declarations, when any. */
+  transition?: TransitionSpec;
+  /** Parsed `animation*` declarations, in list order, when any. */
+  animations?: readonly AnimationSpec[];
 }>;
 
 export function isCompiledRule(value: unknown): value is CompiledRule {

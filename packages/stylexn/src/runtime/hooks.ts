@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { AccessibilityInfo, Appearance, Dimensions } from "react-native";
-import type { Props } from "./api.ts";
+import { useMotion, type AnimatedStyle } from "./animated.ts";
+import type { CompiledRule } from "../compile/compile.ts";
 import {
   colorScheme,
   config,
@@ -169,15 +170,21 @@ export type UsePropsOptions = Readonly<{
   disabled?: boolean;
 }>;
 
+export type UsePropsResult = Readonly<{
+  /** May hold Animated nodes when `animated` is set; render on Animated.View/Text then. */
+  style: AnimatedStyle;
+  /** Set (true) only while a transition or animation is attached to the style. */
+  animated?: true;
+  [prop: string]: unknown;
+}> &
+  Partial<InteractionHandlers>;
+
 /**
  * `props()` for components: subscribes to dimensions, color scheme, reduced
  * motion and theme context only when the rules need them, and returns
  * interaction handlers when a rule has `:hover`/`:active`/`:focus`.
  */
-export function useProps(
-  args: readonly StyleArg[],
-  options: UsePropsOptions = {},
-): Props & Partial<InteractionHandlers> {
+export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {}): UsePropsResult {
   const needs = useMemo(() => analyzeNeeds(flattenArgs(args).rules), [args]);
 
   const window = useSyncExternalStore(
@@ -207,6 +214,17 @@ export function useProps(
     fontSize: typeof inheritedFontSize === "number" ? inheritedFontSize : config.fontSize,
     platform: platform(),
   };
-  const { style, props: extra } = resolve(args, env);
-  return needs.interaction ? { ...extra, ...handlers, style } : { ...extra, style };
+  const { style, props: extra, transition, animations } = resolve(args, env);
+  const motion = useMotion(
+    style,
+    { transition, animations },
+    env,
+    needs.motion,
+    (rule: CompiledRule) => resolve([rule], env).style,
+  );
+  const result: Record<string, unknown> = { ...extra };
+  if (needs.interaction) Object.assign(result, handlers);
+  if (motion.animated) result.animated = true;
+  result.style = motion.style;
+  return result as UsePropsResult;
 }

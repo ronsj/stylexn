@@ -74,11 +74,13 @@ type LeafOk<K extends keyof P, V> = [ValuesOf<K>] extends [never]
   ? true
   : V extends Keywords<K>
     ? true
-    : V extends number
-      ? AllowsNumber<K>
-      : V extends string
-        ? AllowsString<K>
-        : false;
+    : V extends `${string}(${string})`
+      ? true // function syntax (rotate(), var(), calc(), ...): the build check judges it
+      : V extends number
+        ? AllowsNumber<K>
+        : V extends string
+          ? AllowsString<K>
+          : false;
 
 // ---------------------------------------------------------------------------
 // Conditions

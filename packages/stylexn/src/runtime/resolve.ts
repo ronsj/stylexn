@@ -3,18 +3,11 @@ import type { RNLeaf } from "../lower/lower.ts";
 import { finalizeStyle } from "../lower/lower.ts";
 import { parseLength, RELATIVE_UNITS } from "../lower/units.ts";
 import { matchesMedia } from "./media.ts";
+import { MOTION_KEY, parseMotion } from "./motion.ts";
 import type { Env, Needs, Resolved, RuntimeValue, StyleArg, Theme } from "./types.ts";
 import { isCompiledRule, isTheme, isVarRef } from "./types.ts";
 import { lookupVar } from "./vars.ts";
-
-const ANIMATION_KEY = /^(transition|animation)[A-Z]|^(transition|animation)$/;
-const warned = new Set<string>();
-
-function warnOnce(key: string, message: string): void {
-  if (warned.has(key)) return;
-  warned.add(key);
-  console.warn(`[stylexn] ${message}`);
-}
+import { warnOnce } from "./warn.ts";
 
 /** Split `props()` arguments into rules and element-level themes, in order. */
 export function flattenArgs(args: readonly StyleArg[]): { rules: CompiledRule[]; themes: Theme[] } {
@@ -43,6 +36,7 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
   let colorScheme = false;
   let reducedMotion = false;
   let vars = false;
+  let motion = false;
   const visitWhen = (when: readonly string[]) => {
     for (const c of when) {
       if (c.startsWith(":")) interaction = true;
@@ -55,7 +49,11 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
   };
   for (const rule of rules) {
     if (rule.usesVars) vars = true;
-    for (const e of rule.conditional) visitWhen(e.when);
+    if (Object.keys(rule.static).some((k) => MOTION_KEY.test(k))) motion = true;
+    for (const e of rule.conditional) {
+      visitWhen(e.when);
+      if (MOTION_KEY.test(e.key)) motion = true;
+    }
     for (const e of rule.conditionalProps) visitWhen(e.when);
   }
   // Variables may carry media defaults; subscribe conservatively.
@@ -63,7 +61,9 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
     dimensions = true;
     colorScheme = true;
   }
-  return { interaction, dimensions, colorScheme, reducedMotion, vars };
+  // Motion honours prefers-reduced-motion.
+  if (motion) reducedMotion = true;
+  return { interaction, dimensions, colorScheme, reducedMotion, vars, motion };
 }
 
 function conditionHolds(condition: string, env: Env): boolean {
@@ -238,14 +238,19 @@ export function resolve(args: readonly StyleArg[], env: Env): Resolved {
     if (resolved !== null) style.fontSize = resolved;
     if (typeof resolved === "number") fontSize = resolved;
   }
+  const motionDecls: Record<string, string> = {};
   for (const { key, value } of styleAssignments.values()) {
     if (key === "fontSize") continue;
-    if (ANIMATION_KEY.test(key)) {
-      warnOnce(`anim:${key}`, `${key} is not implemented yet on native and was ignored`);
+    const resolved = resolveValue(value, env, themes, fontSize);
+    if (resolved === null) continue;
+    if (MOTION_KEY.test(key)) {
+      // transition*/animation* describe motion, not appearance: parsed below, applied by useProps.
+      if (typeof resolved === "string" || typeof resolved === "number") {
+        motionDecls[key] = String(resolved);
+      }
       continue;
     }
-    const resolved = resolveValue(value, env, themes, fontSize);
-    if (resolved !== null) style[key] = resolved;
+    style[key] = resolved;
   }
 
   const props: Record<string, RNLeaf> = {};
@@ -255,5 +260,6 @@ export function resolve(args: readonly StyleArg[], env: Env): Resolved {
   }
 
   const finalized = finalizeStyle(style);
-  return { style: finalized.style, props, needs };
+  const motion = Object.keys(motionDecls).length ? parseMotion(motionDecls, warnOnce) : {};
+  return { style: finalized.style, props, needs, ...motion };
 }

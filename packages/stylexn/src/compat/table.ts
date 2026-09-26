@@ -62,7 +62,7 @@ const ALIGN = ["flex-start", "flex-end", "center", "stretch", "baseline"] as con
 
 const NO_FLOW = "React Native has no CSS flow layout; only flexbox.";
 const NO_GRID = "React Native has no grid layout.";
-const NO_ANIM = "Requires the StyleXN animation runtime (Animated).";
+const NO_ANIM = "Run by the StyleXN runtime with Animated (JS driver).";
 const UNITLESS = "Length keywords other than auto are not supported.";
 
 // ---------------------------------------------------------------------------
@@ -487,7 +487,7 @@ export const properties = {
   }),
   transitionProperty: poly(NO_ANIM),
   transitionDuration: poly(NO_ANIM),
-  transitionTimingFunction: poly(`${NO_ANIM} steps() is not supported.`),
+  transitionTimingFunction: poly(`${NO_ANIM} steps() falls back to linear.`),
   transitionDelay: poly(NO_ANIM),
   transitionBehavior: web("Discrete transitions have no native meaning."),
   animation: poly(`${NO_ANIM} Expanded to longhands.`, {
@@ -502,9 +502,9 @@ export const properties = {
       "animationPlayState",
     ],
   }),
-  animationName: poly(`${NO_ANIM} Requires stylex.keyframes().`),
+  animationName: poly(`${NO_ANIM} The name must come from stylex.keyframes().`),
   animationDuration: poly(NO_ANIM),
-  animationTimingFunction: poly(`${NO_ANIM} steps() is not supported.`),
+  animationTimingFunction: poly(`${NO_ANIM} steps() falls back to linear.`),
   animationDelay: poly(NO_ANIM),
   animationIterationCount: poly(NO_ANIM),
   animationDirection: poly(NO_ANIM),
