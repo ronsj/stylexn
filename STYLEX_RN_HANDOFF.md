@@ -183,7 +183,7 @@ Items 1–8 of the previous plan are done and committed on `main` (last commit: 
 
 ## Next steps
 
-A checklist, roughly in priority order. Every item from the original plan is done (2026-09-26); details are in the status sections above. New work should start a new list.
+The original plan, all done as of 2026-09-26 (details in the status sections above). The list that follows it is the new plan.
 
 - [x] **CI.** `.github/workflows/ci.yml`; pushed to the private repo `ronsj/react-stylexn-app` and green.
 - [x] **Animation runtime.** Transitions and `stylex.keyframes` on React Native's `Animated`.
@@ -201,6 +201,22 @@ A checklist, roughly in priority order. Every item from the original plan is don
 - [x] **Publishing shape.** `publishConfig.exports` → `dist` (per-file ESM + `.d.ts` from `tsc`, StyleX-precompiled web elements + `elements.css`), README, `pack:check` in CI, oxlint pinned.
 - [x] **Lint scope.** `stylexn/compat` (with `reportWebOnly`) on `packages/shared` and `apps/mobile`; `check:styles` is strict about web-only leakage in CI.
 - [x] **Task runner.** Decided: none. Plain `pnpm` scripts stay; `pnpm verify` runs the whole local check.
+
+## Next steps (new list, 2026-09-26)
+
+Roughly in priority order; each is independent enough to start with. Items marked _decision_ need a choice before code.
+
+- [ ] **Publish 0.1.0.** Check that the `stylexn` name is free on npm (otherwise pick a scope), drop `private`, add a CHANGELOG, and publish from a tag in CI with provenance (`pnpm publish --provenance`, `NPM_TOKEN` secret, trusted publishing if available). `pack:check` already proves the tarball; add a post-publish smoke test that installs the published version into a fresh Expo template.
+- [ ] **Generated compatibility reference.** Render `compat/table.ts` to `packages/stylexn/COMPATIBILITY.md` (property, status, note, `since`, platform) with a script, and fail CI when the file is stale, so the table and the docs cannot drift. React Strict DOM's table is the model.
+- [ ] **Stable keyframes ids under Fast Refresh.** `stylex.keyframes` names come from a counter (`stylexn-keyframes-N`), the same problem `defineVars` had: a hot-reloaded keyframes module registers new names while rules in other modules hold the old ones. Inject a hash id from `stylexn/babel` like `defineVars`, and let the registry re-register by id.
+- [ ] **Maestro in CI.** A macOS job that boots a simulator, installs Expo Go, starts Metro and runs `apps/mobile/e2e` (Maestro needs `JAVA_HOME`); then the same flow on the Android emulator (`adb`, `host.exp.exponent`). Decide whether Expo Go stays the target or a dev-client build (`expo run:ios`) is worth the build time for a more realistic app.
+- [ ] **Animation follow-ups, round two.** Colours on the native driver where React Native supports them (check `NativeAnimatedAllowlist` for the installed version and widen `NATIVE_KEYS` per version); resume during a delay instead of restarting it; `steps()` and `linear()` easing (table says unsupported: implement as a JS easing function and update the table); layout properties (`width`, `height`, margins) via `LayoutAnimation` or leave documented as JS-driven.
+- [ ] **Performance pass.** Benchmark `useProps` on a list of ~1000 elements (a `FlatList` demo): `analyzeNeeds` is memoised on `args` identity, but `resolve` allocates per render; consider precomputing `needs` in the compiler (it is static per rule) and caching resolved styles per `(rule, env)` when the rules are static. Measure before changing.
+- [ ] **Text inheritance edge cases.** `lineHeight` inherits as the resolved number rather than a multiplier (web scales with the child's `fontSize`); `fontSize: "120%"` on Text is not resolved against the parent; `TextInput` does not take inherited text style (matches the web UA stylesheet, but decide explicitly).
+- [ ] **More elements** (_decision_ on scope). Candidates: `FlatList`/`SectionList` (virtualised lists are the main thing an app needs next), `Switch`, `SafeAreaView` (or document `react-native-safe-area-context`), refs for `TextInput.focus()` and `ScrollView.scrollTo()`, `Pressable` `onLongPress`/`onPressIn`/`onPressOut` for authors, `Image` `require()` on web through the bundler's image loader.
+- [ ] **Layer 1 precision.** Function-syntax strings are accepted for every property; `keyframes` frames are typed loosely; `createTheme` overrides are not checked against the group's value types. Tighten where the table has enough information, and keep the type-level tests in `types.typecheck.ts` as the spec.
+- [ ] **Pointer and platform environment.** `config.pointer` is a static `"coarse"`: detect mouse/trackpad on iPad and Android desktop modes (`hover`/`pointer` media features currently always evaluate for touch). Add `platform`-only entries beyond `verticalAlign`/`textDecorationColor` as they are discovered, and exercise them in the Android flow.
+- [ ] **Portability and upkeep.** `scripts/pack-check.mjs` shells out to `tar` and `ls` (macOS/Linux only); Renovate or Dependabot for the pinned `oxlint`, Expo SDK and StyleX (the `since` snapshots in `compile/versions.test.ts` need a new row per React Native release); a `CONTRIBUTING.md` pointing at `pnpm verify`, the simulator/emulator notes below and the commit style.
 
 ## Working notes / gotchas learned
 
