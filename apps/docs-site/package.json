@@ -19,6 +19,7 @@
     "stylexn": "workspace:*"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.0",
     "@playwright/test": "^1.63.0",
     "@stylexjs/babel-plugin": "^0.19.1",
     "@stylexjs/postcss-plugin": "^0.19.1",
