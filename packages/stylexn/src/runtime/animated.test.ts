@@ -59,10 +59,9 @@ describe("transitions", () => {
   test("no transition on mount; a changed value becomes an interpolation and starts after commit", () => {
     const { result } = renderHook(() => useProps([styles.box]));
     expect(result.current.style).toEqual({ opacity: 1, backgroundColor: "red", width: "10%" });
-    expect(result.current.animated).toBeUndefined();
+    expect(result.current.animated).toBe(true); // an Animated component from the start: no remounts
 
     act(() => result.current.onPressIn?.());
-    expect(result.current.animated).toBe(true);
     expect(interp(result.current.style.opacity)).toEqual({
       inputRange: [0, 1],
       outputRange: [1, 0.5],
@@ -73,15 +72,17 @@ describe("transitions", () => {
     });
     expect(result.current.style.width).toBe("50%"); // not in transition-property
 
+    // backgroundColor needs the JS driver, and one element cannot mix drivers:
+    // every transition on this element runs on the JS driver.
     const timings = started.filter((r) => r.kind === "timing");
     expect(timings.map((t) => t.config)).toEqual([
-      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: true }, // opacity
+      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: false },
       {
         toValue: 1,
         duration: 300,
         delay: 20,
         easing: { bezier: [0.42, 0, 1, 1] },
-        useNativeDriver: false, // colors stay on the JS driver
+        useNativeDriver: false,
       },
     ]);
   });
@@ -99,6 +100,20 @@ describe("transitions", () => {
     (result.current.style.opacity as { from: FakeValue }).from.setValue(0.5);
     act(() => result.current.onPressIn?.());
     expect(interp(result.current.style.opacity).outputRange).toEqual([0.75, 0.5]);
+  });
+
+  test("opacity/transform-only elements run on the native driver", () => {
+    const s = create({
+      a: {
+        opacity: { default: 1, ":active": 0.5 },
+        transform: { default: "scale(1)", ":active": "scale(0.9)" },
+        transitionProperty: "opacity, transform",
+        transitionDuration: "100ms",
+      },
+    });
+    const { result } = renderHook(() => useProps([s.a]));
+    act(() => result.current.onPressIn?.());
+    expect(started.map((r) => r.config?.useNativeDriver)).toEqual([true, true]);
   });
 
   test("transform strings transition per part", () => {
@@ -132,8 +147,7 @@ describe("transitions", () => {
     setReducedMotion(true);
     const { result } = renderHook(() => useProps([styles.box]));
     act(() => result.current.onPressIn?.());
-    expect(result.current.style.opacity).toBe(0.5);
-    expect(result.current.animated).toBeUndefined();
+    expect(result.current.style.opacity).toBe(0.5); // no interpolation node
   });
 });
 
@@ -192,7 +206,6 @@ describe("keyframe animations", () => {
     expect(started[1]?.config).toMatchObject({ toValue: 1, duration: 500 });
     finishCurrent();
     expect(result.current.style).toEqual({ opacity: 0.8 });
-    expect(result.current.animated).toBeUndefined();
   });
 
   test("delay: base style shows until the animation starts unless it fills backwards", () => {
@@ -257,7 +270,7 @@ describe("keyframe animations", () => {
     });
     expect(started[0]?.config).toMatchObject({ useNativeDriver: false }); // width is a layout prop
     finishCurrent();
-    expect(result.current.animated).toBe(true); // still the interpolation, resting at its end
+    expect(interp(result.current.style.width)).toBeDefined(); // still the interpolation, resting at its end
   });
 
   test("unknown names warn and are ignored; reduced motion jumps to the end state", () => {
@@ -300,7 +313,6 @@ describe("removed keys", () => {
     const [scale] = result.current.style.transform as [Record<string, unknown>];
     expect(interp(scale.scale).outputRange).toEqual([0.9, 1]);
     expect(result.current.style.width).toBeUndefined();
-    expect(result.current.animated).toBe(true);
     // Once the removal has run out, the next render drops the keys.
     for (const r of started) act(() => r.callback?.({ finished: true }));
     act(() => result.current.onHoverIn?.());

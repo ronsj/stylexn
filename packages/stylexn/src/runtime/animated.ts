@@ -57,7 +57,11 @@ export type MotionEnv = Readonly<{
 const easingFn = (e: EasingSpec) =>
   e.type === "linear" ? Easing.linear : Easing.bezier(e.x1, e.y1, e.x2, e.y2);
 
-/** Keys Animated can drive on the native thread. */
+/**
+ * Keys Animated can drive on the native thread. The choice is per element,
+ * not per key: once one prop of a component is driven natively, React
+ * Native rejects JS-driven animations on its other props.
+ */
 const NATIVE_KEYS: ReadonlySet<string> = new Set(["opacity", "transform"]);
 const nativeDriverFor = (keys: Iterable<string>): boolean =>
   config.nativeDriver && [...keys].every((k) => NATIVE_KEYS.has(k));
@@ -201,7 +205,7 @@ class Transition {
     return true;
   }
 
-  start(): void {
+  start(useNativeDriver: boolean): void {
     const t = this.pending;
     if (!t) return;
     this.pending = null;
@@ -210,7 +214,7 @@ class Transition {
       duration: t.duration,
       delay: t.delay,
       easing: easingFn(t.easing),
-      useNativeDriver: nativeDriverFor([this.key]),
+      useNativeDriver,
     });
     this.running.start(({ finished }) => {
       this.running = null;
@@ -241,7 +245,7 @@ class KeyframeRun {
   private readonly spec: AnimationSpec;
   private readonly progress: Animated.Value;
   private readonly listener: string;
-  private readonly nativeDriver: boolean;
+  private nativeDriver = false;
   private readonly iterations: number;
   private readonly forwardFirst: boolean;
   private readonly alternate: boolean;
@@ -322,8 +326,6 @@ class KeyframeRun {
       }
       this.nodes[key] = node;
     }
-    this.nativeDriver = nativeDriverFor(Object.keys(this.nodes));
-
     if (skip) {
       this.finished = true;
       return;
@@ -336,7 +338,8 @@ class KeyframeRun {
   }
 
   /** Begin (after the delay) or resume. Called from commit and on play-state changes. */
-  start(): void {
+  start(useNativeDriver?: boolean): void {
+    if (useNativeDriver !== undefined) this.nativeDriver = useNativeDriver;
     if (this.finished || this.paused || this.current || this.timer) return;
     if (!this.begun) {
       this.begun = true;
@@ -422,8 +425,10 @@ export class MotionController {
   private next: Style | null = null;
   private readonly transitions = new Map<string, Transition>();
   private readonly runs = new Map<number, KeyframeRun>();
-  private pending: Array<{ start(): void }> = [];
+  private pending: Array<{ start(useNativeDriver: boolean): void }> = [];
   private readonly invalidate: () => void;
+  /** Decided on the first render from every key that could animate; fixed afterwards. */
+  private native: boolean | null = null;
 
   constructor(invalidate: () => void) {
     this.invalidate = invalidate;
@@ -438,6 +443,22 @@ export class MotionController {
     const out: Record<string, unknown> = { ...style };
     let animated = false;
     this.next = style;
+    if (this.native === null) {
+      const candidates = new Set<string>();
+      if (motion.transition) {
+        for (const k of motion.transition.all
+          ? Object.keys(style)
+          : motion.transition.keys.keys()) {
+          candidates.add(k);
+        }
+      }
+      for (const spec of motion.animations ?? []) {
+        for (const f of getKeyframes(spec.name)?.frames ?? []) {
+          for (const k of Object.keys(f.rule.static)) candidates.add(k);
+        }
+      }
+      this.native = nativeDriverFor(candidates);
+    }
 
     // Transitions: only for changes after the first commit, like CSS.
     const { transition } = motion;
@@ -557,7 +578,7 @@ export class MotionController {
     this.prev = this.next;
     const pending = this.pending;
     this.pending = [];
-    for (const p of pending) p.start();
+    for (const p of pending) p.start(this.native === true);
   }
 
   dispose(): void {
@@ -595,5 +616,8 @@ export function useMotion(
     controller?.commit();
   });
   useEffect(() => () => controller?.dispose(), [controller]);
-  return result ?? { style, animated: false };
+  // `animated` is stable for the element's lifetime: switching between the
+  // plain and Animated components would remount the native view (and, for
+  // a TextInput, drop focus the moment a :focus transition starts).
+  return { style: result?.style ?? style, animated: needed };
 }

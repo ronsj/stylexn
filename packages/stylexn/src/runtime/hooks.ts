@@ -173,7 +173,7 @@ export type UsePropsOptions = Readonly<{
 export type UsePropsResult = Readonly<{
   /** May hold Animated nodes when `animated` is set; render on Animated.View/Text then. */
   style: AnimatedStyle;
-  /** Set (true) only while a transition or animation is attached to the style. */
+  /** Set (true) when the rules mention motion: render on an Animated component then. */
   animated?: true;
   [prop: string]: unknown;
 }> &
