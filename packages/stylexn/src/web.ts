@@ -6,7 +6,7 @@
 // table (Layer 1), so unsupported native styles are editor errors even when
 // the editor resolves the web entry.
 import * as stylex from "@stylexjs/stylex";
-import type { MapNamespaces, Theme, VarGroup } from "@stylexjs/stylex";
+import type { CompiledStyles, MapNamespaces } from "@stylexjs/stylex";
 import { createElement, type ReactNode } from "react";
 import type {
   Native,
@@ -43,7 +43,12 @@ export const keyframes: <const T extends Record<string, Record<string, unknown>>
   frames: T & ValidateKeyframes<T>,
 ) => string = stylex.keyframes as never;
 
-type AnyTheme = Theme<VarGroup<Record<string, unknown>>>;
+/**
+ * A `createTheme` result. StyleX's `Theme<VarGroup>` type is invariant in its
+ * group, so a provider for any group takes the compiled-style shape a theme
+ * has at runtime (what `stylex.props` accepts as well).
+ */
+type AnyTheme = CompiledStyles;
 
 export type ThemeProviderProps = Readonly<{
   theme: AnyTheme | readonly AnyTheme[];
