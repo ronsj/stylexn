@@ -223,7 +223,6 @@ function displayed(from: RNLeaf, to: RNLeaf, p: number): RNLeaf {
 
 class Transition {
   readonly key: string;
-  readonly progress = new Animated.Value(1);
   from: RNLeaf = null;
   to: RNLeaf = null;
   node: unknown = null;
@@ -231,8 +230,9 @@ class Transition {
   settled = true;
   /** The key left the style; the transition runs to its initial value, then goes away. */
   removing = false;
+  private progress = new Animated.Value(1);
   private last = 1;
-  private readonly listener: string;
+  private listener: string;
   private running: Animated.CompositeAnimation | null = null;
   private pending: Timing | null = null;
 
@@ -250,14 +250,24 @@ class Transition {
     this.running?.stop();
     this.running = null;
     const start = this.node === null ? from : displayed(this.from, this.to, this.last);
-    const node = nodesFor(this.progress, this.key, [0, 1], [start, to]);
+    // A fresh progress value for every retarget. The node built on the old
+    // value stays attached to the view until React commits the new one, so
+    // resetting the old value would flash the old start value for a frame
+    // (visible on a real device, on every release).
+    const progress = new Animated.Value(0);
+    const node = nodesFor(progress, this.key, [0, 1], [start, to]);
     if (node === undefined) return false;
+    this.progress.removeListener(this.listener);
+    this.progress = progress;
+    this.last = 0;
+    this.listener = progress.addListener(({ value }) => {
+      this.last = value;
+    });
     this.from = start;
     this.to = to;
     this.node = node;
     this.pending = t;
     this.settled = false;
-    this.progress.setValue(0);
     return true;
   }
 

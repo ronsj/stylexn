@@ -141,6 +141,23 @@ describe("transitions", () => {
     expect(interp(back.scale).outputRange).toEqual([0.984, 1]);
   });
 
+  test("retargeting never disturbs the node still attached to the view (no flash)", () => {
+    const s = create({
+      a: { opacity: { default: 1, ":active": 0.5 }, transitionDuration: "150ms" },
+    });
+    const { result } = renderHook(() => useProps([s.a]));
+    act(() => result.current.onPressIn?.());
+    const pressNode = result.current.style.opacity as { from: FakeValue };
+    pressNode.from.setValue(0.4); // mid-way through the press-in transition
+    act(() => result.current.onPressOut?.());
+    const releaseNode = result.current.style.opacity as { from: FakeValue };
+    // The view still shows the old node until React commits the new one: its
+    // progress must not have been reset to 0 (that would flash the rest state).
+    expect(pressNode.from.value).toBe(0.4);
+    expect(releaseNode.from).not.toBe(pressNode.from);
+    expect(releaseNode.from.value).toBe(0);
+  });
+
   test("transform strings transition per part", () => {
     const s = create({
       a: {
