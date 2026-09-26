@@ -103,12 +103,9 @@ import "stylexn/elements.css";
   cascade from a `View` to nested `Text` as on the web. `TextInput`,
   `ScrollView` and `FlatList` take a `ref` for `focus()`, `scrollTo()` and
   the like; `Pressable` has `onPressIn`/`onPressOut`/`onLongPress`.
-  `FlatList` is virtualised on native and a plain scrolling list on web;
-  on native it also accepts every other React Native `FlatList` prop, so
-  native-only code can use `initialNumToRender`, `refreshControl` and the
-  like through the same component (the web element takes only the shared
-  props, which keeps code in a shared package portable). Any React Native
-  component also works directly with `useProps` when a wrapper is in the way.
+  `FlatList` is virtualised on native and a plain scrolling list on web.
+  Any React Native component also works directly with `useProps` when a
+  wrapper is in the way, including for native-only props.
   For safe areas use `react-native-safe-area-context` (React Native's own
   `SafeAreaView` is deprecated) and, on web, CSS `env(safe-area-inset-*)`.
 - **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, `@media`

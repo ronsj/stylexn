@@ -237,15 +237,14 @@ export default function Elements() {
           web={
             <>
               a plain scrolling list: every item is rendered, each in its own cell;{" "}
-              <Code>onEndReached</Code> is computed from the scroll position. The web element takes
-              only the props below, which keeps code in a shared package portable.
+              <Code>onEndReached</Code> is computed from the scroll position.
             </>
           }
           native={
             <>
-              React Native&apos;s virtualised <Code>FlatList</Code>. It also accepts every other
-              React Native <Code>FlatList</Code> prop (<Code>initialNumToRender</Code>,{" "}
-              <Code>getItemLayout</Code>, <Code>refreshControl</Code>, …) for native-only code.
+              React Native&apos;s virtualised <Code>FlatList</Code>. For native-only props (
+              <Code>initialNumToRender</Code>, <Code>getItemLayout</Code>, …), use React
+              Native&apos;s <Code>FlatList</Code> directly with <Code>useProps()</Code>.
             </>
           }
         />

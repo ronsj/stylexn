@@ -21,7 +21,6 @@ import {
 } from "react";
 import {
   Animated,
-  type FlatListProps as RNFlatListProps,
   FlatList as RNFlatList,
   Image as RNImage,
   Pressable as RNPressable,
@@ -360,27 +359,12 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
 }
 
 /**
- * The shared props (`FlatListOwnProps`) plus every other React Native
- * FlatList prop as a pass-through, so native-only code can reach
- * `initialNumToRender`, `getItemLayout`, `refreshControl`, ... through the
- * same component. The web element accepts only the shared subset, which is
- * what keeps code in a shared package portable.
+ * The elements expose the shared prop subset on both platforms; native-only
+ * React Native props go to the primitive with `useProps`.
  */
 export type FlatListProps<T> = CommonProps &
   FlatListOwnProps<T> &
-  Readonly<{ sx?: SxProp; contentSx?: SxProp; ref?: Ref<FlatListHandle> }> &
-  Omit<
-    RNFlatListProps<T>,
-    | keyof CommonProps
-    | keyof FlatListOwnProps<T>
-    | "style"
-    | "contentContainerStyle"
-    | "ListHeaderComponent"
-    | "ListFooterComponent"
-    | "ListEmptyComponent"
-    | "ItemSeparatorComponent"
-    | "ref"
-  >;
+  Readonly<{ sx?: SxProp; contentSx?: SxProp; ref?: Ref<FlatListHandle> }>;
 
 type FlatListLike = {
   scrollToOffset(options: { offset: number; animated?: boolean }): void;
