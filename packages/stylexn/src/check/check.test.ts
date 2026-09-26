@@ -91,10 +91,15 @@ describe("units and functions", () => {
 
   test("functions", () => {
     expect(check({ color: "var(--x)", backgroundColor: "oklch(0.5 0.1 200)" })).toEqual([]);
-    expect(check({ display: "var(--d)", width: "calc(1px + 2px)" }).map((f) => f.kind)).toEqual([
-      "function",
-    ]);
+    // Static math folds at compile time; only what cannot fold is reported.
+    expect(
+      check({ display: "var(--d)", width: "calc(1px + 2px)", height: "min(1px, 2px)" }),
+    ).toEqual([]);
     expect(kinds({ width: "calc(100% - 8px)" })).toEqual(["function:partial:width"]);
+    expect(check({ width: "calc(1rem + 2px)" })[0]?.message).toMatch(/rem" is not static/);
+    // Colors likewise: convertible ones pass, the rest is reported.
+    expect(check({ color: "color-mix(in srgb, #f00, #00f)" })).toEqual([]);
+    expect(kinds({ color: "color-mix(in srgb, red, blue)" })).toEqual(["function:partial:color"]);
     expect(kinds({ paddingTop: "env(safe-area-inset-top)" })).toEqual([
       "function:unsupported:paddingTop",
     ]);

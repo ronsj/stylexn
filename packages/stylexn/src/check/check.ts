@@ -16,6 +16,8 @@ import { isSentinel } from "../sentinel.ts";
 import { isFunction, looksLikeColor, splitSpace } from "../expand/tokenize.ts";
 import type { Leaf, Value } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
+import { convertColor } from "../lower/color.ts";
+import { foldMath } from "../lower/fold.ts";
 import { parseLength } from "../lower/units.ts";
 
 export type FindingKind =
@@ -99,6 +101,21 @@ function checkLeaf(
       // Functions the table does not list (rotate(), blur(), ...) belong to a
       // property; the property's own values list judges them.
       if (fn === UNKNOWN) continue;
+      // Math and color functions are fine when lowering can make them static.
+      const folded = foldMath(token) ?? convertColor(token);
+      if (folded) {
+        if (!folded.ok) {
+          out.push({
+            kind: "function",
+            status: "partial",
+            property,
+            conditions,
+            value,
+            message: `${property}: ${folded.reason}`,
+          });
+        }
+        continue;
+      }
       if (fn.status === "unsupported" || fn.status === "web-only" || fn.status === "partial") {
         out.push({
           kind: "function",

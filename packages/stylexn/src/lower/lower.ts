@@ -3,6 +3,8 @@ import { splitComma, splitSpace } from "../expand/tokenize.ts";
 import type { ConditionalValue, Diagnostic, Expanded, Leaf } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
 import { isSentinel } from "../sentinel.ts";
+import { convertColor } from "./color.ts";
+import { foldedToken, foldMath } from "./fold.ts";
 import { normalizeAngles, toNumber } from "./units.ts";
 
 /**
@@ -142,6 +144,38 @@ function lowerGeneric(property: string, v: string | number, diag: (m: string) =>
   return lowerLength(key, v, diag);
 }
 
+/**
+ * Fold `calc()`-style math and convert CIE/OK/`color-mix()` colors in the
+ * top-level tokens of a value. Returns the rewritten value, or null (with a
+ * diagnostic) when a function cannot be made static.
+ */
+function foldFunctions(value: string, diag: (message: string) => void): string | null {
+  if (!value.includes("(")) return value;
+  const out: string[] = [];
+  for (const token of splitSpace(value)) {
+    const math = foldMath(token);
+    if (math) {
+      if (!math.ok) {
+        diag(math.reason);
+        return null;
+      }
+      out.push(foldedToken(math));
+      continue;
+    }
+    const color = convertColor(token);
+    if (color) {
+      if (!color.ok) {
+        diag(color.reason);
+        return null;
+      }
+      out.push(color.value);
+      continue;
+    }
+    out.push(token);
+  }
+  return out.join(" ");
+}
+
 function lowerLeaf(
   property: string,
   value: Leaf,
@@ -149,6 +183,11 @@ function lowerLeaf(
   path: string,
 ): LeafOutput {
   const diag = (message: string) => diagnostics.push({ property: path, value, message });
+  if (typeof value === "string" && !isSentinel(value) && property !== "transform") {
+    const folded = foldFunctions(value, diag);
+    if (folded === null) return DROP;
+    value = folded;
+  }
   if (isSentinel(value)) {
     // Only known at runtime: rename/prop-map it, never inspect it.
     const entry = properties[property];

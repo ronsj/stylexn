@@ -90,6 +90,66 @@ function expandConditional(
   return perLonghand;
 }
 
+const DARK = "@media (prefers-color-scheme: dark)";
+const LIGHT_DARK = /light-dark\(/i;
+
+/** Split `light-dark(a, b)` arguments at the top-level comma. */
+function lightDarkArgs(
+  text: string,
+  start: number,
+): { light: string; dark: string; end: number } | null {
+  let depth = 0;
+  let comma = -1;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      if (depth === 0) {
+        if (comma === -1) return null;
+        return {
+          light: text.slice(start, comma).trim(),
+          dark: text.slice(comma + 1, i).trim(),
+          end: i + 1,
+        };
+      }
+      depth--;
+    } else if (ch === "," && depth === 0 && comma === -1) comma = i;
+  }
+  return null;
+}
+
+/**
+ * `light-dark(a, b)` has no native equivalent, but StyleXN evaluates
+ * `prefers-color-scheme` at runtime: rewrite the leaf into a conditional
+ * with the light value as default. Applied before shorthand expansion so
+ * `border: "1px solid light-dark(x, y)"` works too.
+ */
+export function rewriteLightDark(value: Value): Value {
+  if (isConditional(value)) {
+    const out: Record<string, Value> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = rewriteLightDark(v);
+    return out;
+  }
+  if (typeof value !== "string" || !LIGHT_DARK.test(value)) return value;
+  let light = "";
+  let dark = "";
+  let rest = value;
+  for (;;) {
+    const m = rest.match(LIGHT_DARK);
+    if (!m || m.index === undefined) {
+      light += rest;
+      dark += rest;
+      break;
+    }
+    const parsed = lightDarkArgs(rest, m.index + m[0].length);
+    if (!parsed) return value; // malformed: leave for the checker
+    light += rest.slice(0, m.index) + parsed.light;
+    dark += rest.slice(0, m.index) + parsed.dark;
+    rest = rest.slice(parsed.end);
+  }
+  return { default: light, [DARK]: dark };
+}
+
 /**
  * Expand every shorthand in a rule to longhands. Values are left untouched
  * apart from splitting; unit normalisation happens later. Properties that
@@ -106,7 +166,8 @@ export function expandDeclarations(declarations: Declarations): Expanded & {
   const diagnostics: Diagnostic[] = [];
   const origin: Record<string, string> = {};
 
-  for (const [property, value] of Object.entries(declarations)) {
+  for (const [property, written] of Object.entries(declarations)) {
+    const value = rewriteLightDark(written);
     if (!isShorthand(property)) {
       style[property] = value;
       continue;

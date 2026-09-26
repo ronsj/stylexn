@@ -311,4 +311,19 @@ describe("values", () => {
       madeUp: 3,
     });
   });
+
+  test("light-dark() becomes a prefers-color-scheme conditional, also inside shorthands", () => {
+    const dark = "@media (prefers-color-scheme: dark)";
+    expect(expand({ color: "light-dark(black, white)" }).style.color).toEqual({
+      default: "black",
+      [dark]: "white",
+    });
+    const border = expand({ border: "1px solid light-dark(#000, rgb(255, 255, 255))" }).style;
+    expect(border.borderTopColor).toEqual({ default: "#000", [dark]: "rgb(255, 255, 255)" });
+    expect(border.borderTopWidth).toEqual({ default: "1px", [dark]: "1px" });
+    expect(expand({ color: { ":hover": "light-dark(a, b)" } }).style.color).toEqual({
+      ":hover": { default: "a", [dark]: "b" },
+    });
+    expect(expand({ color: "light-dark(a)" }).style.color).toBe("light-dark(a)"); // malformed: left alone
+  });
 });

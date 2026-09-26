@@ -158,6 +158,56 @@ describe("lowerDeclarations: colors and polyfills", () => {
   });
 });
 
+describe("lowerDeclarations: folding and color conversion", () => {
+  test("static math folds into numbers and percentages", () => {
+    const { style, diagnostics } = lower({
+      width: "calc(100% / 4)",
+      marginTop: "calc(1in - 2px)",
+      padding: "calc(4px * 2) min(8px, 2pt)",
+      lineHeight: "calc(10px + 2px)",
+      flexGrow: "calc(1 + 1)",
+    });
+    expect(style).toEqual({
+      width: "25%",
+      marginTop: 94,
+      paddingTop: 8,
+      paddingRight: 2.667,
+      paddingBottom: 8,
+      paddingLeft: 2.667,
+      lineHeight: 12,
+      flexGrow: 2,
+    });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("math that cannot be static is dropped with a diagnostic", () => {
+    const { style, diagnostics } = lower({ width: "calc(100% - 20px)", height: 10 });
+    expect(style).toEqual({ height: 10 });
+    expect(diagnostics[0]).toMatchObject({ property: "width" });
+    expect(diagnostics[0]?.message).toMatch(/cannot add a percentage and a length/);
+  });
+
+  test("CIE/OK colors and color-mix() become rgb()", () => {
+    const { style } = lower({
+      color: "oklch(62.8% 0.2577 29.23)",
+      backgroundColor: { default: "color-mix(in srgb, #f00 50%, #00f)", ":hover": "lab(100 0 0)" },
+      borderColor: "color(srgb 0 0 1 / 0.5)",
+    });
+    expect(style.color).toBe("rgb(255, 0, 0)");
+    expect(style.backgroundColor).toEqual({
+      default: "rgb(128, 0, 128)",
+      ":hover": "rgb(255, 255, 255)",
+    });
+    expect(style.borderTopColor).toBe("rgba(0, 0, 255, 0.5)");
+  });
+
+  test("transform strings are left alone (functions there are transform functions)", () => {
+    expect(lower({ transform: "rotate(45deg) scale(1.5)" }).style.transform).toBe(
+      "rotate(45deg) scale(1.5)",
+    );
+  });
+});
+
 describe("finalizeStyle", () => {
   test("collapses equal side styles into borderStyle", () => {
     const { style, diagnostics } = finalizeStyle({
