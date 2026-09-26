@@ -60,6 +60,7 @@ describe("stylex.create compilation", () => {
       conditional: [],
       props: {},
       conditionalProps: [],
+      depth: { paddingTop: 1, paddingRight: 1, paddingBottom: 1, paddingLeft: 1 },
       usesVars: false,
     });
   });
@@ -108,6 +109,7 @@ describe("stylex.create compilation", () => {
       conditional: [],
       props: {},
       conditionalProps: [],
+      depth: {},
       usesVars: true,
     });
   });

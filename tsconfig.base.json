@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "lib": ["ES2022"],
+    "lib": ["ES2023"],
     "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,

@@ -22,6 +22,7 @@ describe("compileRule", () => {
       conditional: [],
       props: {},
       conditionalProps: [],
+      depth: { paddingTop: 1, paddingRight: 1, paddingBottom: 1, paddingLeft: 1 },
       usesVars: false,
     });
     expect(findings).toEqual([]);

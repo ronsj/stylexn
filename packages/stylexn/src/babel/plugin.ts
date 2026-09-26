@@ -1,10 +1,9 @@
 import type { NodePath, PluginObj, PluginPass, types as t } from "@babel/core";
 import type { RNVersion } from "../compat/types.ts";
 import { compileRule, isBlocking } from "../compile/compile.ts";
-import type { CompiledRule } from "../compile/compile.ts";
+import type { CompiledLeaf, CompiledRule } from "../compile/compile.ts";
 import { isSentinel, makeSentinel, sentinelIndex } from "../sentinel.ts";
 import type { Declarations, Value } from "../expand/types.ts";
-import type { RNLeaf } from "../lower/lower.ts";
 
 export type StyleXNPluginOptions = Readonly<{
   /** `native` compiles; `web` leaves the file untouched (StyleX handles web). */
@@ -30,12 +29,12 @@ type State = PluginPass & {
   };
 };
 
+// No parameter properties: the package is consumed via Node type stripping.
 class CompileError extends Error {
-  constructor(
-    message: string,
-    readonly node: t.Node,
-  ) {
+  readonly node: t.Node;
+  constructor(message: string, node: t.Node) {
     super(message);
+    this.node = node;
   }
 }
 
@@ -129,7 +128,7 @@ export default function stylexnBabelPlugin(
   // compiled rule -> AST
   // -------------------------------------------------------------------------
 
-  function leafToNode(value: RNLeaf, exprs: readonly t.Expression[]): t.Expression {
+  function leafToNode(value: CompiledLeaf, exprs: readonly t.Expression[]): t.Expression {
     if (isSentinel(value)) {
       const expr = exprs[sentinelIndex(value)];
       if (!expr) throw new Error("stylexn: dangling expression placeholder");
@@ -140,14 +139,20 @@ export default function stylexnBabelPlugin(
     if (typeof value === "number") return T.numericLiteral(value);
     if (typeof value === "boolean") return T.booleanLiteral(value);
     if (Array.isArray(value)) return T.arrayExpression(value.map((v) => leafToNode(v, exprs)));
-    const obj = value as Readonly<{ width: RNLeaf; height: RNLeaf }>;
+    if (!("width" in value && "height" in value)) {
+      throw new Error("stylexn: unexpected object in compiled output");
+    }
+    const obj = value as Readonly<{ width: CompiledLeaf; height: CompiledLeaf }>;
     return T.objectExpression([
       T.objectProperty(T.identifier("width"), leafToNode(obj.width, exprs)),
       T.objectProperty(T.identifier("height"), leafToNode(obj.height, exprs)),
     ]);
   }
 
-  function recordToNode(record: Readonly<Record<string, RNLeaf>>, exprs: readonly t.Expression[]) {
+  function recordToNode(
+    record: Readonly<Record<string, CompiledLeaf>>,
+    exprs: readonly t.Expression[],
+  ) {
     return T.objectExpression(
       Object.entries(record).map(([k, v]) =>
         T.objectProperty(T.stringLiteral(k), leafToNode(v, exprs)),
@@ -183,6 +188,7 @@ export default function stylexnBabelPlugin(
         T.identifier("conditionalProps"),
         entriesToNode(rule.conditionalProps, exprs),
       ),
+      T.objectProperty(T.identifier("depth"), recordToNode(rule.depth, exprs)),
       T.objectProperty(T.identifier("usesVars"), T.booleanLiteral(rule.usesVars)),
     ]);
   }

@@ -11,6 +11,7 @@ import {
   UNKNOWN,
 } from "../compat/index.ts";
 import type { Entry, RNVersion, Status } from "../compat/types.ts";
+import { rnOnlyKeys } from "../compat/table.ts";
 import { isSentinel } from "../sentinel.ts";
 import { isFunction, looksLikeColor, splitSpace } from "../expand/tokenize.ts";
 import type { Leaf, Value } from "../expand/types.ts";
@@ -213,6 +214,7 @@ export function checkDeclarations(
   const rnVersion = options.rnVersion ?? RN_TARGET;
   const out: Finding[] = [];
   for (const [property, value] of Object.entries(style)) {
+    if (rnOnlyKeys.has(property)) continue; // React Native-only keys from expansion/renames
     const entry = lookupProperty(property);
     if (entry.status === "unsupported" || entry.status === "web-only") {
       out.push({
