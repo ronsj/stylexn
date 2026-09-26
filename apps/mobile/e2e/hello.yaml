@@ -1,0 +1,19 @@
+# Maestro flow against Expo Go. Start Metro first (`pnpm exec expo start` in
+# apps/mobile) and run `pnpm --filter @stylexn/mobile test:e2e` with a booted
+# simulator/emulator. Expo Go opens the project through the deep link.
+appId: host.exp.Exponent
+---
+# Start from a fresh Expo Go so a previous run's state (or error screen) is gone.
+- stopApp
+- openLink: exp://127.0.0.1:8081
+- extendedWaitUntil:
+    visible: "Hello from @stylexn/shared, mobile!"
+    timeout: 60000
+- assertVisible: "Pressed 0 times"
+- tapOn: "Pressed 0 times"
+- assertVisible: "Pressed 1 times"
+- tapOn:
+    id: "hello-name"
+- eraseText
+- inputText: "Ada"
+- assertVisible: "Hello from @stylexn/shared, Ada!"
