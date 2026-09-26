@@ -10,6 +10,7 @@ type HostProps = {
   onPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
+  onLongPress?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
   onChangeText?: (text: string) => void;
@@ -33,6 +34,7 @@ export function host(tag: string) {
     onPress,
     onPressIn,
     onPressOut,
+    onLongPress,
     onFocus,
     onBlur,
     onChangeText,
@@ -57,6 +59,8 @@ export function host(tag: string) {
         onClick: onPress,
         onMouseDown: onPressIn,
         onMouseUp: onPressOut,
+        // A long press opens the context menu on touch devices: fire contextMenu to simulate one.
+        onContextMenu: onLongPress,
         onFocus,
         onBlur,
         onLoad,

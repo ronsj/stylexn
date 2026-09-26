@@ -1,4 +1,5 @@
 import type { CompiledLeaf, CompiledRule } from "../compile/compile.ts";
+import type { Declarations } from "../expand/types.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import type { AnimationSpec, TransitionSpec } from "./motion.ts";
 
@@ -85,6 +86,30 @@ export type Resolved = Readonly<{
    */
   inherit?: Readonly<Record<string, RNLeaf>>;
 }>;
+
+// ---------------------------------------------------------------------------
+// StyleX's type names, mapped to their native shapes, so shared code typed
+// with them (`StyleXStyles` props, ...) compiles on both entries. `Theme`
+// and `VarGroup` already exist above and in vars.ts under the same names;
+// `Keyframes` on native is the registered animation, not the input type.
+// ---------------------------------------------------------------------------
+
+/** Anything `props()` accepts: a compiled rule, a theme, or arrays of those. */
+export type StyleXStyles<T = unknown> = StyleArg | (T & never);
+export type StyleXStylesWithout<T> = StyleArg | (T & never);
+export type StaticStyles<T = unknown> = StyleArg | (T & never);
+export type StaticStylesWithout<T> = StyleArg | (T & never);
+export type CompiledStyles = CompiledRule;
+export type InlineStyles = CompiledRule;
+export type StyleXArray<T> = T | readonly StyleXArray<T>[];
+export type StyleXVar<V = unknown> = VarRef | (V & never);
+export type CSSProperties = Declarations;
+/** What `create()` returns: a compiled rule per name, or a function returning one. */
+export type MapNamespaces<S> = {
+  readonly [K in keyof S]: S[K] extends (...args: infer A) => unknown
+    ? (...args: A) => CompiledRule
+    : CompiledRule;
+};
 
 export function isCompiledRule(value: unknown): value is CompiledRule {
   return (

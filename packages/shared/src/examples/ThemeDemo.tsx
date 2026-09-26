@@ -5,7 +5,8 @@ import { Pressable, Text, View } from "stylexn/elements";
 import { buttonColors } from "./buttonTheme.stylex";
 
 // New values for the same variables. Passed in `sx`, a theme applies to the
-// element it is on: its own styles read the overridden values.
+// element it is on and to everything inside it, like custom properties on
+// the web; `ThemeProvider` from "stylexn" does the same without an element.
 const green = stylex.createTheme(buttonColors, {
   background: "#1f7a4d",
   pressed: "#155c39",

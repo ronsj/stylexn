@@ -1,3 +1,6 @@
+import { acceptsValue } from "../check/check.ts";
+import { propertyEntries } from "../compat/table.ts";
+import type { Entry } from "../compat/types.ts";
 import type { CompiledEntry, CompiledRule } from "../compile/compile.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import {
@@ -40,6 +43,7 @@ const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
 /** Values `resolveValue` can only settle against an environment. */
 const ENV_VALUE =
   /\d(rem|em|vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b|\b(var|calc|min|max|clamp)\(/i;
+const NOT_PARTIAL: Entry = { status: "supported" };
 /** A unitless `lineHeight` (a multiplier of the font size). */
 const UNITLESS_NUMBER = /^-?\d*\.?\d+$/;
 const PERCENTAGE = /^-?\d*\.?\d+%$/;
@@ -427,6 +431,18 @@ function resolveRules(
       // The element gets the product; text inside it inherits the multiplier.
       inherit = { lineHeight: resolved };
       resolved = Number(resolved) * fontSize;
+    }
+    // Layer 4: a dynamic value outside a partial property's list (the build
+    // check only sees static ones) is dropped, with a dev warning.
+    if (
+      (typeof resolved === "string" || typeof resolved === "number") &&
+      !acceptsValue(propertyEntries[key] ?? NOT_PARTIAL, resolved)
+    ) {
+      warnOnce(
+        `value:${key}:${resolved}`,
+        `${key}: "${resolved}" is not supported on React Native (dropped)`,
+      );
+      continue;
     }
     if (MOTION_KEY.test(key)) {
       // transition*/animation* describe motion, not appearance: parsed below, applied by useProps.

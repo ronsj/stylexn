@@ -152,7 +152,7 @@ function strip(
 ): Record<string, Value> {
   const out: Record<string, Value> = { ...style };
   for (const f of findings) {
-    const remove = f.status === "web-only" || (f.status === "unsupported" && !strict);
+    const remove = f.status === "web-only" || (isBlocking(f) && !strict);
     if (!remove) continue;
     const current = out[f.property];
     if (current === undefined) continue;

@@ -1,3 +1,4 @@
+"use client";
 /* oxlint-disable react/refs -- refs are read in imperative-handle factories and event handlers, which run outside render */
 // Cross-platform elements, React Native implementation: the primitives,
 // styled through the StyleXN runtime. Interaction handlers from `useProps`
@@ -30,7 +31,13 @@ import {
   TextInput as RNTextInput,
   View as RNView,
 } from "react-native";
-import { TextStyleProvider, useInheritedTextStyle, useProps } from "../runtime/hooks.ts";
+import {
+  TextStyleProvider,
+  ThemeProvider,
+  useInheritedTextStyle,
+  useProps,
+} from "../runtime/hooks.ts";
+import { flattenArgs } from "../runtime/resolve.ts";
 import { config } from "../runtime/env.ts";
 import { mergeInherited, splitInherited } from "../runtime/inherit.ts";
 import type { RNLeaf } from "../lower/lower.ts";
@@ -99,6 +106,22 @@ function inheriting(inherited: Readonly<Record<string, RNLeaf>>, children: React
   return children;
 }
 
+/**
+ * What an element passes down: inherited text style, and the themes in its
+ * `sx`. On the web a theme in `sx` sets custom properties that cascade to
+ * every descendant; a ThemeProvider around the children does the same here.
+ */
+function cascade(
+  sx: SxProp | undefined,
+  inherited: Readonly<Record<string, RNLeaf>>,
+  children: ReactNode,
+): ReactNode {
+  const out = inheriting(inherited, children);
+  if (typeof out !== "object" || out === null) return out;
+  const { themes } = flattenArgs(toList(sx));
+  return themes.length ? createElement(ThemeProvider, { theme: themes }, out) : out;
+}
+
 export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function View({ sx, children, ...rest }: ViewProps) {
@@ -107,7 +130,7 @@ export function View({ sx, children, ...rest }: ViewProps) {
   return createElement(
     animated ? Animated.View : RNView,
     { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
-    inheriting(inherited, children),
+    cascade(sx, inherited, children),
   );
 }
 
@@ -131,7 +154,7 @@ export function Text({ sx, children, ...rest }: TextProps) {
   return createElement(
     animated ? Animated.Text : RNText,
     { ...rest, ...extra, style: merged },
-    inheriting(splitInherited(style as Record<string, RNLeaf>).inherited, children),
+    cascade(sx, splitInherited(style as Record<string, RNLeaf>).inherited, children),
   );
 }
 
@@ -171,7 +194,7 @@ export function Pressable({
       style: own,
       role: "button",
     },
-    inheriting(inherited, children),
+    cascade(sx, inherited, children),
   );
 }
 
@@ -332,7 +355,7 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
       style: own,
       contentContainerStyle: content.style,
     },
-    inheriting(inherited, children),
+    cascade(sx, inherited, children),
   );
 }
 
@@ -430,5 +453,5 @@ export function FlatList<T>({
     style: own,
     contentContainerStyle: content.style,
   });
-  return inheriting(inherited, list);
+  return cascade(sx, inherited, list);
 }

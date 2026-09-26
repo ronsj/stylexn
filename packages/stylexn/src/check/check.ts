@@ -269,6 +269,21 @@ export function checkDeclarations(
 }
 
 /** Findings that should fail a strict build. */
+/**
+ * Findings a strict build rejects and a lenient one strips: no native
+ * behaviour at all, or a value outside a `partial` property's list (it
+ * would reach React Native unchanged and fail there).
+ */
 export function isBlocking(finding: Finding): boolean {
-  return finding.status === "unsupported";
+  return (
+    finding.status === "unsupported" || (finding.kind === "value" && finding.status === "partial")
+  );
+}
+
+/** Whether `value` is one the `partial` entry accepts; used by the runtime for dynamic values. */
+export function acceptsValue(entry: Entry, value: string | number): boolean {
+  if (entry.status !== "partial" || !entry.values) return true;
+  const isNumber = typeof value === "number";
+  const tokens = isNumber ? [String(value)] : splitSpace(value);
+  return tokens.every((t) => tokenAccepted(t, isNumber, entry.values as string[]));
 }

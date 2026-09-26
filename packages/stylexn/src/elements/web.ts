@@ -1,10 +1,20 @@
+"use client";
 /* oxlint-disable react/refs -- refs are read in imperative-handle factories and event handlers, which run outside render */
 // Cross-platform elements, web implementation: DOM elements with React
-// Native's layout defaults, styled through the real StyleX compiler.
+// Native's layout defaults, styled through the real StyleX compiler. The
+// directive lets React Server Components (Next.js) import the elements
+// directly: they use hooks, so they are client components.
 // Native resolves `stylexn/elements` to ./native.ts instead.
 import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, InlineStyles, StyleXArray } from "@stylexjs/stylex";
-import { createElement, useImperativeHandle, useRef, type ReactNode, type Ref } from "react";
+import {
+  createElement,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type ReactNode,
+  type Ref,
+} from "react";
 import type {
   CommonProps,
   FlatListHandle,
@@ -219,8 +229,19 @@ function toSrc(src: ImageSource): string {
 }
 
 export function Image({ sx, src, alt, testID, onLoad, onError, ...rest }: ImageProps) {
+  // A static or server-rendered image may have finished loading before
+  // hydration, so the load event never reaches React; report it on mount.
+  // The callback is read through a ref so the effect runs once, whatever
+  // identity `onLoad` has on later renders.
+  const img = useRef<{ complete: boolean; naturalWidth: number } | null>(null);
+  const loaded = useRef(onLoad);
+  loaded.current = onLoad;
+  useEffect(() => {
+    if (img.current?.complete && img.current.naturalWidth > 0) loaded.current?.();
+  }, []);
   return createElement("img", {
     ...rest,
+    ref: img,
     src: toSrc(src),
     alt,
     onLoad: onLoad && (() => onLoad()),

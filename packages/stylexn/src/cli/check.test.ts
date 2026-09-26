@@ -25,10 +25,10 @@ const styles = stylex.create({
     );
     expect(problems.map(formatProblem)).toEqual([
       "card.tsx:5:5 error: float — React Native has no CSS flow layout; only flexbox.",
-      'card.tsx:6:33 warning: display: "grid" is not supported on React Native; accepted: flex, none, contents',
+      'card.tsx:6:33 error: display: "grid" is not supported on React Native; accepted: flex, none, contents',
       "card.tsx:7:30 error: :first-child on color — Structural selectors need sibling context React Native does not expose.",
       'card.tsx:8:5 error: marginTop: unit "ch" — Font metrics are not exposed.',
-      'card.tsx:11:31 warning: position: "sticky" is not supported on React Native; accepted: relative, absolute, static',
+      'card.tsx:11:31 error: position: "sticky" is not supported on React Native; accepted: relative, absolute, static',
     ]);
   });
 
@@ -72,7 +72,8 @@ describe("bin", () => {
     const warn = path.join(dir, "warn.tsx");
     const ok = path.join(dir, "ok.tsx");
     writeFileSync(bad, `${HEADER}stylex.create({ a: { float: "left" } });`);
-    writeFileSync(warn, `${HEADER}stylex.create({ a: { display: "grid" } });`);
+    // A calc() that cannot be folded is a warning; a value outside a list would be an error.
+    writeFileSync(warn, `${HEADER}stylex.create({ a: { width: "calc(100% - 8px)" } });`);
     writeFileSync(ok, `${HEADER}stylex.create({ a: { color: "red" } });`);
 
     expect(run(["check", ok])).toEqual({ code: 0, out: "" });

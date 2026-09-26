@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 vi.mock("react-native", () => import("../testing/react-native.ts"));
 
 import { create } from "../runtime/api.ts";
-import { resetVarsForTesting } from "../runtime/vars.ts";
+import { createTheme, defineVars, resetVarsForTesting } from "../runtime/vars.ts";
 import { createRef } from "react";
 import { FlatList, Image, Pressable, ScrollView, Switch, Text, TextInput, View } from "./native.ts";
 import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "./native.ts";
@@ -410,6 +410,33 @@ describe("more elements", () => {
     expect(styleOf("p").opacity).toMatchObject({ $$interpolation: { outputRange: [1, 0.5] } });
     fireEvent.mouseUp(screen.getByTestId("p"));
     expect(onPressOut).toHaveBeenCalledOnce();
+  });
+
+  test("Pressable forwards onLongPress (the double fires it on contextmenu)", () => {
+    const onLongPress = vi.fn();
+    render(
+      <Pressable onLongPress={onLongPress} testID="p">
+        <Text>hi</Text>
+      </Pressable>,
+    );
+    fireEvent.contextMenu(screen.getByTestId("p"));
+    expect(onLongPress).toHaveBeenCalledOnce();
+  });
+
+  test("a theme in sx reaches the subtree, like custom properties on the web", () => {
+    const tokens = defineVars({ tone: "red" });
+    const theme = createTheme(tokens, { tone: "blue" });
+    const s = create({ label: { color: tokens.tone } });
+    render(
+      <View sx={[theme, styles.pad]}>
+        <View>
+          <Text sx={s.label} testID="inner">
+            hi
+          </Text>
+        </View>
+      </View>,
+    );
+    expect(styleOf("inner")).toEqual({ color: "blue" });
   });
 
   test("refs expose focus/blur/clear and the scroll methods of the underlying component", () => {

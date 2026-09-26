@@ -80,8 +80,12 @@ describe("compileRule", () => {
 
   test("a stripped default leaves only the conditional entries", () => {
     const { rule } = compileRule({ width: { default: "fit-content", ":hover": "50%" } });
-    // partial values are findings but are not stripped: they reach the runtime as-is
-    expect(rule.static).toEqual({ width: "fit-content" });
+    // a value outside width's list is stripped (a strict build rejects it)
+    expect(rule.static).toEqual({});
+    expect(rule.conditional).toEqual([{ key: "width", when: [":hover"], value: "50%" }]);
+    expect(compileRule({ width: "fit-content" }, { strict: true }).rule.static).toEqual({
+      width: "fit-content",
+    }); // strict keeps it for the caller to error on
     const { rule: r2 } = compileRule({ paddingTop: { default: "1ch", ":hover": "2px" } });
     expect(r2.static).toEqual({});
     expect(r2.conditional).toEqual([{ key: "paddingTop", when: [":hover"], value: 2 }]);

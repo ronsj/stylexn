@@ -62,7 +62,8 @@ const ALIGN = ["flex-start", "flex-end", "center", "stretch", "baseline"] as con
 
 const NO_FLOW = "React Native has no CSS flow layout; only flexbox.";
 const NO_GRID = "React Native has no grid layout.";
-const NO_ANIM = "Run by the StyleXN runtime with Animated (JS driver).";
+const NO_ANIM =
+  "Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.";
 const UNITLESS = "Length keywords other than auto are not supported.";
 
 // ---------------------------------------------------------------------------
@@ -788,7 +789,7 @@ export const units = {
   px: ok({ note: "Converted to a plain number." }),
   "%": some(["<percentage>"], "Accepted where React Native accepts percentages."),
   rem: poly("Multiplied by the configured root font size (default 16)."),
-  em: poly("Resolved against the inherited font size at runtime."),
+  em: poly("Resolved at runtime against the element's own font size, else the inherited one."),
   vw: poly("Resolved against window width at runtime."),
   vh: poly("Resolved against window height at runtime."),
   vmin: poly("Resolved against window dimensions at runtime."),

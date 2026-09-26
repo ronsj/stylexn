@@ -16,7 +16,7 @@ describe("lintDeclarations", () => {
     );
     expect(messages.map((m) => `${m.severity}:${m.path}`)).toEqual([
       "error:float",
-      "warning:display",
+      "error:display",
     ]);
     const withWebOnly = lintDeclarations({ willChange: "x" }, new Map(), { reportWebOnly: true });
     expect(withWebOnly).toMatchObject([{ severity: "warning", path: "willChange" }]);

@@ -44,6 +44,19 @@ export type {
   VarRef,
   VarScope,
 } from "./types.ts";
+// StyleX's type names, in their native shapes (see types.ts).
+export type {
+  CompiledStyles,
+  CSSProperties,
+  InlineStyles,
+  MapNamespaces,
+  StaticStyles,
+  StaticStylesWithout,
+  StyleXArray,
+  StyleXStyles,
+  StyleXStylesWithout,
+  StyleXVar,
+} from "./types.ts";
 
 import * as api from "./api.ts";
 import * as vars from "./vars.ts";

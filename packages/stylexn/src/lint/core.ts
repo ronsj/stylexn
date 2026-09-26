@@ -32,7 +32,8 @@ function severityOf(finding: Finding): Severity | null {
     case "unsupported":
       return "error";
     case "partial":
-      return "warning";
+      // A value outside the list reaches React Native unchanged: an error, like the build.
+      return finding.kind === "value" ? "error" : "warning";
     case "web-only":
       return null; // decided by options
     default:

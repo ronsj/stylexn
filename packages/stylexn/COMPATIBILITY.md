@@ -321,26 +321,26 @@ Keys are camelCase CSS property names, as written in `stylex.create`. Custom pro
 
 ### Transitions & animations
 
-| Property                   | Status      | Notes                                                                                                                                                                                                                                                                  |
-| -------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transition`               | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). Expanded to longhands. Expands to `transitionProperty`, `transitionDuration`, `transitionTimingFunction`, `transitionDelay`.                                                                                     |
-| `transitionProperty`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `transitionDuration`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `transitionTimingFunction` | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `transitionDelay`          | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `transitionBehavior`       | web-only    | Discrete transitions have no native meaning.                                                                                                                                                                                                                           |
-| `animation`                | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). Expanded to longhands. Expands to `animationName`, `animationDuration`, `animationTimingFunction`, `animationDelay`, `animationIterationCount`, `animationDirection`, `animationFillMode`, `animationPlayState`. |
-| `animationName`            | polyfilled  | Run by the StyleXN runtime with Animated (JS driver). The name must come from stylex.keyframes().                                                                                                                                                                      |
-| `animationDuration`        | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationTimingFunction`  | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationDelay`           | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationIterationCount`  | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationDirection`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationFillMode`        | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationPlayState`       | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                                                                                                                                                                                                                  |
-| `animationComposition`     | unsupported | No animation composition.                                                                                                                                                                                                                                              |
-| `animationTimeline`        | unsupported | No scroll-driven animations.                                                                                                                                                                                                                                           |
-| `viewTransitionName`       | web-only    | View transitions are a web API.                                                                                                                                                                                                                                        |
+| Property                   | Status      | Notes                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `transition`               | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver. Expanded to longhands. Expands to `transitionProperty`, `transitionDuration`, `transitionTimingFunction`, `transitionDelay`.                                                                                     |
+| `transitionProperty`       | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `transitionDuration`       | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `transitionTimingFunction` | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `transitionDelay`          | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `transitionBehavior`       | web-only    | Discrete transitions have no native meaning.                                                                                                                                                                                                                                                                                                                 |
+| `animation`                | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver. Expanded to longhands. Expands to `animationName`, `animationDuration`, `animationTimingFunction`, `animationDelay`, `animationIterationCount`, `animationDirection`, `animationFillMode`, `animationPlayState`. |
+| `animationName`            | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver. The name must come from stylex.keyframes().                                                                                                                                                                      |
+| `animationDuration`        | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationTimingFunction`  | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationDelay`           | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationIterationCount`  | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationDirection`       | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationFillMode`        | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationPlayState`       | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                                                                                                                                                  |
+| `animationComposition`     | unsupported | No animation composition.                                                                                                                                                                                                                                                                                                                                    |
+| `animationTimeline`        | unsupported | No scroll-driven animations.                                                                                                                                                                                                                                                                                                                                 |
+| `viewTransitionName`       | web-only    | View transitions are a web API.                                                                                                                                                                                                                                                                                                                              |
 
 ### Text
 
@@ -543,47 +543,47 @@ How each feature inside `@media` is evaluated on native.
 
 `<number>` is a unitless number.
 
-| Unit       | Status      | Notes                                                                    |
-| ---------- | ----------- | ------------------------------------------------------------------------ |
-| `<number>` | supported   |                                                                          |
-| `px`       | supported   | Converted to a plain number.                                             |
-| `%`        | partial     | Accepted where React Native accepts percentages. Values: `<percentage>`. |
-| `rem`      | polyfilled  | Multiplied by the configured root font size (default 16).                |
-| `em`       | polyfilled  | Resolved against the inherited font size at runtime.                     |
-| `vw`       | polyfilled  | Resolved against window width at runtime.                                |
-| `vh`       | polyfilled  | Resolved against window height at runtime.                               |
-| `vmin`     | polyfilled  | Resolved against window dimensions at runtime.                           |
-| `vmax`     | polyfilled  | Resolved against window dimensions at runtime.                           |
-| `dvw`      | polyfilled  | Treated as vw.                                                           |
-| `dvh`      | polyfilled  | Treated as vh.                                                           |
-| `svw`      | polyfilled  | Treated as vw.                                                           |
-| `svh`      | polyfilled  | Treated as vh.                                                           |
-| `lvw`      | polyfilled  | Treated as vw.                                                           |
-| `lvh`      | polyfilled  | Treated as vh.                                                           |
-| `pt`       | polyfilled  | Converted to px at compile time (1pt = 4/3px).                           |
-| `pc`       | polyfilled  | Converted to px at compile time.                                         |
-| `in`       | polyfilled  | Converted to px at compile time (1in = 96px).                            |
-| `cm`       | polyfilled  | Converted to px at compile time.                                         |
-| `mm`       | polyfilled  | Converted to px at compile time.                                         |
-| `q`        | polyfilled  | Converted to px at compile time.                                         |
-| `ch`       | unsupported | Font metrics are not exposed.                                            |
-| `ex`       | unsupported | Font metrics are not exposed.                                            |
-| `cap`      | unsupported | Font metrics are not exposed.                                            |
-| `ic`       | unsupported | Font metrics are not exposed.                                            |
-| `lh`       | unsupported | Line height metrics are not exposed.                                     |
-| `rlh`      | unsupported | Line height metrics are not exposed.                                     |
-| `cqw`      | unsupported | Container queries are not supported.                                     |
-| `cqh`      | unsupported | Container queries are not supported.                                     |
-| `deg`      | supported   | In transforms and gradients.                                             |
-| `rad`      | supported   | In transforms.                                                           |
-| `turn`     | polyfilled  | Converted to deg at compile time.                                        |
-| `grad`     | polyfilled  | Converted to deg at compile time.                                        |
-| `ms`       | supported   | In transitions and animations.                                           |
-| `s`        | supported   | In transitions and animations.                                           |
-| `fr`       | unsupported | React Native has no grid layout.                                         |
-| `dpi`      | polyfilled  | Media queries only.                                                      |
-| `dppx`     | polyfilled  | Media queries only.                                                      |
-| `x`        | polyfilled  | Media queries only.                                                      |
+| Unit       | Status      | Notes                                                                            |
+| ---------- | ----------- | -------------------------------------------------------------------------------- |
+| `<number>` | supported   |                                                                                  |
+| `px`       | supported   | Converted to a plain number.                                                     |
+| `%`        | partial     | Accepted where React Native accepts percentages. Values: `<percentage>`.         |
+| `rem`      | polyfilled  | Multiplied by the configured root font size (default 16).                        |
+| `em`       | polyfilled  | Resolved at runtime against the element's own font size, else the inherited one. |
+| `vw`       | polyfilled  | Resolved against window width at runtime.                                        |
+| `vh`       | polyfilled  | Resolved against window height at runtime.                                       |
+| `vmin`     | polyfilled  | Resolved against window dimensions at runtime.                                   |
+| `vmax`     | polyfilled  | Resolved against window dimensions at runtime.                                   |
+| `dvw`      | polyfilled  | Treated as vw.                                                                   |
+| `dvh`      | polyfilled  | Treated as vh.                                                                   |
+| `svw`      | polyfilled  | Treated as vw.                                                                   |
+| `svh`      | polyfilled  | Treated as vh.                                                                   |
+| `lvw`      | polyfilled  | Treated as vw.                                                                   |
+| `lvh`      | polyfilled  | Treated as vh.                                                                   |
+| `pt`       | polyfilled  | Converted to px at compile time (1pt = 4/3px).                                   |
+| `pc`       | polyfilled  | Converted to px at compile time.                                                 |
+| `in`       | polyfilled  | Converted to px at compile time (1in = 96px).                                    |
+| `cm`       | polyfilled  | Converted to px at compile time.                                                 |
+| `mm`       | polyfilled  | Converted to px at compile time.                                                 |
+| `q`        | polyfilled  | Converted to px at compile time.                                                 |
+| `ch`       | unsupported | Font metrics are not exposed.                                                    |
+| `ex`       | unsupported | Font metrics are not exposed.                                                    |
+| `cap`      | unsupported | Font metrics are not exposed.                                                    |
+| `ic`       | unsupported | Font metrics are not exposed.                                                    |
+| `lh`       | unsupported | Line height metrics are not exposed.                                             |
+| `rlh`      | unsupported | Line height metrics are not exposed.                                             |
+| `cqw`      | unsupported | Container queries are not supported.                                             |
+| `cqh`      | unsupported | Container queries are not supported.                                             |
+| `deg`      | supported   | In transforms and gradients.                                                     |
+| `rad`      | supported   | In transforms.                                                                   |
+| `turn`     | polyfilled  | Converted to deg at compile time.                                                |
+| `grad`     | polyfilled  | Converted to deg at compile time.                                                |
+| `ms`       | supported   | In transitions and animations.                                                   |
+| `s`        | supported   | In transitions and animations.                                                   |
+| `fr`       | unsupported | React Native has no grid layout.                                                 |
+| `dpi`      | polyfilled  | Media queries only.                                                              |
+| `dppx`     | polyfilled  | Media queries only.                                                              |
+| `x`        | polyfilled  | Media queries only.                                                              |
 
 ## Functions
 
@@ -626,19 +626,19 @@ Value functions inside strings, such as `calc()` or `linear-gradient()`.
 
 The `stylex.*` functions themselves.
 
-| API                   | Status      | Notes                                                                   |
-| --------------------- | ----------- | ----------------------------------------------------------------------- |
-| `create`              | supported   |                                                                         |
-| `props`               | supported   | Returns { style, ...props }; extra props come from entries with `prop`. |
-| `attrs`               | supported   | Alias of props on native.                                               |
-| `defineVars`          | polyfilled  | Variables become a React context value.                                 |
-| `defineConsts`        | supported   | Inlined at compile time.                                                |
-| `createTheme`         | polyfilled  | Themes become a context provider for the subtree.                       |
-| `keyframes`           | polyfilled  | Run by the StyleXN runtime with Animated (JS driver).                   |
-| `firstThatWorks`      | polyfilled  | Picks the first value the compat table accepts, at compile time.        |
-| `positionTry`         | unsupported | Anchor positioning does not exist on native.                            |
-| `viewTransitionClass` | web-only    | View transitions are a web API.                                         |
-| `defineMarker`        | unsupported | Markers depend on CSS selectors.                                        |
-| `when`                | unsupported | Ancestor/sibling conditions (stylex.when.*) depend on CSS selectors.    |
-| `types`               | supported   | Typed variables are compile-time only.                                  |
-| `env`                 | supported   | Compile-time constants.                                                 |
+| API                   | Status      | Notes                                                                                                                                       |
+| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`              | supported   |                                                                                                                                             |
+| `props`               | supported   | Returns { style, ...props }; extra props come from entries with `prop`.                                                                     |
+| `attrs`               | supported   | Alias of props on native.                                                                                                                   |
+| `defineVars`          | polyfilled  | Variables become a React context value.                                                                                                     |
+| `defineConsts`        | supported   | Inlined at compile time.                                                                                                                    |
+| `createTheme`         | polyfilled  | Themes become a context provider for the subtree.                                                                                           |
+| `keyframes`           | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver. |
+| `firstThatWorks`      | polyfilled  | Picks the first value the compat table accepts, at compile time.                                                                            |
+| `positionTry`         | unsupported | Anchor positioning does not exist on native.                                                                                                |
+| `viewTransitionClass` | web-only    | View transitions are a web API.                                                                                                             |
+| `defineMarker`        | unsupported | Markers depend on CSS selectors.                                                                                                            |
+| `when`                | unsupported | Ancestor/sibling conditions (stylex.when.*) depend on CSS selectors.                                                                        |
+| `types`               | supported   | Typed variables are compile-time only.                                                                                                      |
+| `env`                 | supported   | Compile-time constants.                                                                                                                     |

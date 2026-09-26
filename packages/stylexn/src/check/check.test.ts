@@ -158,8 +158,18 @@ describe("conditions", () => {
 });
 
 describe("isBlocking", () => {
-  test("only unsupported blocks", () => {
-    const findings = check({ float: "left", willChange: "x", display: "grid" });
-    expect(findings.map(isBlocking)).toEqual([true, false, false]);
+  test("unsupported and out-of-list values block; web-only and folding limits do not", () => {
+    const findings = check({
+      float: "left",
+      willChange: "x",
+      display: "grid",
+      width: "calc(100% - 8px)",
+    });
+    expect(findings.map((f) => `${f.kind}:${isBlocking(f)}`)).toEqual([
+      "property:true",
+      "property:false",
+      "value:true",
+      "function:false",
+    ]);
   });
 });

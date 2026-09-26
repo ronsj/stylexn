@@ -58,7 +58,8 @@ export const styles = stylex.create({
 });`);
     expect(diagnostics.map((d) => d.line)).toEqual([6, 7, 8]);
     expect(diagnostics[0]?.message).toMatch(/float/);
-    expect(diagnostics[1]?.message).toMatch(/grid.*\(warning\)/);
+    expect(diagnostics[1]?.message).toMatch(/grid/);
+    expect(diagnostics[1]?.message).not.toMatch(/\(warning\)/); // an error, like the build
     expect(diagnostics[2]?.message).toMatch(/unit "ch"/);
   });
 
