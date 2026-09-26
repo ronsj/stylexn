@@ -2,6 +2,7 @@
 export const PAGES = [
   { href: "/", title: "Introduction" },
   { href: "/getting-started/", title: "Getting started" },
+  { href: "/styles/", title: "Authoring styles" },
 ] as const;
 
 export type Page = (typeof PAGES)[number];
