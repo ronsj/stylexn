@@ -32,6 +32,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm check:styles
+      # Packs stylexn as `pnpm publish` would and type-checks a consumer against the tarball.
+      - run: pnpm --filter stylexn pack:check
 
   web:
     name: Web build and e2e
