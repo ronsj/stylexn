@@ -32,6 +32,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm check:styles
+      # COMPATIBILITY.md is rendered from the compat table; fails when it was not regenerated.
+      - run: pnpm --filter stylexn compat:check
       # Packs stylexn as `pnpm publish` would and type-checks a consumer against the tarball.
       - run: pnpm --filter stylexn pack:check
 
