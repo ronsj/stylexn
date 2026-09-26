@@ -43,10 +43,6 @@ export const keyframes: <const T extends Record<string, Record<string, unknown>>
   frames: T & ValidateKeyframes<T>,
 ) => string = stylex.keyframes as never;
 
-const layout = stylex.create({
-  contents: { display: "contents" },
-});
-
 type AnyTheme = Theme<VarGroup<Record<string, unknown>>>;
 
 export type ThemeProviderProps = Readonly<{
@@ -58,8 +54,11 @@ export type ThemeProviderProps = Readonly<{
  * Apply `createTheme` overrides to a subtree. On the web a theme is a class
  * that sets custom properties, so this is a `display: contents` wrapper
  * carrying it; the native entry provides the same component over context.
+ * The wrapper's own style is inline: this module ships uncompiled, so it
+ * cannot use `stylex.create` itself.
  */
 export function ThemeProvider({ theme, children }: ThemeProviderProps) {
   const themes = Array.isArray(theme) ? (theme as readonly AnyTheme[]) : [theme as AnyTheme];
-  return createElement("div", stylex.props(layout.contents, ...themes), children);
+  const { className, style } = stylex.props(...themes);
+  return createElement("div", { className, style: { ...style, display: "contents" } }, children);
 }
