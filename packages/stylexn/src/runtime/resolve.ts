@@ -36,15 +36,30 @@ export function flattenArgs(args: readonly StyleArg[]): { rules: CompiledRule[];
 }
 
 const DIMENSION_FEATURE = /\b(width|height|aspect-ratio|orientation|resolution)\b/;
+const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
+/** Values `resolveValue` can only settle against an environment. */
+const ENV_VALUE =
+  /\d(rem|em|vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b|\b(var|calc|min|max|clamp)\(/i;
 
-/** Static analysis of which environment parts the rules can depend on. */
-export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
+/**
+ * What one rule needs, computed once per rule: rules are immutable and
+ * long-lived (module-level `stylex.create` results), so the analysis is
+ * cached on the rule itself. This is what makes `analyzeNeeds` cheap enough
+ * to run on every render of every element instead of being memoised on the
+ * (usually fresh) argument array.
+ */
+const ruleNeeds = new WeakMap<CompiledRule, Needs>();
+
+function analyzeRule(rule: CompiledRule): Needs {
+  const cached = ruleNeeds.get(rule);
+  if (cached) return cached;
   let interaction = false;
   let dimensions = false;
   let colorScheme = false;
   let reducedMotion = false;
-  let vars = false;
   let motion = false;
+  let constant =
+    !rule.usesVars && rule.conditional.length === 0 && rule.conditionalProps.length === 0;
   const visitWhen = (when: readonly string[]) => {
     for (const c of when) {
       if (c.startsWith(":")) interaction = true;
@@ -56,29 +71,83 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
     }
   };
   const visitValue = (v: unknown) => {
-    if (typeof v === "string" && VIEWPORT_UNIT.test(v)) dimensions = true;
+    if (typeof v === "string") {
+      if (VIEWPORT_UNIT.test(v)) dimensions = true;
+      if (constant && ENV_VALUE.test(v)) constant = false;
+    } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+      constant = false; // a var reference, a box or a conditional value
+    }
   };
-  for (const rule of rules) {
-    if (rule.usesVars) vars = true;
-    for (const [k, v] of Object.entries(rule.static)) {
-      if (MOTION_KEY.test(k)) motion = true;
-      visitValue(v);
-    }
-    for (const e of rule.conditional) {
-      visitWhen(e.when);
-      if (MOTION_KEY.test(e.key)) motion = true;
-      visitValue(e.value);
-    }
-    for (const e of rule.conditionalProps) visitWhen(e.when);
+  const visitKey = (k: string) => {
+    if (MOTION_KEY.test(k)) motion = true;
+  };
+  for (const [k, v] of Object.entries(rule.static)) {
+    visitKey(k);
+    visitValue(v);
   }
+  for (const e of rule.conditional) {
+    visitWhen(e.when);
+    visitKey(e.key);
+    visitValue(e.value);
+  }
+  for (const v of Object.values(rule.props)) visitValue(v);
+  for (const e of rule.conditionalProps) {
+    visitWhen(e.when);
+    visitValue(e.value);
+  }
+  if (motion) constant = false;
   // Variables may carry media defaults; subscribe conservatively.
-  if (vars) {
+  if (rule.usesVars) {
     dimensions = true;
     colorScheme = true;
   }
   // Motion honours prefers-reduced-motion.
   if (motion) reducedMotion = true;
-  return { interaction, dimensions, colorScheme, reducedMotion, vars, motion };
+  const needs: Needs = {
+    interaction,
+    dimensions,
+    colorScheme,
+    reducedMotion,
+    vars: rule.usesVars,
+    motion,
+    constant,
+  };
+  ruleNeeds.set(rule, needs);
+  return needs;
+}
+
+const NO_NEEDS: Needs = {
+  interaction: false,
+  dimensions: false,
+  colorScheme: false,
+  reducedMotion: false,
+  vars: false,
+  motion: false,
+  constant: true,
+};
+
+/** Static analysis of which environment parts the rules can depend on. */
+export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
+  if (rules.length === 0) return NO_NEEDS;
+  if (rules.length === 1) return analyzeRule(rules[0] as CompiledRule);
+  let interaction = false;
+  let dimensions = false;
+  let colorScheme = false;
+  let reducedMotion = false;
+  let vars = false;
+  let motion = false;
+  let constant = true;
+  for (const rule of rules) {
+    const n = analyzeRule(rule);
+    interaction ||= n.interaction;
+    dimensions ||= n.dimensions;
+    colorScheme ||= n.colorScheme;
+    reducedMotion ||= n.reducedMotion;
+    vars ||= n.vars;
+    motion ||= n.motion;
+    constant &&= n.constant;
+  }
+  return { interaction, dimensions, colorScheme, reducedMotion, vars, motion, constant };
 }
 
 function conditionHolds(condition: string, env: Env): boolean {
@@ -154,7 +223,6 @@ function resolveConditional(value: Readonly<Record<string, RuntimeValue>>, env: 
 const VAR_STRING = /^var\(\s*(--[\w.-]+)\s*(?:,\s*(.*))?\)$/;
 const VAR_INLINE = /var\(\s*(--[\w.-]+)\s*(?:,\s*([^()]*))?\)/g;
 const RELATIVE_LENGTH = /(-?\d*\.?\d+)(rem|em|vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/gi;
-const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
 
 /**
  * Fold math the compiler had to defer (relative units, var()) now that the
@@ -285,13 +353,42 @@ function resolveUnits(value: string, env: Env, fontSize: number): RNLeaf {
 }
 
 /**
+ * Resolved results for constant rule lists, keyed by the rules in order (a
+ * trie of WeakMaps, so garbage-collected rules take their entries with
+ * them). A list of 1000 rows sharing a rule then resolves once.
+ */
+type CacheNode = { resolved?: Resolved; next: WeakMap<CompiledRule, CacheNode> };
+const cacheRoot: CacheNode = { next: new WeakMap() };
+
+/**
  * Resolve `props()` arguments against an environment. Pure: everything the
- * result depends on is in `args` and `env`.
+ * result depends on is in `args` and `env`. Constant rule lists (see
+ * `Needs.constant`) resolve once and return the same object afterwards;
+ * callers must not mutate the result.
  */
 export function resolve(args: readonly StyleArg[], env: Env): Resolved {
   const { rules, themes } = flattenArgs(args);
   const needs = analyzeNeeds(rules);
+  if (!needs.constant || themes.length) return resolveRules(rules, themes, env, needs);
+  let node = cacheRoot;
+  for (const rule of rules) {
+    let next = node.next.get(rule);
+    if (!next) {
+      next = { next: new WeakMap() };
+      node.next.set(rule, next);
+    }
+    node = next;
+  }
+  node.resolved ??= resolveRules(rules, themes, env, needs);
+  return node.resolved;
+}
 
+function resolveRules(
+  rules: readonly CompiledRule[],
+  themes: readonly Theme[],
+  env: Env,
+  needs: Needs,
+): Resolved {
   const styleAssignments = merge(rules, env, (r) => ({
     static: r.static,
     conditional: r.conditional,

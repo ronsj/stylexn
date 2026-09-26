@@ -47,11 +47,15 @@ const toList = (sx: SxProp | undefined): readonly StyleArg[] =>
 const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(RNTextInput);
 
-/** Children wrapped in a TextStyleProvider when there is anything to inherit. */
+/**
+ * Children wrapped in a TextStyleProvider when there is anything to inherit
+ * and something that could read it: a string or number child has no style.
+ */
 function inheriting(inherited: Readonly<Record<string, RNLeaf>>, children: ReactNode): ReactNode {
-  return Object.keys(inherited).length
-    ? createElement(TextStyleProvider, { style: inherited }, children)
-    : children;
+  if (typeof children !== "object" || children === null) return children;
+  for (const _ in inherited)
+    return createElement(TextStyleProvider, { style: inherited }, children);
+  return children;
 }
 
 export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;

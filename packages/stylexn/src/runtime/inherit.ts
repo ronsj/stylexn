@@ -28,9 +28,18 @@ export type InheritedTextStyle = Readonly<Record<string, RNLeaf>>;
 export function splitInherited<V = RNLeaf>(
   style: Readonly<Record<string, V>>,
 ): {
-  own: Record<string, V>;
-  inherited: Record<string, V>;
+  own: Readonly<Record<string, V>>;
+  inherited: Readonly<Record<string, V>>;
 } {
+  let any = false;
+  for (const key in style) {
+    if (INHERITED_TEXT_KEYS.has(key)) {
+      any = true;
+      break;
+    }
+  }
+  // Nothing to inherit (most Views): the style is its own, no copies.
+  if (!any) return { own: style, inherited: EMPTY as Readonly<Record<string, V>> };
   const own: Record<string, V> = {};
   const inherited: Record<string, V> = {};
   for (const [key, value] of Object.entries(style)) {
@@ -39,6 +48,7 @@ export function splitInherited<V = RNLeaf>(
   }
   return { own, inherited };
 }
+const EMPTY: Readonly<Record<string, never>> = Object.freeze({});
 
 export function shallowEqual(
   a: Readonly<Record<string, unknown>>,

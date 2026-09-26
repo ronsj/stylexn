@@ -187,6 +187,7 @@ describe("analyzeNeeds", () => {
       reducedMotion: false,
       vars: false,
       motion: false,
+      constant: true,
     });
     expect(analyzeNeeds([rule({ color: { ":hover": "red" } })]).interaction).toBe(true);
     expect(analyzeNeeds([rule({ transitionDuration: "1s" })])).toMatchObject({
@@ -205,6 +206,34 @@ describe("analyzeNeeds", () => {
       colorScheme: true,
       dimensions: true,
     });
+  });
+
+  test("constant: nothing depends on the environment", () => {
+    const constant = (decls: Declarations) => analyzeNeeds([rule(decls)]).constant;
+    expect(constant({ color: "red", padding: 8, transform: "scale(1)" })).toBe(true);
+    expect(constant({ color: { ":hover": "red" } })).toBe(false);
+    expect(constant({ transitionDuration: "1s" })).toBe(false);
+    expect(constant({ paddingTop: "1rem" })).toBe(false);
+    expect(constant({ paddingTop: "0.5em" })).toBe(false);
+    expect(constant({ width: "50vw" })).toBe(false);
+    expect(constant({ width: "calc(1rem + 8px)" })).toBe(false);
+    expect(constant({ marginTop: defineVars({ a: 1 }).a })).toBe(false);
+    // Several rules are constant only when each one is.
+    const a = rule({ color: "red" });
+    expect(analyzeNeeds([a, rule({ padding: 8 })]).constant).toBe(true);
+    expect(analyzeNeeds([a, rule({ padding: "1rem" })]).constant).toBe(false);
+  });
+
+  test("constant rule lists resolve to one cached object; the rest resolve fresh", () => {
+    const a = rule({ color: "red" });
+    const b = rule({ padding: 8 });
+    const e = env();
+    expect(resolve([a, b], e)).toBe(resolve([a, b], e));
+    expect(resolve([a, b], e)).not.toBe(resolve([b, a], e));
+    expect(resolve([a], e)).not.toBe(resolve([a, b], e));
+    const dynamic = rule({ paddingTop: "1rem" });
+    expect(resolve([a, dynamic], e)).not.toBe(resolve([a, dynamic], e));
+    expect(resolve([a, dynamic], e).style).toEqual({ color: "red", paddingTop: 16 });
   });
 
   test("flattenArgs separates rules from themes", () => {

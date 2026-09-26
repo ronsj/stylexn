@@ -1,7 +1,6 @@
 import {
   createContext,
   createElement,
-  useCallback,
   useContext,
   useMemo,
   useState,
@@ -62,7 +61,12 @@ function subscribeReducedMotion(onChange: () => void): () => void {
   return () => sub.remove();
 }
 
+// Stable subscribe/snapshot functions for stores a rule does not need: a
+// new getSnapshot identity per render makes useSyncExternalStore schedule a
+// passive effect on every element every render.
 const noop = () => () => {};
+const getNull = () => null;
+const getFalse = () => false;
 
 // ---------------------------------------------------------------------------
 // Theme context
@@ -144,21 +148,21 @@ export type InteractionHandlers = Readonly<{
 
 /** Track hover/active/focus for `:hover`, `:active`, `:focus` conditions. Spread the handlers on a Pressable. */
 export function useInteraction(): [InteractionState, InteractionHandlers] {
-  const [state, setState] = useState<InteractionState>({});
-  const set = useCallback((patch: InteractionState) => setState((s) => ({ ...s, ...patch })), []);
-  const handlers = useMemo<InteractionHandlers>(
-    () => ({
+  const [state, setState] = useState<InteractionState>(NO_INTERACTION);
+  const handlers = useMemo<InteractionHandlers>(() => {
+    const set = (patch: InteractionState) => setState((s) => ({ ...s, ...patch }));
+    return {
       onHoverIn: () => set({ hover: true }),
       onHoverOut: () => set({ hover: false }),
       onPressIn: () => set({ active: true }),
       onPressOut: () => set({ active: false }),
       onFocus: () => set({ focus: true }),
       onBlur: () => set({ focus: false }),
-    }),
-    [set],
-  );
+    };
+  }, []);
   return [state, handlers];
 }
+const NO_INTERACTION: InteractionState = {};
 
 // ---------------------------------------------------------------------------
 // useProps
@@ -185,19 +189,21 @@ export type UsePropsResult = Readonly<{
  * interaction handlers when a rule has `:hover`/`:active`/`:focus`.
  */
 export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {}): UsePropsResult {
-  const needs = useMemo(() => analyzeNeeds(flattenArgs(args).rules), [args]);
+  // Per-rule analysis is cached on the rules, so this is cheap every render
+  // (the args array is usually new each time, which defeats useMemo).
+  const needs = analyzeNeeds(flattenArgs(args).rules);
 
   const window = useSyncExternalStore(
     needs.dimensions ? subscribeWindow : noop,
-    needs.dimensions ? getWindow : () => null,
+    needs.dimensions ? getWindow : getNull,
   );
   const scheme = useSyncExternalStore(
     needs.colorScheme ? subscribeColorScheme : noop,
-    needs.colorScheme ? colorScheme : () => null,
+    needs.colorScheme ? colorScheme : getNull,
   );
   const reducedMotion = useSyncExternalStore(
     needs.reducedMotion ? subscribeReducedMotion : noop,
-    needs.reducedMotion ? getReducedMotion : () => false,
+    needs.reducedMotion ? getReducedMotion : getFalse,
   );
   const vars = useContext(VarsContext);
   const inheritedFontSize = useContext(TextStyleContext).fontSize;
@@ -208,7 +214,9 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     colorScheme: scheme ?? colorScheme(),
     reducedMotion,
     pointer: config.pointer,
-    interaction: { ...ownInteraction, ...options.interaction, disabled: options.disabled },
+    interaction: needs.interaction
+      ? { ...ownInteraction, ...options.interaction, disabled: options.disabled }
+      : NO_INTERACTION,
     vars,
     rootFontSize: config.rootFontSize,
     fontSize: typeof inheritedFontSize === "number" ? inheritedFontSize : config.fontSize,

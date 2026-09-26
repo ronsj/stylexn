@@ -59,6 +59,12 @@ export type Needs = Readonly<{
   vars: boolean;
   /** Any transition or animation declaration: the element needs a motion controller. */
   motion: boolean;
+  /**
+   * Nothing depends on the environment (no conditions, variables, relative
+   * units, deferred math or motion): the resolved style is the same for
+   * every element and every render, and `resolve` caches it.
+   */
+  constant: boolean;
 }>;
 
 /** What `props()` accepts: compiled rules, themes, falsy, or nested arrays of those. */

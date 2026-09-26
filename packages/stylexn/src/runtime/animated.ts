@@ -716,9 +716,13 @@ export function useMotion(
     reducedMotion: env.reducedMotion,
     resolveFrame,
   });
+  // Commit after every render that went through the controller (`result` is
+  // new each time, which is why it is a dependency); elements without a
+  // controller schedule no effect at all, which matters on long lists.
   useEffect(() => {
     controller?.commit();
-  });
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- see above
+  }, [controller, result]);
   useEffect(() => () => controller?.dispose(), [controller]);
   // `animated` is stable for the element's lifetime: switching between the
   // plain and Animated components would remount the native view (and, for
