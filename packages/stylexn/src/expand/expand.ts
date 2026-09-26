@@ -1,4 +1,4 @@
-import { properties, rnOnlyKeys } from "../compat/table.ts";
+import { propertyEntries as properties, rnOnlyKeys } from "../compat/table.ts";
 import { expanders } from "./shorthands.ts";
 import type { ConditionalValue, Declarations, Diagnostic, Expanded, Leaf, Value } from "./types.ts";
 import { isConditional } from "./types.ts";
@@ -9,8 +9,7 @@ import { isConditional } from "./types.ts";
  * shorthands of shorthands (`border` -> `borderWidth` -> `borderTopWidth`).
  */
 export function shorthandDepth(property: string): number {
-  const entry = properties[property as keyof typeof properties];
-  const targets = entry?.expandsTo;
+  const targets = properties[property]?.expandsTo;
   if (!targets || targets.length === 0) return 0;
   let max = 0;
   for (const t of targets) max = Math.max(max, shorthandDepth(t));
@@ -57,7 +56,7 @@ function expandLeaf(
 
 /** Every longhand a shorthand ultimately covers, in table order. */
 export function longhandsOf(property: string): string[] {
-  const targets = properties[property as keyof typeof properties]?.expandsTo;
+  const targets = properties[property]?.expandsTo;
   if (!targets) return [property];
   const out: string[] = [];
   for (const t of targets) {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { properties } from "../compat/table.ts";
+import { propertyEntries as properties } from "../compat/table.ts";
 import { expandDeclarations, longhandsOf, shorthandDepth } from "./expand.ts";
 import { expanders } from "./shorthands.ts";
 
@@ -12,7 +12,7 @@ describe("expanders and the compat table agree", () => {
 
   test("every expander is a table shorthand", () => {
     for (const key of Object.keys(expanders)) {
-      const entry = properties[key as keyof typeof properties];
+      const entry = properties[key];
       expect(entry?.expandsTo, `${key} needs expandsTo in the table`).toBeDefined();
     }
   });

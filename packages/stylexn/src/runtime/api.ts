@@ -5,6 +5,7 @@ import type { RNLeaf } from "../lower/lower.ts";
 import { snapshotEnv } from "./env.ts";
 import { resolve } from "./resolve.ts";
 import type { StyleArg } from "./types.ts";
+import type { ValidateStyles } from "../types/index.ts";
 import { isCompiledRule } from "./types.ts";
 
 type RuleInput = CompiledRule | Declarations | ((...args: never[]) => CompiledRule | Declarations);
@@ -26,8 +27,8 @@ function ensureCompiled(rule: CompiledRule | Declarations, name: string): Compil
  * `stylex.create`. With the Babel plugin the input is already compiled and
  * this is the identity; otherwise rules are compiled here (dev convenience).
  */
-export function create<T extends Record<string, RuleInput>>(
-  rules: T,
+export function create<const T extends Record<string, RuleInput>>(
+  rules: T & ValidateStyles<T>,
 ): {
   [K in keyof T]: T[K] extends (...args: infer A) => unknown
     ? (...args: A) => CompiledRule

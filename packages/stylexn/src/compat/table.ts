@@ -26,16 +26,35 @@ export const RN_TARGET: RNVersion = "0.86";
 
 type Extra = Omit<Entry, "status">;
 
-const ok = (extra: Extra = {}): Entry => ({ status: "supported", ...extra });
-const poly = (note: string, extra: Extra = {}): Entry => ({ status: "polyfilled", note, ...extra });
-const some = (values: readonly string[], note: string, extra: Extra = {}): Entry => ({
-  status: "partial",
-  values,
-  note,
-  ...extra,
-});
-const web = (note: string, extra: Extra = {}): Entry => ({ status: "web-only", note, ...extra });
-const no = (note: string, extra: Extra = {}): Entry => ({ status: "unsupported", note, ...extra });
+// Constructors keep `status` and `values` as literal types so the Layer 1
+// types (src/types) can derive property and value unions from this table.
+const ok = <const E extends Extra = Record<never, never>>(extra?: E) =>
+  ({ status: "supported", ...extra }) as { readonly status: "supported" } & E;
+const poly = <const E extends Extra = Record<never, never>>(note: string, extra?: E) =>
+  ({ status: "polyfilled", note, ...extra }) as {
+    readonly status: "polyfilled";
+    readonly note: string;
+  } & E;
+const some = <const V extends readonly string[], const E extends Extra = Record<never, never>>(
+  values: V,
+  note: string,
+  extra?: E,
+) =>
+  ({ status: "partial", values, note, ...extra }) as {
+    readonly status: "partial";
+    readonly values: V;
+    readonly note: string;
+  } & E;
+const web = <const E extends Extra = Record<never, never>>(note: string, extra?: E) =>
+  ({ status: "web-only", note, ...extra }) as {
+    readonly status: "web-only";
+    readonly note: string;
+  } & E;
+const no = <const E extends Extra = Record<never, never>>(note: string, extra?: E) =>
+  ({ status: "unsupported", note, ...extra }) as {
+    readonly status: "unsupported";
+    readonly note: string;
+  } & E;
 
 const LENGTH = ["<length>", "<percentage>"] as const;
 const SIZE = [...LENGTH, "auto"] as const;
@@ -501,7 +520,7 @@ export const properties = {
   fontSize: some(["<length>"], "Numbers only; no keyword sizes."),
   fontStyle: some(["normal", "italic"], "oblique is treated as italic."),
   fontWeight: some(
-    ["normal", "bold", "100", "200", "300", "400", "500", "600", "700", "800", "900"],
+    ["<number>", "normal", "bold", "100", "200", "300", "400", "500", "600", "700", "800", "900"],
     "bolder/lighter are not supported.",
   ),
   fontVariant: poly("Space-separated string converted to React Native's array form."),
@@ -599,6 +618,9 @@ export const properties = {
 } as const satisfies Table;
 
 export type KnownProperty = keyof typeof properties;
+
+/** The same table with wide `Entry` types, for runtime code that reads any field. */
+export const propertyEntries: Table = properties;
 
 /**
  * Keys outside CSS that `native` renames and `expandsTo` expansions may

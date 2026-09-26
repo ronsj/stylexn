@@ -1,4 +1,4 @@
-import { properties } from "../compat/table.ts";
+import { propertyEntries as properties } from "../compat/table.ts";
 import { splitComma, splitSpace } from "../expand/tokenize.ts";
 import type { ConditionalValue, Diagnostic, Expanded, Leaf } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
@@ -127,7 +127,7 @@ function lowerLength(key: string, v: string | number, diag: (m: string) => void)
 }
 
 function lowerGeneric(property: string, v: string | number, diag: (m: string) => void): LeafOutput {
-  const entry = properties[property as keyof typeof properties];
+  const entry = properties[property];
   const key = entry?.native ?? property;
   if (entry?.prop) return { props: { [entry.prop]: v } };
   if (isColorProperty(property) && v === "currentcolor") {
@@ -151,13 +151,13 @@ function lowerLeaf(
   const diag = (message: string) => diagnostics.push({ property: path, value, message });
   if (isSentinel(value)) {
     // Only known at runtime: rename/prop-map it, never inspect it.
-    const entry = properties[property as keyof typeof properties];
+    const entry = properties[property];
     return entry?.prop
       ? { props: { [entry.prop]: value } }
       : { style: { [entry?.native ?? property]: value } };
   }
   if (value === null) {
-    const entry = properties[property as keyof typeof properties];
+    const entry = properties[property];
     return entry?.prop
       ? { props: { [entry.prop]: null } }
       : { style: { [entry?.native ?? property]: null } };

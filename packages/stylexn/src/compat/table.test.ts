@@ -95,8 +95,8 @@ describe("properties", () => {
   test("native renames never target a key with its own entry of a different status", () => {
     for (const [key, entry] of entries(properties)) {
       if (!entry.native || !(entry.native in properties)) continue;
-      const target = properties[entry.native as keyof typeof properties];
-      expect(target.status, `${key} -> ${entry.native}`).not.toBe("unsupported");
+      const target = (properties as Table)[entry.native];
+      expect(target?.status, `${key} -> ${entry.native}`).not.toBe("unsupported");
     }
   });
 
@@ -133,7 +133,7 @@ describe("conditions", () => {
 
   test("every @media feature listed as accepted has a mediaFeatures entry", () => {
     for (const feature of atRules["@media"].values ?? []) {
-      expect(mediaFeatures[feature as keyof typeof mediaFeatures], feature).toBeDefined();
+      expect((mediaFeatures as Table)[feature], feature).toBeDefined();
     }
   });
 
