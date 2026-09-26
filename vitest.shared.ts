@@ -41,3 +41,29 @@ export function stylexTestPlugin(): Plugin {
     },
   };
 }
+
+/**
+ * The native counterpart: runs `stylexn/babel` in native mode over test
+ * modules (rules compile to the runtime shape, defineVars get stable ids,
+ * keyframes compile), as Metro does for the mobile app.
+ */
+export function stylexnNativeTestPlugin(): Plugin {
+  return {
+    name: "stylexn:native-test-transform",
+    enforce: "pre",
+    async transform(code, id) {
+      if (!/\.[cm]?[jt]sx?$/.test(id) || id.includes("/node_modules/")) return null;
+      if (!code.includes("stylex")) return null;
+      const result = await transformAsync(code, {
+        filename: id,
+        babelrc: false,
+        configFile: false,
+        sourceMaps: true,
+        parserOpts: { plugins: ["typescript", "jsx"] },
+        plugins: [[stylexnBabelPlugin, { platform: "native", rootDir: monorepoRoot }]],
+      });
+      if (!result?.code) return null;
+      return { code: result.code, map: result.map ?? null };
+    },
+  };
+}
