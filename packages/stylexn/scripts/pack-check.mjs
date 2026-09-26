@@ -28,7 +28,14 @@ try {
   walk(pkg.bin);
   if (JSON.stringify(pkg.exports).includes("./src/")) problems.push("exports still point at src");
   if (files.some((f) => f.startsWith("src/"))) problems.push("src is included in the tarball");
-  for (const f of ["README.md", "dist/elements.css", "dist/runtime/index.d.ts"]) expectPath(f);
+  for (const f of [
+    "README.md",
+    "COMPATIBILITY.md",
+    "dist/elements.css",
+    "dist/runtime/index.d.ts",
+  ]) {
+    expectPath(f);
+  }
 
   if (problems.length) {
     console.error(problems.map((p) => `  - ${p}`).join("\n"));

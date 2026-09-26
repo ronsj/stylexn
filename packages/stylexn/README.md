@@ -137,4 +137,5 @@ are recorded instead of run.
 ## Status
 
 0.x: the API follows StyleX; the native behaviour is documented per
-property in the compatibility table (`stylexn/compiler` exports it).
+property in [COMPATIBILITY.md](./COMPATIBILITY.md), rendered from the
+compatibility table (`stylexn/compiler` exports it).
