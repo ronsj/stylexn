@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Makes stylexn/babel strict (unsupported styles fail the build) and
+  # disables Expo/Playwright interactive behaviour.
+  CI: 1
+
+jobs:
+  check:
+    name: Lint, types, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # Also runs the root "prepare" script, which builds packages/stylexn/dist.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm check:styles
+
+  web:
+    name: Web build and e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @stylexn/web build
+      - run: pnpm --filter @stylexn/web exec playwright install --with-deps chromium
+      # With CI set, playwright.config.ts serves the production build (next start).
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  mobile:
+    name: Expo export (iOS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Bundles through Metro with stylexn/babel in strict mode; no simulator needed.
+      - run: pnpm --filter @stylexn/mobile exec expo export --platform ios

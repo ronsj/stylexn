@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://localhost:3000";
+// PORT lets CI (or a second local run) avoid a dev server already on 3000.
+const port = process.env.PORT ?? "3000";
+const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,7 +16,8 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
+    // CI runs `next build` first and tests the production server.
+    command: process.env.CI ? `pnpm start -p ${port}` : `pnpm dev -p ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
