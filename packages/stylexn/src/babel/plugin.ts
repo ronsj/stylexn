@@ -260,10 +260,16 @@ export default function stylexnBabelPlugin(
   }
 
   // -------------------------------------------------------------------------
-  // native: give defineVars a stable id (see runtime/vars.ts)
+  // native: give defineVars and keyframes a stable id (see runtime/vars.ts
+  // and runtime/keyframes.ts)
   // -------------------------------------------------------------------------
 
-  function stabilizeDefineVars(path: NodePath<t.CallExpression>, state: State): void {
+  /**
+   * Appends `"<prefix><hash>"` to a one-argument call, hashing the file path
+   * (relative to `rootDir`) and the binding the result is assigned to, so the
+   * id is the same on every build and Fast Refresh of the module.
+   */
+  function stabilizeId(path: NodePath<t.CallExpression>, state: State, prefix: string): void {
     const args = path.node.arguments;
     if (args.length !== 1) return; // already carries an id
     const parent = path.parentPath;
@@ -278,7 +284,7 @@ export default function stylexnBabelPlugin(
     }
     const root = options.rootDir ?? state.cwd ?? process.cwd();
     const file = state.filename ? relative(root, state.filename).split(sep).join("/") : "<unknown>";
-    args.push(T.stringLiteral(`v${hash(`${file}:${name}`)}`));
+    args.push(T.stringLiteral(`${prefix}${hash(`${file}:${name}`)}`));
   }
 
   // -------------------------------------------------------------------------
@@ -341,12 +347,13 @@ export default function stylexnBabelPlugin(
       CallExpression(path, state) {
         if (platform === "web") return;
         if (state.stylexn.isDefineVarsCall(asNode(path.node))) {
-          stabilizeDefineVars(path, state);
+          stabilizeId(path, state, "v");
           return;
         }
         if (state.stylexn.isKeyframesCall(asNode(path.node))) {
           const [frames] = path.get("arguments");
           if (frames?.isObjectExpression()) compileKeyframesArgument(frames, state);
+          stabilizeId(path, state, "stylexn-keyframes-");
           path.skip();
           return;
         }

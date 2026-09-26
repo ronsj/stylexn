@@ -94,10 +94,12 @@ export function firstThatWorks<T>(...values: readonly T[]): T | undefined {
 
 /**
  * `stylex.keyframes`: frames are compiled (by stylexn/babel, or here) and
- * registered under the returned name for `animationName`.
+ * registered under the returned name for `animationName`. `id` is injected
+ * by stylexn/babel so the name survives Fast Refresh (see runtime/keyframes.ts).
  */
 export function keyframes<const T extends Record<string, Record<string, unknown>>>(
   frames: T & ValidateStyles<T>,
+  id?: string,
 ): string {
-  return registerKeyframes(frames as Record<string, Declarations | CompiledRule>);
+  return registerKeyframes(frames as Record<string, Declarations | CompiledRule>, id);
 }

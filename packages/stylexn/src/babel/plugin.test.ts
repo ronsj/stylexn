@@ -356,5 +356,51 @@ describe("keyframes", () => {
   test("web: keyframes are left for StyleX", () => {
     const src = `${HEADER}const k = stylex.keyframes({ from: { opacity: 0 } });`;
     expect(transform(src, { platform: "web" }).code).not.toContain("$$stylexn");
+    expect(transform(src, { platform: "web" }).code).not.toContain("stylexn-keyframes-");
+  });
+});
+
+/** Injected keyframes ids in plugin output, in order. */
+const keyframesIds = (code: string) =>
+  [...code.matchAll(/"(stylexn-keyframes-[a-z0-9]+)"\)/g)].map((m) => m[1]);
+
+describe("keyframes ids", () => {
+  const MOTION = `${HEADER}
+    export const fade = stylex.keyframes({ from: { opacity: 0 }, to: { opacity: 1 } });
+    export const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
+    export default stylex.keyframes({ to: { opacity: 0 } });`;
+  const at = (file: string, rootDir = "/repo") =>
+    keyframesIds(transform(MOTION, { rootDir }, file).code);
+
+  test("native: a stable id per file and export is injected after the compiled frames", () => {
+    const a = at("/repo/packages/shared/motion.ts");
+    expect(a).toHaveLength(3);
+    expect(a).toEqual(at("/repo/packages/shared/motion.ts")); // same on every build and Fast Refresh
+    expect(new Set(a).size).toBe(3); // distinct per export
+    expect(at("/repo/packages/shared/motion.ts")).toEqual(
+      at("/other/place/packages/shared/motion.ts", "/other/place"),
+    );
+    expect(at("/repo/packages/shared/other.ts")).not.toEqual(a);
+    // The frames are still compiled: the id is appended, not substituted.
+    const { code } = transform(MOTION, { rootDir: "/repo" }, "/repo/packages/shared/motion.ts");
+    expect(code).toContain("$$stylexn: 1");
+  });
+
+  test("keyframes and defineVars in one file get unrelated ids", () => {
+    const code = transform(
+      `${HEADER}export const x = stylex.defineVars({ a: 1 }); export const y = stylex.keyframes({ to: { opacity: 0 } });`,
+      { rootDir: "/repo" },
+      "/repo/a.ts",
+    ).code;
+    expect(ids(code)).toHaveLength(1);
+    expect(keyframesIds(code)).toHaveLength(1);
+  });
+
+  test("an explicit id is left alone", () => {
+    const code = transform(
+      `${HEADER}export const k = stylex.keyframes({ to: { opacity: 0 } }, "custom");`,
+    ).code;
+    expect(code).toContain('}, "custom")');
+    expect(keyframesIds(code)).toEqual([]);
   });
 });

@@ -1,7 +1,14 @@
 /**
  * `stylex.keyframes` on native: frames are compiled like rules (by
- * stylexn/babel, or here as a fallback) and registered under a generated
- * name, which is what `animationName` carries at runtime.
+ * stylexn/babel, or here as a fallback) and registered under a name, which
+ * is what `animationName` carries at runtime.
+ *
+ * The name is the `id` injected by stylexn/babel (a hash of file and export
+ * name, as for `defineVars`). It keeps names stable across Fast Refresh:
+ * re-running a keyframes module re-registers the same name with the new
+ * frames, so rules in other modules that still hold the old name animate
+ * with the reloaded frames on their next run. Without the plugin a
+ * process-level counter names the frames.
  */
 import { compileRule } from "../compile/compile.ts";
 import type { CompiledRule } from "../compile/compile.ts";
@@ -25,8 +32,11 @@ function offsets(selector: string): number[] {
   });
 }
 
-export function keyframes(frames: Record<string, Declarations | CompiledRule>): string {
-  const name = `stylexn-keyframes-${++counter}`;
+export function keyframes(
+  frames: Record<string, Declarations | CompiledRule>,
+  id?: string,
+): string {
+  const name = id ?? `stylexn-keyframes-${++counter}`;
   const out: Keyframe[] = [];
   for (const [selector, frame] of Object.entries(frames)) {
     const rule = isCompiledRule(frame) ? frame : compileRule(frame as Declarations).rule;
