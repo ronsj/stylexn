@@ -16,14 +16,14 @@
  * than with Animated.sequence/loop so that pause/resume can continue from the
  * current progress and a delay can show the base style (`fill-mode: none`).
  *
- * Known simplifications: interrupted string/color transitions restart from
- * the nearer end; resuming during a delay restarts the delay; `steps()`
+ * Known simplifications: resuming during a delay restarts the delay; `steps()`
  * easing runs as linear; a removed key animates to a CSS initial value only
  * for the keys in INITIAL_VALUES, otherwise it jumps.
  */
 import { useEffect, useState } from "react";
 import { Animated, Easing } from "react-native";
 import type { CompiledRule } from "../compile/compile.ts";
+import { formatRGB, parseColor } from "../lower/color.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import { config } from "./env.ts";
 import { getKeyframes } from "./keyframes.ts";
@@ -58,11 +58,35 @@ const easingFn = (e: EasingSpec) =>
   e.type === "linear" ? Easing.linear : Easing.bezier(e.x1, e.y1, e.x2, e.y2);
 
 /**
- * Keys Animated can drive on the native thread. The choice is per element,
- * not per key: once one prop of a component is driven natively, React
- * Native rejects JS-driven animations on its other props.
+ * Keys Animated can drive on the native thread (React Native's
+ * NativeAnimatedAllowlist: opacity, transform, colours, radii, shadows on
+ * every version this package supports). The choice is per element, not per
+ * key: once one prop of a component is driven natively, React Native
+ * rejects JS-driven animations on its other props.
  */
-const NATIVE_KEYS: ReadonlySet<string> = new Set(["opacity", "transform"]);
+const NATIVE_KEYS: ReadonlySet<string> = new Set([
+  "opacity",
+  "transform",
+  "backgroundColor",
+  "color",
+  "borderColor",
+  "borderTopColor",
+  "borderRightColor",
+  "borderBottomColor",
+  "borderLeftColor",
+  "borderStartColor",
+  "borderEndColor",
+  "tintColor",
+  "borderRadius",
+  "borderTopLeftRadius",
+  "borderTopRightRadius",
+  "borderBottomLeftRadius",
+  "borderBottomRightRadius",
+  "shadowOpacity",
+  "shadowRadius",
+  "elevation",
+  "zIndex",
+]);
 const nativeDriverFor = (keys: Iterable<string>): boolean =>
   config.nativeDriver && [...keys].every((k) => NATIVE_KEYS.has(k));
 
@@ -159,9 +183,41 @@ function nodesFor(
   return progress.interpolate({ inputRange, outputRange: values as number[] });
 }
 
-/** What a transition currently shows, given how far it got. */
+const round = (n: number) => Math.round(n * 1000) / 1000;
+const UNIT_STRING = /^(-?\d*\.?\d+)([a-z%]*)$/i;
+
+/**
+ * What a transition currently shows, given how far it got: the value an
+ * interrupted transition restarts from, so a quick tap that releases mid-way
+ * continues smoothly instead of snapping to an end value.
+ */
 function displayed(from: RNLeaf, to: RNLeaf, p: number): RNLeaf {
-  if (typeof from === "number" && typeof to === "number") return from + (to - from) * p;
+  if (typeof from === "number" && typeof to === "number") return round(from + (to - from) * p);
+  if (typeof from === "string" && typeof to === "string") {
+    const a = from.match(UNIT_STRING);
+    const b = to.match(UNIT_STRING);
+    if (a && b && a[2] === b[2])
+      return `${round(Number(a[1]) + (Number(b[1]) - Number(a[1])) * p)}${a[2]}`;
+    const ca = parseColor(from);
+    const cb = parseColor(to);
+    if (ca && cb) {
+      return formatRGB({
+        r: ca.r + (cb.r - ca.r) * p,
+        g: ca.g + (cb.g - ca.g) * p,
+        b: ca.b + (cb.b - ca.b) * p,
+        a: ca.a + (cb.a - ca.a) * p,
+      });
+    }
+  }
+  const ta = parseTransform(from);
+  const tb = parseTransform(to);
+  if (ta && tb && sameTransformShape(ta, tb)) {
+    return ta.map((part, i) => {
+      const name = Object.keys(part)[0] as string;
+      const value = displayed(part[name] as RNLeaf, (tb[i] as TransformPart)[name] as RNLeaf, p);
+      return { [name]: value };
+    }) as unknown as RNLeaf;
+  }
   return p < 0.5 ? from : to;
 }
 

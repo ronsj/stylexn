@@ -72,17 +72,16 @@ describe("transitions", () => {
     });
     expect(result.current.style.width).toBe("50%"); // not in transition-property
 
-    // backgroundColor needs the JS driver, and one element cannot mix drivers:
-    // every transition on this element runs on the JS driver.
+    // Opacity and colours are both native-driver keys, so the element runs natively.
     const timings = started.filter((r) => r.kind === "timing");
     expect(timings.map((t) => t.config)).toEqual([
-      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: false },
+      { toValue: 1, duration: 150, delay: 0, easing: "linear", useNativeDriver: true },
       {
         toValue: 1,
         duration: 300,
         delay: 20,
         easing: { bezier: [0.42, 0, 1, 1] },
-        useNativeDriver: false,
+        useNativeDriver: true,
       },
     ]);
   });
@@ -102,18 +101,44 @@ describe("transitions", () => {
     expect(interp(result.current.style.opacity).outputRange).toEqual([0.75, 0.5]);
   });
 
-  test("opacity/transform-only elements run on the native driver", () => {
+  test("one element, one driver: a layout key puts every transition on the JS driver", () => {
     const s = create({
       a: {
         opacity: { default: 1, ":active": 0.5 },
-        transform: { default: "scale(1)", ":active": "scale(0.9)" },
-        transitionProperty: "opacity, transform",
+        width: { default: 100, ":active": 120 },
+        transitionProperty: "opacity, width",
         transitionDuration: "100ms",
       },
     });
     const { result } = renderHook(() => useProps([s.a]));
     act(() => result.current.onPressIn?.());
-    expect(started.map((r) => r.config?.useNativeDriver)).toEqual([true, true]);
+    expect(started.map((r) => r.config?.useNativeDriver)).toEqual([false, false]);
+  });
+
+  test("an interrupted transition continues from the value on screen (no snap)", () => {
+    // The demo button: colour + scale over 150ms. A quick tap releases mid-way.
+    const s = create({
+      a: {
+        backgroundColor: { default: "rgb(102, 51, 153)", ":active": "rgb(75, 42, 122)" },
+        transform: { default: "scale(1)", ":active": "scale(0.96)" },
+        width: { default: "10%", ":active": "50%" },
+        transitionDuration: "150ms",
+      },
+    });
+    const { result } = renderHook(() => useProps([s.a]));
+    act(() => result.current.onPressIn?.());
+    // 40% into the press-in transition...
+    for (const key of ["backgroundColor", "width"]) {
+      (result.current.style[key] as { from: FakeValue }).from.setValue(0.4);
+    }
+    const [scalePart] = result.current.style.transform as [Record<string, { from: FakeValue }>];
+    scalePart.scale?.from.setValue(0.4);
+    // ...the finger lifts. The way back must start from what is on screen.
+    act(() => result.current.onPressOut?.());
+    expect(interp(result.current.style.backgroundColor).outputRange[0]).toBe("rgb(91, 47, 141)");
+    expect(interp(result.current.style.width).outputRange[0]).toBe("26%");
+    const [back] = result.current.style.transform as [Record<string, unknown>];
+    expect(interp(back.scale).outputRange).toEqual([0.984, 1]);
   });
 
   test("transform strings transition per part", () => {
