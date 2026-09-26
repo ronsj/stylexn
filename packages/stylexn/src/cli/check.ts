@@ -3,10 +3,12 @@
  * Same core as the ESLint/oxlint rule; meant for CI and whole-tree runs.
  */
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseSync, traverse } from "@babel/core";
 import type { NodePath, types as t } from "@babel/core";
 import type { RNVersion } from "../compat/types.ts";
 import { lintDeclarations } from "../lint/core.ts";
+import { detectRNVersionFor } from "../node/rn-version.ts";
 import type { LintMessage, Severity } from "../lint/core.ts";
 import type { AstNode } from "../lint/extract.ts";
 import { CreateCallTracker, ExtractError, extractRule, ruleObject } from "../lint/extract.ts";
@@ -65,6 +67,10 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
   if (!ast) return [];
 
   const tracker = new CreateCallTracker(options.importSources);
+  const lintOptions = {
+    ...options,
+    rnVersion: options.rnVersion ?? detectRNVersionFor(resolve(file), process.cwd()),
+  };
   const ignored = ignoreLines((ast.comments ?? []) as Comment[], code);
   const problems: Problem[] = [];
   const push = (node: AstNode | undefined, severity: Severity, message: string) =>
@@ -99,7 +105,7 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
             platform: "native",
           });
           const messages = lintDeclarations(declarations, locations, {
-            ...options,
+            ...lintOptions,
             trusted,
           }) as LintMessage[];
           for (const m of messages) {

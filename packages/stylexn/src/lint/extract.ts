@@ -188,10 +188,11 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
 
 export const DEFAULT_IMPORT_SOURCES: readonly string[] = ["@stylexjs/stylex", "stylex", "stylexn"];
 
-/** Tracks StyleX imports in a file and recognises `create`, `web` and `native` through them. */
+/** Tracks StyleX imports in a file and recognises `create`, `defineVars`, `web` and `native` through them. */
 export class CreateCallTracker {
   private readonly namespaces = new Set<string>();
   private readonly creates = new Set<string>();
+  private readonly defineVars = new Set<string>();
   private readonly helpers = new Map<string, HelperKind>();
   private readonly sources: ReadonlySet<string>;
 
@@ -211,6 +212,7 @@ export class CreateCallTracker {
         const name =
           imported.type === "Identifier" ? (imported.name as string) : (imported.value as string);
         if (name === "create") this.creates.add(local);
+        if (name === "defineVars") this.defineVars.add(local);
         if (name === "web" || name === "native") this.helpers.set(local, name);
       }
     }
@@ -228,6 +230,12 @@ export class CreateCallTracker {
     const callee = node.callee as AstNode;
     if (callee.type === "Identifier") return this.creates.has(callee.name as string);
     return this.memberOf(callee) === "create";
+  }
+
+  isDefineVarsCall(node: AstNode): boolean {
+    const callee = node.callee as AstNode;
+    if (callee.type === "Identifier") return this.defineVars.has(callee.name as string);
+    return this.memberOf(callee) === "defineVars";
   }
 
   /** `web` or `native` when the call is an escape-hatch helper from a StyleX import. */

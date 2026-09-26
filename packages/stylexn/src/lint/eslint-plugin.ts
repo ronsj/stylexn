@@ -4,6 +4,7 @@
  * table says do not work on React Native.
  */
 import type { RNVersion } from "../compat/types.ts";
+import { detectRNVersionFor } from "../node/rn-version.ts";
 import { lintDeclarations } from "./core.ts";
 import type { AstNode } from "./extract.ts";
 import { CreateCallTracker, ExtractError, extractRule, ruleObject } from "./extract.ts";
@@ -21,6 +22,9 @@ type Scope = {
 
 type Context = {
   options: readonly RuleOptions[];
+  cwd?: string;
+  filename?: string;
+  physicalFilename?: string;
   sourceCode: { getScope(node: AstNode): Scope };
   report(descriptor: { node: AstNode; messageId: string; data: Record<string, string> }): void;
 };
@@ -77,7 +81,16 @@ const compat = {
     },
   },
   create(context: Context) {
-    const options = context.options[0] ?? {};
+    const given = context.options[0] ?? {};
+    const options: RuleOptions = {
+      ...given,
+      rnVersion:
+        given.rnVersion ??
+        detectRNVersionFor(
+          context.physicalFilename ?? context.filename,
+          context.cwd ?? process.cwd(),
+        ),
+    };
     const tracker = new CreateCallTracker(options.importSources);
     const resolveConst = resolveConstIn(context);
     return {

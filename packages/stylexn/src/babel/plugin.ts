@@ -1,3 +1,4 @@
+import { relative, sep } from "node:path";
 import type { NodePath, PluginObj, PluginPass, types as t } from "@babel/core";
 import type { RNVersion } from "../compat/types.ts";
 import { compileRule, isBlocking } from "../compile/compile.ts";
@@ -10,6 +11,7 @@ import {
   helperSpread,
   ruleObject,
 } from "../lint/extract.ts";
+import { detectRNVersionFor } from "../node/rn-version.ts";
 import { isSentinel, sentinelIndex } from "../sentinel.ts";
 
 export type StyleXNPluginOptions = Readonly<{
@@ -21,8 +23,17 @@ export type StyleXNPluginOptions = Readonly<{
   platform?: "native" | "web";
   /** Fail the build on unsupported styles. Default: `process.env.CI` is set. */
   strict?: boolean;
-  /** React Native version to check `since` against. */
+  /**
+   * React Native version to check `since` against. Default: the version of
+   * the `react-native` package resolvable from the file or the working
+   * directory, else the table's RN_TARGET.
+   */
   rnVersion?: RNVersion;
+  /**
+   * Directory `defineVars` ids are hashed relative to, so the ids do not
+   * depend on where the repository is checked out. Default: Babel's cwd.
+   */
+  rootDir?: string;
   /** Module specifiers that provide the StyleX API. */
   importSources?: readonly string[];
   /** Receives non-fatal messages; defaults to console.warn. */
@@ -31,7 +42,7 @@ export type StyleXNPluginOptions = Readonly<{
 
 type Babel = { types: typeof t };
 
-type State = PluginPass & { stylexn: CreateCallTracker };
+type State = PluginPass & { stylexn: CreateCallTracker; stylexnRNVersion?: RNVersion };
 
 // No parameter properties: the package is consumed via Node type stripping.
 class CompileError extends Error {
@@ -43,6 +54,16 @@ class CompileError extends Error {
 }
 
 const asNode = (n: t.Node): AstNode => n as unknown as AstNode;
+
+/** 32-bit FNV-1a, base36: short, stable, dependency-free. */
+function hash(input: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
 
 function rethrow(error: unknown, path: NodePath): never {
   if (error instanceof CompileError) throw path.buildCodeFrameError(error.message);
@@ -163,7 +184,7 @@ export default function stylexnBabelPlugin(
     const exprs = expressions as unknown as t.Expression[];
     const { rule, findings, diagnostics } = compileRule(declarations, {
       strict,
-      rnVersion: options.rnVersion,
+      rnVersion: state.stylexnRNVersion,
       trusted,
     });
     const where = `${state.filename ?? "<unknown>"} rule "${ruleName}"`;
@@ -211,6 +232,28 @@ export default function stylexnBabelPlugin(
   }
 
   // -------------------------------------------------------------------------
+  // native: give defineVars a stable id (see runtime/vars.ts)
+  // -------------------------------------------------------------------------
+
+  function stabilizeDefineVars(path: NodePath<t.CallExpression>, state: State): void {
+    const args = path.node.arguments;
+    if (args.length !== 1) return; // already carries an id
+    const parent = path.parentPath;
+    let name: string;
+    if (parent.isVariableDeclarator() && T.isIdentifier(parent.node.id)) {
+      name = parent.node.id.name;
+    } else if (parent.isExportDefaultDeclaration()) {
+      name = "default";
+    } else {
+      const loc = path.node.loc?.start;
+      name = loc ? `@${loc.line}:${loc.column}` : "@?";
+    }
+    const root = options.rootDir ?? state.cwd ?? process.cwd();
+    const file = state.filename ? relative(root, state.filename).split(sep).join("/") : "<unknown>";
+    args.push(T.stringLiteral(`v${hash(`${file}:${name}`)}`));
+  }
+
+  // -------------------------------------------------------------------------
   // web: resolve escape hatches in place so StyleX sees plain literals
   // -------------------------------------------------------------------------
 
@@ -245,6 +288,8 @@ export default function stylexnBabelPlugin(
     name: "stylexn",
     pre() {
       this.stylexn = new CreateCallTracker(options.importSources);
+      this.stylexnRNVersion =
+        options.rnVersion ?? detectRNVersionFor(this.filename, this.cwd ?? process.cwd());
     },
     visitor: {
       Program(path, state) {
@@ -266,7 +311,12 @@ export default function stylexnBabelPlugin(
         state.stylexn.visitImport(asNode(path.node));
       },
       CallExpression(path, state) {
-        if (platform === "web" || !state.stylexn.isCreateCall(asNode(path.node))) return;
+        if (platform === "web") return;
+        if (state.stylexn.isDefineVarsCall(asNode(path.node))) {
+          stabilizeDefineVars(path, state);
+          return;
+        }
+        if (!state.stylexn.isCreateCall(asNode(path.node))) return;
         const [arg] = path.get("arguments");
         if (!arg || !arg.isObjectExpression()) {
           throw path.buildCodeFrameError("StyleXN: stylex.create expects an object literal");

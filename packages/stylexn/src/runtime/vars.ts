@@ -12,9 +12,19 @@ export type VarGroup<T extends Record<string, RuntimeValue>> = Readonly<{
 }> &
   Readonly<{ $$stylexnGroup: string }>;
 
-/** `stylex.defineVars`: register defaults and return references for use in styles. */
-export function defineVars<T extends Record<string, RuntimeValue>>(values: T): VarGroup<T> {
-  const group = `v${++groupCounter}`;
+/**
+ * `stylex.defineVars`: register defaults and return references for use in
+ * styles. `id` is injected by stylexn/babel (a hash of file and export name,
+ * the way StyleX names its CSS variables). It keeps names stable across Fast
+ * Refresh: re-running the module re-registers the same group, so components
+ * still holding the old references keep resolving. Without the plugin a
+ * process-level counter names the group.
+ */
+export function defineVars<T extends Record<string, RuntimeValue>>(
+  values: T,
+  id?: string,
+): VarGroup<T> {
+  const group = id ?? `v${++groupCounter}`;
   const refs: Record<string, VarRef> = {};
   for (const [key, value] of Object.entries(values)) {
     const name = `${group}.${key}`;

@@ -255,3 +255,64 @@ const styles = stylex.create({
     ).toThrow(/object literal/);
   });
 });
+
+/** Injected defineVars ids in plugin output, in order. */
+const ids = (code: string) =>
+  [...code.matchAll(/defineVars\([^)]*\}, "(v[a-z0-9]+)"\)/g)].map((m) => m[1]);
+
+describe("defineVars ids", () => {
+  const TOKENS = `${HEADER}
+    export const colors = stylex.defineVars({ accent: "red" });
+    export const space = stylex.defineVars({ gutter: 8 });
+    export default stylex.defineVars({ anon: 1 });`;
+
+  test("native: a stable id per file and export is injected", () => {
+    const a = ids(
+      transform(TOKENS, { rootDir: "/repo" }, "/repo/packages/shared/tokens.stylex.ts").code,
+    );
+    const b = ids(
+      transform(TOKENS, { rootDir: "/repo" }, "/repo/packages/shared/tokens.stylex.ts").code,
+    );
+    expect(a).toHaveLength(3);
+    expect(a).toEqual(b); // deterministic across rebuilds (and Fast Refresh)
+    expect(new Set(a).size).toBe(3); // distinct per export
+    // Independent of the checkout location.
+    const elsewhere = ids(
+      transform(
+        TOKENS,
+        { rootDir: "/other/place" },
+        "/other/place/packages/shared/tokens.stylex.ts",
+      ).code,
+    );
+    expect(elsewhere).toEqual(a);
+    // Another file gets other ids.
+    const other = ids(
+      transform(TOKENS, { rootDir: "/repo" }, "/repo/packages/shared/other.stylex.ts").code,
+    );
+    expect(other).not.toEqual(a);
+  });
+
+  test("an explicit id and the web platform are left alone", () => {
+    const explicit = `${HEADER}export const v = stylex.defineVars({ a: 1 }, "custom");`;
+    expect(transform(explicit).code).toContain('defineVars({\n  a: 1\n}, "custom")');
+    expect(ids(transform(TOKENS, { platform: "web" }).code)).toEqual([]);
+  });
+
+  test("named imports are recognised", () => {
+    const code = transform(
+      `import { defineVars } from "stylexn";\nexport const t = defineVars({ a: 1 });`,
+    ).code;
+    expect(ids(code)).toHaveLength(1);
+  });
+});
+
+describe("rnVersion default", () => {
+  test("is detected from the installed react-native package", () => {
+    // packages/stylexn has react-native as a devDependency; mixBlendMode needs 0.76.
+    const styles = compiled(
+      `${HEADER}const styles = stylex.create({ a: { mixBlendMode: "multiply" } });`,
+      {},
+    );
+    expect(styles.a.static).toEqual({ mixBlendMode: "multiply" });
+  });
+});
