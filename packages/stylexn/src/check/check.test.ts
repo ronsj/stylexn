@@ -96,10 +96,16 @@ describe("units and functions", () => {
       check({ display: "var(--d)", width: "calc(1px + 2px)", height: "min(1px, 2px)" }),
     ).toEqual([]);
     expect(kinds({ width: "calc(100% - 8px)" })).toEqual(["function:partial:width"]);
-    expect(check({ width: "calc(1rem + 2px)" })[0]?.message).toMatch(/rem" is not static/);
+    expect(check({ width: "calc(1rem + 2px)", height: "calc(var(--h) * 2)" })).toEqual([]); // runtime
+    expect(check({ width: "calc(1ch + 2px)" })[0]?.message).toMatch(/"ch" is not supported/);
+    // Nested inside other functions too.
+    expect(check({ transform: "translateX(calc(1px + 1px))" })).toEqual([]);
+    expect(kinds({ transform: "translateX(calc(100% - 1px))" })).toEqual([
+      "function:partial:transform",
+    ]);
     // Colors likewise: convertible ones pass, the rest is reported.
     expect(check({ color: "color-mix(in srgb, #f00, #00f)" })).toEqual([]);
-    expect(kinds({ color: "color-mix(in srgb, red, blue)" })).toEqual(["function:partial:color"]);
+    expect(kinds({ color: "color-mix(in srgb, nope, blue)" })).toEqual(["function:partial:color"]);
     expect(kinds({ paddingTop: "env(safe-area-inset-top)" })).toEqual([
       "function:unsupported:paddingTop",
     ]);

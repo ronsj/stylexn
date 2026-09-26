@@ -29,7 +29,12 @@ export function defineVars<T extends Record<string, RuntimeValue>>(
   for (const [key, value] of Object.entries(values)) {
     const name = `${group}.${key}`;
     defaults.set(name, value);
-    refs[key] = { $$stylexnVar: name };
+    // `${vars.gap}` inside a template string reads as var(--name), which the
+    // runtime resolves like StyleX's CSS variables on web.
+    refs[key] = Object.defineProperty({ $$stylexnVar: name }, "toString", {
+      value: () => `var(--${name})`,
+      enumerable: false,
+    }) as VarRef;
   }
   return { ...refs, $$stylexnGroup: group } as VarGroup<T>;
 }
@@ -56,10 +61,12 @@ export function defineConsts<T extends Record<string, RuntimeValue>>(values: T):
 
 /** Look a variable up through element themes, provider scope, then defaults. */
 export function lookupVar(
-  name: string,
+  rawName: string,
   scope: VarScope,
   themes: readonly Theme[],
 ): RuntimeValue | undefined {
+  // `var(--v1.accent)` strings carry the CSS-style prefix; refs do not.
+  const name = rawName.startsWith("--") && !defaults.has(rawName) ? rawName.slice(2) : rawName;
   for (let i = themes.length - 1; i >= 0; i--) {
     const v = themes[i]?.$$stylexnTheme[name];
     if (v !== undefined) return v;

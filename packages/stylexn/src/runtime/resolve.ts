@@ -1,7 +1,15 @@
 import type { CompiledEntry, CompiledRule } from "../compile/compile.ts";
 import type { RNLeaf } from "../lower/lower.ts";
+import {
+  foldedToken,
+  foldMath,
+  isMathFunction,
+  mapFunctions,
+  MATH_ANYWHERE,
+} from "../lower/fold.ts";
 import { finalizeStyle } from "../lower/lower.ts";
 import { parseLength, RELATIVE_UNITS } from "../lower/units.ts";
+import { splitSpace } from "../expand/tokenize.ts";
 import { matchesMedia } from "./media.ts";
 import { MOTION_KEY, parseMotion } from "./motion.ts";
 import type { Env, Needs, Resolved, RuntimeValue, StyleArg, Theme } from "./types.ts";
@@ -47,12 +55,19 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
       }
     }
   };
+  const visitValue = (v: unknown) => {
+    if (typeof v === "string" && VIEWPORT_UNIT.test(v)) dimensions = true;
+  };
   for (const rule of rules) {
     if (rule.usesVars) vars = true;
-    if (Object.keys(rule.static).some((k) => MOTION_KEY.test(k))) motion = true;
+    for (const [k, v] of Object.entries(rule.static)) {
+      if (MOTION_KEY.test(k)) motion = true;
+      visitValue(v);
+    }
     for (const e of rule.conditional) {
       visitWhen(e.when);
       if (MOTION_KEY.test(e.key)) motion = true;
+      visitValue(e.value);
     }
     for (const e of rule.conditionalProps) visitWhen(e.when);
   }
@@ -136,7 +151,63 @@ function resolveConditional(value: Readonly<Record<string, RuntimeValue>>, env: 
   return chosen;
 }
 
-const VAR_STRING = /^var\(\s*(--[\w-]+)\s*(?:,\s*(.*))?\)$/;
+const VAR_STRING = /^var\(\s*(--[\w.-]+)\s*(?:,\s*(.*))?\)$/;
+const VAR_INLINE = /var\(\s*(--[\w.-]+)\s*(?:,\s*([^()]*))?\)/g;
+const RELATIVE_LENGTH = /(-?\d*\.?\d+)(rem|em|vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/gi;
+const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
+
+/**
+ * Fold math the compiler had to defer (relative units, var()) now that the
+ * environment is known. Works on the whole value or nested inside other
+ * functions; null when it still cannot be evaluated.
+ */
+function resolveMath(
+  value: string,
+  env: Env,
+  themes: readonly Theme[],
+  fontSize: number,
+  guard: number,
+): RNLeaf {
+  let failure: string | null = null;
+  const folded = mapFunctions(value, (token) => {
+    if (!isMathFunction(token)) return undefined;
+    const substituted = token
+      .replace(VAR_INLINE, (_, name: string, fallback?: string) => {
+        const v = lookupVar(name, env.vars, themes);
+        const leaf =
+          v === undefined
+            ? fallback === undefined
+              ? null
+              : resolveValue(fallback.trim(), env, themes, fontSize, guard + 1)
+            : resolveValue(v, env, themes, fontSize, guard + 1);
+        if (leaf === null) {
+          failure = `variable ${name} has no value`;
+          return "0px";
+        }
+        return typeof leaf === "number" ? `${leaf}px` : String(leaf);
+      })
+      .replace(RELATIVE_LENGTH, (m) => {
+        const n = resolveUnits(m, env, fontSize);
+        return typeof n === "number" ? `${n}px` : m;
+      });
+    const r = foldMath(substituted);
+    if (!r || r.ok !== true) {
+      failure = r && r.ok === false ? r.reason : `${token}: cannot be resolved`;
+      return null;
+    }
+    return foldedToken(r);
+  });
+  if (failure !== null || folded === null) {
+    warnOnce(`math:${value}`, `${failure ?? value} (dropped)`);
+    return null;
+  }
+  // A value that was a single math token becomes a number when it can.
+  if (isMathFunction(value) && splitSpace(value).length === 1) {
+    const n = parseLength(folded);
+    if (n && (n.unit === "px" || n.unit === "")) return n.value;
+  }
+  return folded;
+}
 
 function resolveValue(
   value: RuntimeValue,
@@ -161,6 +232,7 @@ function resolveValue(
       if (v !== undefined) return resolveValue(v, env, themes, fontSize, guard + 1);
       return m[2] !== undefined ? resolveValue(m[2], env, themes, fontSize, guard + 1) : null;
     }
+    if (MATH_ANYWHERE.test(value)) return resolveMath(value, env, themes, fontSize, guard);
     return resolveUnits(value, env, fontSize);
   }
   if (Array.isArray(value)) return value;

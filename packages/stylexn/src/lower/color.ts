@@ -5,6 +5,7 @@
  * gamut, no gamut mapping).
  */
 import { splitComma, splitSpace } from "../expand/tokenize.ts";
+import { NAMED_COLORS } from "./named-colors.ts";
 
 export type RGBA = Readonly<{ r: number; g: number; b: number; a: number }>; // sRGB 0..1
 
@@ -149,7 +150,7 @@ function hslToRgb(h: number, s: number, l: number): V3 {
   return [f(0), f(8), f(4)];
 }
 
-/** Parse any color StyleXN understands into sRGB; null for unknown syntax (named colors, etc.). */
+/** Parse any color StyleXN understands into sRGB; null for unknown syntax. */
 export function parseColor(token: string): RGBA | null {
   const t = token.trim();
   const hex = t.match(/^#([0-9a-f]{3,8})$/i)?.[1];
@@ -166,6 +167,8 @@ export function parseColor(token: string): RGBA | null {
     return { r: r / 255, g: g / 255, b: b / 255, a: (typeof a === "number" ? a : 255) / 255 };
   }
   if (t.toLowerCase() === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+  const named = NAMED_COLORS[t.toLowerCase()];
+  if (named) return parseColor(named);
   const m = t.match(/^([a-z-]+)\((.*)\)$/is);
   if (!m) return null;
   const name = (m[1] as string).toLowerCase();

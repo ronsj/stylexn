@@ -15,7 +15,8 @@ describe("parseColor", () => {
     expect(formatRGB(parseColor("rgb(100% 0% 0% / 50%)")!)).toBe("rgba(255, 0, 0, 0.5)");
     expect(formatRGB(parseColor("hsl(120, 100%, 50%)")!)).toBe("rgb(0, 255, 0)");
     expect(formatRGB(parseColor("hwb(0 0% 0%)")!)).toBe("rgb(255, 0, 0)");
-    expect(parseColor("red")).toBeNull(); // named colors are left to React Native
+    expect(formatRGB(parseColor("rebeccapurple")!)).toBe("rgb(102, 51, 153)");
+    expect(parseColor("notacolor")).toBeNull();
   });
 });
 
@@ -40,9 +41,8 @@ describe("convertColor", () => {
     expect(convert("color-mix(in oklch, oklch(0.7 0.15 30), oklch(0.7 0.15 330))")).toBe(
       convert("oklch(0.7 0.15 0)"),
     );
-    expect(convert("color-mix(in srgb, red, blue)")).toMatch(
-      /error: color-mix\(\): cannot convert "red"/,
-    );
+    expect(convert("color-mix(in srgb, red, blue)")).toBe("rgb(128, 0, 128)");
+    expect(convert("color-mix(in srgb, nope, blue)")).toMatch(/cannot convert "nope"/);
     expect(convert("color-mix(in hsl, #f00, #00f)")).toMatch(/unsupported space/);
   });
 

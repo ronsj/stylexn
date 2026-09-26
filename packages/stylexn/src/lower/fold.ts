@@ -1,28 +1,51 @@
 /**
  * Constant folding for `calc()`, `min()`, `max()` and `clamp()`. Operands
  * may be bare numbers, absolute lengths (px, pt, cm, ...), percentages,
- * parentheses and nested math functions. Relative units (em, rem, vw),
- * `var()` and mixing percentages with lengths cannot be folded, because
- * React Native has no expression values: the caller reports and drops them.
+ * angles, parentheses and nested math functions. Relative units (em, rem,
+ * vw, ...) and `var()` are only known at runtime: the expression is kept
+ * and the runtime folds it (see runtime/resolve.ts). Mixing percentages
+ * with lengths cannot be expressed on React Native and is an error.
  */
-import { ABSOLUTE_UNITS } from "./units.ts";
+import { splitComma, splitSpace } from "../expand/tokenize.ts";
+import { ABSOLUTE_UNITS, RELATIVE_UNITS } from "./units.ts";
 
-type Kind = "number" | "px" | "%";
+type Kind = "number" | "px" | "%" | "deg" | "unknown";
 type Quantity = { kind: Kind; value: number };
 
-export type Folded = Readonly<{ ok: true; kind: Kind; value: number }>;
+export type Folded = Readonly<{ ok: true; kind: Exclude<Kind, "unknown">; value: number }>;
 export type FoldError = Readonly<{ ok: false; reason: string }>;
+/** Static as far as units go, but needs runtime context (relative units, var()). */
+export type FoldDeferred = Readonly<{ ok: "runtime" }>;
+export type FoldResult = Folded | FoldError | FoldDeferred;
 
 const MATH = /^(calc|min|max|clamp)\(/i;
+/** Whether a math function appears anywhere in a value (also nested). */
+export const MATH_ANYWHERE = /\b(calc|min|max|clamp)\(/i;
 
 export const isMathFunction = (token: string): boolean => MATH.test(token.trim());
+
+const ANGLE_UNITS: Readonly<Record<string, number>> = {
+  deg: 1,
+  rad: 180 / Math.PI,
+  turn: 360,
+  grad: 0.9,
+};
 
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/i;
 const UNIT = /^[a-z%]*/i;
 
+/** Kinds must agree, except `unknown` (var()) which takes the other side. */
+function unify(a: Kind, b: Kind, what: string): Kind {
+  if (a === "unknown") return b;
+  if (b === "unknown") return a;
+  if (a !== b) throw new Error(`cannot ${what} ${describe(a)} and ${describe(b)}`);
+  return a;
+}
+
 class Parser {
   private readonly src: string;
   private pos = 0;
+  deferred = false;
 
   constructor(src: string) {
     this.src = src;
@@ -52,8 +75,20 @@ class Parser {
     if (!m) throw new Error(`expected a function in "${this.src}"`);
     const name = (m[1] as string).toLowerCase();
     this.pos += m[0].length;
-    const args: Quantity[] = [];
+    if (name === "var") {
+      // Resolved at runtime; skip to the matching paren.
+      let depth = 1;
+      while (this.pos < this.src.length && depth > 0) {
+        const ch = this.src[this.pos++];
+        if (ch === "(") depth++;
+        else if (ch === ")") depth--;
+      }
+      if (depth !== 0) throw new Error("unterminated var()");
+      this.deferred = true;
+      return { kind: "unknown", value: NaN };
+    }
     if (!MATH.test(`${name}(`)) throw new Error(`${name}() is not static`);
+    const args: Quantity[] = [];
     for (;;) {
       args.push(this.expr());
       if (this.peek() === ",") {
@@ -68,8 +103,13 @@ class Parser {
       return args[0] as Quantity;
     }
     if (name === "clamp" && args.length !== 3) throw new Error("clamp() takes three values");
-    const kind = (args[0] as Quantity).kind;
-    if (!args.every((a) => a.kind === kind)) throw new Error(`${name}() mixes units`);
+    let kind: Kind = "unknown";
+    for (const a of args) {
+      if (kind !== "unknown" && a.kind !== "unknown" && a.kind !== kind) {
+        throw new Error(`${name}() mixes units`);
+      }
+      if (a.kind !== "unknown") kind = a.kind;
+    }
     const values = args.map((a) => a.value);
     if (name === "min") return { kind, value: Math.min(...values) };
     if (name === "max") return { kind, value: Math.max(...values) };
@@ -84,11 +124,8 @@ class Parser {
       if (op !== "+" && op !== "-") return left;
       this.pos++;
       const right = this.term();
-      if (left.kind !== right.kind) {
-        throw new Error(`cannot add ${describe(left)} and ${describe(right)}`);
-      }
       left = {
-        kind: left.kind,
+        kind: unify(left.kind, right.kind, "add"),
         value: op === "+" ? left.value + right.value : left.value - right.value,
       };
     }
@@ -102,15 +139,20 @@ class Parser {
       this.pos++;
       const right = this.factor();
       if (op === "*") {
-        if (left.kind !== "number" && right.kind !== "number") {
-          throw new Error(`cannot multiply ${describe(left)} by ${describe(right)}`);
+        const numberSide = left.kind === "number" || left.kind === "unknown";
+        const otherNumber = right.kind === "number" || right.kind === "unknown";
+        if (!numberSide && !otherNumber) {
+          throw new Error(`cannot multiply ${describe(left.kind)} by ${describe(right.kind)}`);
         }
         left = {
-          kind: left.kind === "number" ? right.kind : left.kind,
+          kind:
+            left.kind === "number" ? right.kind : left.kind === "unknown" ? right.kind : left.kind,
           value: left.value * right.value,
         };
       } else {
-        if (right.kind !== "number") throw new Error(`cannot divide by ${describe(right)}`);
+        if (right.kind !== "number" && right.kind !== "unknown") {
+          throw new Error(`cannot divide by ${describe(right.kind)}`);
+        }
         if (right.value === 0) throw new Error("division by zero");
         left = { kind: left.kind, value: left.value / right.value };
       }
@@ -134,27 +176,43 @@ class Parser {
       const value = Number(num[0]);
       if (unit === "") return { kind: "number", value };
       if (unit === "%") return { kind: "%", value };
-      const factor = ABSOLUTE_UNITS[unit];
-      if (factor === undefined) throw new Error(`unit "${unit}" is not static`);
-      return { kind: "px", value: value * factor };
+      const px = ABSOLUTE_UNITS[unit];
+      if (px !== undefined) return { kind: "px", value: value * px };
+      const deg = ANGLE_UNITS[unit];
+      if (deg !== undefined) return { kind: "deg", value: value * deg };
+      if (RELATIVE_UNITS.has(unit)) {
+        this.deferred = true;
+        return { kind: "px", value: NaN };
+      }
+      throw new Error(`unit "${unit}" is not supported`);
     }
     if (/^[a-z-]+\(/i.test(rest)) return this.fn();
     throw new Error(`unexpected "${rest.slice(0, 12)}"`);
   }
 }
 
-const describe = (q: Quantity): string =>
-  q.kind === "number" ? "a number" : q.kind === "px" ? "a length" : "a percentage";
+const describe = (k: Kind): string =>
+  k === "number"
+    ? "a number"
+    : k === "px"
+      ? "a length"
+      : k === "%"
+        ? "a percentage"
+        : k === "deg"
+          ? "an angle"
+          : "a variable";
 
 /** Fold a single math-function token. `null` when the token is not one. */
-export function foldMath(token: string): Folded | FoldError | null {
+export function foldMath(token: string): FoldResult | null {
   const src = token.trim();
   if (!isMathFunction(src)) return null;
   try {
     const parser = new Parser(src);
     const q = parser.fn();
     parser.end();
+    if (parser.deferred) return { ok: "runtime" };
     if (!Number.isFinite(q.value)) throw new Error("not a finite value");
+    if (q.kind === "unknown") return { ok: "runtime" };
     return { ok: true, kind: q.kind, value: Math.round(q.value * 1000) / 1000 };
   } catch (error) {
     return { ok: false, reason: `${src}: ${(error as Error).message}` };
@@ -164,4 +222,41 @@ export function foldMath(token: string): Folded | FoldError | null {
 /** The folded value as a CSS token the rest of lowering understands. */
 export function foldedToken(f: Folded): string {
   return f.kind === "number" ? String(f.value) : `${f.value}${f.kind}`;
+}
+
+/**
+ * Rewrite function tokens anywhere in a value, including inside other
+ * functions' arguments (`translateX(calc(...))`, gradient colors). `map`
+ * returns a replacement, `undefined` to leave a token alone (its arguments
+ * are still visited), or `null` to abort; the result is then null.
+ */
+export function mapFunctions(
+  value: string,
+  map: (token: string) => string | null | undefined,
+): string | null {
+  const out: string[] = [];
+  for (const token of splitSpace(value)) {
+    const mapped = map(token);
+    if (mapped === null) return null;
+    if (mapped !== undefined) {
+      out.push(mapped);
+      continue;
+    }
+    const open = token.indexOf("(");
+    if (open === -1 || !token.endsWith(")")) {
+      out.push(token);
+      continue;
+    }
+    const original = splitComma(token.slice(open + 1, -1));
+    const args: string[] = [];
+    for (const arg of original) {
+      const inner = mapFunctions(arg, map);
+      if (inner === null) return null;
+      args.push(inner);
+    }
+    // Keep the author's spacing unless something inside actually changed.
+    const changed = args.some((a, i) => a !== original[i]);
+    out.push(changed ? `${token.slice(0, open)}(${args.join(", ")})` : token);
+  }
+  return out.join(" ");
 }

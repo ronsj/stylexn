@@ -824,11 +824,20 @@ export const functions = {
   "var()": poly("Resolved from React context at runtime."),
   "calc()": some(
     ["<length>", "<percentage>", "<number>"],
-    "Constant-folded at compile time when every operand is static and unit-compatible; otherwise rejected.",
+    "Constant-folded at compile time; relative units and var() fold at runtime. Mixing percentages with lengths is rejected.",
   ),
-  "min()": some(["<length>", "<number>"], "Constant-folded at compile time when static."),
-  "max()": some(["<length>", "<number>"], "Constant-folded at compile time when static."),
-  "clamp()": some(["<length>", "<number>"], "Constant-folded at compile time when static."),
+  "min()": some(
+    ["<length>", "<number>"],
+    "Folded at compile time, or at runtime for relative units and var().",
+  ),
+  "max()": some(
+    ["<length>", "<number>"],
+    "Folded at compile time, or at runtime for relative units and var().",
+  ),
+  "clamp()": some(
+    ["<length>", "<number>"],
+    "Folded at compile time, or at runtime for relative units and var().",
+  ),
   "env()": no("Safe-area insets come from react-native-safe-area-context, not styles."),
   "attr()": no("No attribute access from styles."),
   "counter()": no("No generated content."),
@@ -843,7 +852,7 @@ export const functions = {
   "oklab()": poly("Converted to rgb at compile time when static."),
   "oklch()": poly("Converted to rgb at compile time when static."),
   "color()": poly("Converted to rgb at compile time when static."),
-  "color-mix()": poly("Converted to rgb at compile time when static."),
+  "color-mix()": poly("Converted to rgb at compile time (hex, functional and named colors)."),
   "light-dark()": poly("Rewritten to a prefers-color-scheme condition at compile time."),
   "linear-gradient()": ok({ note: "Via backgroundImage." }),
   "radial-gradient()": ok({ note: "Via backgroundImage." }),

@@ -3,7 +3,7 @@ import { compileRule } from "../compile/compile.ts";
 import type { Declarations } from "../expand/types.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
 import type { Env } from "./types.ts";
-import { createTheme, defineVars, resetVarsForTesting } from "./vars.ts";
+import { createTheme, defineVars, resetVarsForTesting, scopeWith } from "./vars.ts";
 
 const rule = (decls: Declarations) => compileRule(decls).rule;
 
@@ -212,5 +212,54 @@ describe("analyzeNeeds", () => {
     const theme = createTheme(vars, { a: 2 });
     const r = rule({ color: "red" });
     expect(flattenArgs([r, [theme, [r]], null])).toEqual({ rules: [r, r], themes: [theme] });
+  });
+});
+
+describe("runtime math", () => {
+  test("deferred calc() with relative units folds against the environment", () => {
+    const r = rule({
+      width: "calc(50vw - 10px)",
+      paddingTop: "calc(1rem + 2px)",
+      marginTop: "min(1em, 100px)",
+    });
+    const { style } = resolve(
+      [r],
+      env({ window: { width: 400, height: 800, scale: 2, fontScale: 1 } }),
+    );
+    expect(style).toEqual({ width: 190, paddingTop: 18, marginTop: 14 });
+  });
+
+  test("var() inside math and template-string refs", () => {
+    const vars = defineVars({ gap: 8, wide: "20px" });
+    const r = rule({
+      paddingTop: `calc(${vars.gap} * 2)`,
+      marginTop: "calc(var(--missing, 4px) + var(--also-missing, 1px))",
+      width: `calc(${vars.wide} + 1px)`,
+      height: `${vars.gap}`,
+    });
+    expect(resolve([r], env()).style).toEqual({
+      paddingTop: 16,
+      marginTop: 5,
+      width: 21,
+      height: 8,
+    });
+    expect(
+      resolve([r], env({ vars: scopeWith({}, [createTheme(vars, { gap: 10 })]) })).style.paddingTop,
+    ).toBe(20);
+  });
+
+  test("math nested in transforms resolves in place; unresolvable math is dropped with a warning", () => {
+    const r = rule({
+      transform: "translateX(calc(1rem + 2px)) scale(1)",
+      width: "calc(var(--nope) * 2)",
+    });
+    expect(resolve([r], env()).style).toEqual({ transform: "translateX(18px) scale(1)" });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/--nope has no value/));
+  });
+
+  test("viewport units in static values subscribe to dimensions", () => {
+    expect(analyzeNeeds([rule({ width: "50vw" })]).dimensions).toBe(true);
+    expect(analyzeNeeds([rule({ width: "calc(50vw - 1px)" })]).dimensions).toBe(true);
+    expect(analyzeNeeds([rule({ width: "50%" })]).dimensions).toBe(false);
   });
 });

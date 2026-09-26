@@ -17,7 +17,7 @@ import { isFunction, looksLikeColor, splitSpace } from "../expand/tokenize.ts";
 import type { Leaf, Value } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
 import { convertColor } from "../lower/color.ts";
-import { foldMath } from "../lower/fold.ts";
+import { foldMath, mapFunctions } from "../lower/fold.ts";
 import { parseLength } from "../lower/units.ts";
 
 export type FindingKind =
@@ -61,7 +61,7 @@ function tokenAccepted(token: string, isNumber: boolean, values: readonly string
     if (v.startsWith("<")) {
       // A function in a <length>/<color>/... slot is valid CSS; lookupFunction decides.
       if (fnName !== null || PATTERNS[v]?.(token, isNumber)) return true;
-    } else if (fnName !== null ? fnName === v : lower === v) {
+    } else if (fnName !== null ? fnName === v.toLowerCase() : lower === v.toLowerCase()) {
       return true;
     }
   }
@@ -100,20 +100,30 @@ function checkLeaf(
       const fn = lookupFunction(name);
       // Functions the table does not list (rotate(), blur(), ...) belong to a
       // property; the property's own values list judges them.
-      if (fn === UNKNOWN) continue;
-      // Math and color functions are fine when lowering can make them static.
+      // Math and color functions are fine when lowering can make them static
+      // (or, for math with relative units / var(), resolve them at runtime).
+      const report = (reason: string) =>
+        out.push({
+          kind: "function",
+          status: "partial",
+          property,
+          conditions,
+          value,
+          message: `${property}: ${reason}`,
+        });
       const folded = foldMath(token) ?? convertColor(token);
       if (folded) {
-        if (!folded.ok) {
-          out.push({
-            kind: "function",
-            status: "partial",
-            property,
-            conditions,
-            value,
-            message: `${property}: ${folded.reason}`,
-          });
-        }
+        if (folded.ok === false) report(folded.reason);
+        continue;
+      }
+      if (fn === UNKNOWN) {
+        // A transform/gradient/... function: check the math and colors inside it.
+        mapFunctions(token, (inner) => {
+          if (inner === token) return undefined;
+          const r = foldMath(inner) ?? convertColor(inner);
+          if (r && r.ok === false) report(r.reason);
+          return undefined;
+        });
         continue;
       }
       if (fn.status === "unsupported" || fn.status === "web-only" || fn.status === "partial") {

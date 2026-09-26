@@ -201,10 +201,18 @@ describe("lowerDeclarations: folding and color conversion", () => {
     expect(style.borderTopColor).toBe("rgba(0, 0, 255, 0.5)");
   });
 
-  test("transform strings are left alone (functions there are transform functions)", () => {
-    expect(lower({ transform: "rotate(45deg) scale(1.5)" }).style.transform).toBe(
-      "rotate(45deg) scale(1.5)",
+  test("math and colors fold inside other functions; deferred math is kept", () => {
+    expect(
+      lower({ transform: "translateX(calc(10px + 5px)) rotate(calc(0.25turn * 2))" }).style
+        .transform,
+    ).toBe("translateX(15px) rotate(180deg)");
+    expect(lower({ transform: "translateX(calc(1rem + 2px))" }).style.transform).toBe(
+      "translateX(calc(1rem + 2px))",
     );
+    expect(lower({ width: "calc(50vw - 10px)" }).style.width).toBe("calc(50vw - 10px)");
+    expect(lower({ backgroundImage: "linear-gradient(oklab(1 0 0), red)" }).style).toEqual({
+      experimental_backgroundImage: "linear-gradient(rgb(255, 255, 255), red)",
+    });
   });
 });
 
