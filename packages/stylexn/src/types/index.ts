@@ -189,15 +189,15 @@ export type CheckRule<R> = R extends { readonly $$stylexn: 1 }
 export type KeyframeSelector = "from" | "to" | `${number}%` | `${string},${string}`;
 
 /** A frame is a rule without conditions: plain values (or var references) only. */
-type CheckFrame<F> = {
-  readonly [K in keyof F]: K extends UnsupportedProperty
+type CheckFrame<Frame> = {
+  readonly [K in keyof Frame]: K extends UnsupportedProperty
     ? Message<`${K} is not supported on React Native`>
     : K extends NativeProperty
-      ? NonNullable<F[K]> extends VarLike | Branded | string | number
-        ? CheckValue<K, F[K]>
+      ? NonNullable<Frame[K]> extends VarLike | Branded | string | number
+        ? CheckValue<K, Frame[K]>
         : Message<`keyframes take plain values, not conditions (${K})`>
       : K extends `--${string}`
-        ? F[K]
+        ? Frame[K]
         : Message<`unknown property ${K & string}`>;
 };
 
