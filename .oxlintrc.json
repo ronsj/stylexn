@@ -31,6 +31,6 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/.expo/**"],
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/out/**", "**/.expo/**"],
   "jsPlugins": ["./packages/stylexn/src/lint/eslint-plugin.ts"]
 }

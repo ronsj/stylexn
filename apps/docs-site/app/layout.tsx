@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+// globals.css first: it declares the reset layer before StyleX's priority
+// layers, so the resets stay underneath every StyleX rule.
 import "./globals.css";
+import "stylexn/elements.css";
 
 export const metadata = {
   title: "StyleXN",

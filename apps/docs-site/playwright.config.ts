@@ -16,7 +16,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // CI runs `next build` first and tests the production server.
+    // CI runs `next build` first and tests the static export in out/.
     command: process.env.CI ? `pnpm start -p ${port}` : `pnpm dev -p ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
