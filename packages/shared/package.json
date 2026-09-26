@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stylexjs/stylex": "^0.19.1"
+    "@stylexjs/stylex": "^0.19.1",
+    "stylexn": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.3",

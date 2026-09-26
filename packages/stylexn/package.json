@@ -10,7 +10,11 @@
     },
     "./native": "./src/runtime/index.ts",
     "./compiler": "./src/compiler.ts",
-    "./babel": "./src/babel/index.ts"
+    "./babel": "./src/babel/index.ts",
+    "./elements": {
+      "react-native": "./src/elements/native.ts",
+      "default": "./src/elements/web.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

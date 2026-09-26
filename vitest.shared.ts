@@ -26,6 +26,7 @@ export function stylexTestPlugin(): Plugin {
             stylexBabelPlugin,
             {
               dev: true,
+              importSources: ["@stylexjs/stylex", "stylexn"],
               runtimeInjection: true,
               unstable_moduleResolution: { type: "commonJS", rootDir: monorepoRoot },
             },

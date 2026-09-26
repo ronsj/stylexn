@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     name: "web",
     environment: "jsdom",
+    setupFiles: ["../../vitest.setup.ts"],
     // Playwright specs live in e2e/ and must not be picked up here.
     include: ["app/**/*.test.{ts,tsx}"],
   },

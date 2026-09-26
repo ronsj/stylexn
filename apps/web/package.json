@@ -15,7 +15,8 @@
     "@stylexn/shared": "workspace:*",
     "next": "^16.3.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "stylexn": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

@@ -10,6 +10,8 @@ module.exports = {
       "@stylexjs/babel-plugin",
       {
         dev,
+        // Shared code imports StyleX as "stylexn" (its web entry re-exports StyleX).
+        importSources: ["@stylexjs/stylex", "stylexn"],
         runtimeInjection: false,
         enableInlinedConditionalMerge: true,
         treeshakeCompensation: true,

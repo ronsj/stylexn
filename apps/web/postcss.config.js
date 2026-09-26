@@ -5,7 +5,11 @@ module.exports = {
     "@stylexjs/postcss-plugin": {
       // Globs are relative to apps/web. Shared source must be listed
       // explicitly; auto-discovery does not look outside this directory.
-      include: ["app/**/*.{js,jsx,ts,tsx}", "../../packages/shared/src/**/*.{js,jsx,ts,tsx}"],
+      include: [
+        "app/**/*.{js,jsx,ts,tsx}",
+        "../../packages/shared/src/**/*.{js,jsx,ts,tsx}",
+        "../../packages/stylexn/src/**/*.{js,jsx,ts,tsx}",
+      ],
       babelConfig: {
         babelrc: false,
         parserOpts: { plugins: ["typescript", "jsx"] },
