@@ -12,6 +12,7 @@ import {
 } from "stylexn/elements";
 import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "stylexn/elements";
 import { expect, test, vi } from "vitest";
+import * as stylex from "stylexn";
 
 // The web implementation of stylexn/elements, compiled by the real StyleX plugin.
 
@@ -234,4 +235,18 @@ test("refs expose focus/clear on TextInput and scrolling on ScrollView and FlatL
   expect(listScrollTo).toHaveBeenCalledWith({ top: 12, behavior: "smooth" });
   list.current?.scrollToIndex({ index: 1, animated: false });
   expect(listScrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "instant" }); // no layout in jsdom
+});
+
+test("ThemeProvider wraps a subtree in a display: contents element carrying the theme", () => {
+  const tokens = stylex.defineVars({ tone: "red" });
+  const blue = stylex.createTheme(tokens, { tone: "blue" });
+  render(
+    <stylex.ThemeProvider theme={blue}>
+      <Text testID="t">x</Text>
+    </stylex.ThemeProvider>,
+  );
+  const wrapper = screen.getByTestId("t").parentElement as HTMLElement;
+  expect(wrapper.tagName).toBe("DIV");
+  expect(wrapper.style.display).toBe("contents");
+  expect(wrapper.className).toMatch(/\bx[a-z0-9]+\b/); // the theme's class
 });
