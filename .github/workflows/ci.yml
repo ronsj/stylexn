@@ -47,6 +47,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @stylexn/web build
+      # The browser download is the slowest step; key it on the lockfile so a
+      # Playwright bump refreshes it.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm --filter @stylexn/web exec playwright install --with-deps chromium
       # With CI set, playwright.config.ts serves the production build (next start).
       - run: pnpm test:e2e

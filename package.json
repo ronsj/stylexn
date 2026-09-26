@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "pnpm --filter @stylexn/web test:e2e",
     "check:styles": "node packages/stylexn/dist/bin.mjs check --report-web-only --strict packages/shared/src apps/mobile",
-    "build": "pnpm --filter stylexn build"
+    "build": "pnpm --filter stylexn build",
+    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:styles && pnpm --filter stylexn pack:check"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
