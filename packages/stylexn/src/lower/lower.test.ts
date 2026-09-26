@@ -84,7 +84,8 @@ describe("lowerDeclarations: renames and props", () => {
 
 describe("lowerDeclarations: text", () => {
   test("lineHeight", () => {
-    expect(lower({ lineHeight: 1.5 }).style.lineHeight).toBe("1.5em");
+    expect(lower({ lineHeight: 1.5 }).style.lineHeight).toBe("1.5"); // a multiplier
+    expect(lower({ lineHeight: "1.5" }).style.lineHeight).toBe("1.5");
     expect(lower({ lineHeight: "24px" }).style.lineHeight).toBe(24);
     expect(lower({ lineHeight: "normal" }).style).toEqual({});
   });

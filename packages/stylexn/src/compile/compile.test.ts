@@ -17,7 +17,7 @@ describe("compileRule", () => {
         paddingBottom: 8,
         paddingLeft: 16,
         color: "red",
-        lineHeight: "1.2em",
+        lineHeight: "1.2",
       },
       conditional: [],
       props: {},

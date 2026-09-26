@@ -517,7 +517,10 @@ export const properties = {
   // --- Text ----------------------------------------------------------------
   color: ok(),
   fontFamily: some(["<string>"], "One family name; fallback lists use the first entry."),
-  fontSize: some(["<length>"], "Numbers only; no keyword sizes."),
+  fontSize: some(
+    ["<length>", "<percentage>"],
+    "No keyword sizes. Percentages and em resolve against the inherited font size at runtime.",
+  ),
   fontStyle: some(["normal", "italic"], "oblique is treated as italic."),
   fontWeight: some(
     ["<number>", "normal", "bold", "100", "200", "300", "400", "500", "600", "700", "800", "900"],
@@ -536,7 +539,9 @@ export const properties = {
   fontSynthesis: no("Not exposed by React Native."),
   font: no("Expand to longhands; the font shorthand grammar is not parsed."),
   letterSpacing: some(["<length>"], "Numbers only; normal is 0."),
-  lineHeight: poly("Unitless multipliers are resolved against fontSize; lengths pass through."),
+  lineHeight: poly(
+    "Unitless multipliers resolve against the element's font size at runtime and inherit as multipliers, like CSS; lengths pass through.",
+  ),
   textAlign: some(
     ["auto", "left", "right", "center", "justify"],
     "start/end are mapped via direction.",

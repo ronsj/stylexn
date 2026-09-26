@@ -24,6 +24,18 @@ export const INHERITED_TEXT_KEYS: ReadonlySet<string> = new Set([
 
 export type InheritedTextStyle = Readonly<Record<string, RNLeaf>>;
 
+/**
+ * Inherited values that differ from the rendered style, by style object
+ * (see `Resolved.inherit`): a unitless `lineHeight` renders as a number but
+ * cascades as the multiplier. Registered by `useProps`, read by
+ * `splitInherited`, so the hook's result shape stays `{ style, ...props }`.
+ */
+const inheritOverrides = new WeakMap<object, InheritedTextStyle>();
+
+export function registerInherit(style: object, overrides: InheritedTextStyle): void {
+  inheritOverrides.set(style, overrides);
+}
+
 /** Split a resolved style into the element's own keys and the ones its text descendants inherit. */
 export function splitInherited<V = RNLeaf>(
   style: Readonly<Record<string, V>>,
@@ -46,9 +58,32 @@ export function splitInherited<V = RNLeaf>(
     if (INHERITED_TEXT_KEYS.has(key)) inherited[key] = value;
     else own[key] = value;
   }
+  const overrides = inheritOverrides.get(style);
+  if (overrides) Object.assign(inherited, overrides);
   return { own, inherited };
 }
 const EMPTY: Readonly<Record<string, never>> = Object.freeze({});
+
+const UNITLESS_NUMBER = /^-?\d*\.?\d+$/;
+
+/**
+ * The style a Text renders: inherited values under its own (the cascade).
+ * An inherited unitless `lineHeight` is a multiplier of this element's font
+ * size, like CSS; `fallbackFontSize` applies when nothing sets one.
+ */
+export function mergeInherited(
+  inherited: InheritedTextStyle,
+  own: Readonly<Record<string, RNLeaf>>,
+  fallbackFontSize: number,
+): Record<string, RNLeaf> {
+  const merged: Record<string, RNLeaf> = { ...inherited, ...own };
+  const lineHeight = merged.lineHeight;
+  if (typeof lineHeight === "string" && UNITLESS_NUMBER.test(lineHeight)) {
+    const fontSize = typeof merged.fontSize === "number" ? merged.fontSize : fallbackFontSize;
+    merged.lineHeight = Number(lineHeight) * fontSize;
+  }
+  return merged;
+}
 
 export function shallowEqual(
   a: Readonly<Record<string, unknown>>,

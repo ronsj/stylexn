@@ -29,6 +29,9 @@ const styles = create({
   big: { fontSize: 32 },
   blue: { color: "blue" },
   em: { paddingTop: "1em", lineHeight: 1.5 },
+  lead: { fontSize: 20, lineHeight: 1.5 },
+  leadPx: { fontSize: 20, lineHeight: "24px" },
+  pct: { fontSize: "120%" },
   pad: { paddingTop: "1em" },
   button: { color: "white", backgroundColor: "black" },
   fading: { opacity: { default: 1, ":active": 0.5 }, transitionDuration: "100ms" },
@@ -98,6 +101,58 @@ describe("text inheritance", () => {
       </Text>,
     );
     expect(styleOf("nested")).toEqual({ fontSize: 32, paddingTop: 32, lineHeight: 48 });
+  });
+
+  test("a unitless lineHeight inherits as a multiplier of the child's font size; a length as is", () => {
+    render(
+      <View sx={styles.lead}>
+        <Text sx={styles.big} testID="big">
+          hi
+        </Text>
+        <Text testID="same">hi</Text>
+        <View sx={styles.leadPx}>
+          <Text sx={styles.big} testID="px">
+            hi
+          </Text>
+        </View>
+      </View>,
+    );
+    expect(styleOf("big")).toEqual({ fontSize: 32, lineHeight: 48 });
+    expect(styleOf("same")).toEqual({ fontSize: 20, lineHeight: 30 });
+    expect(styleOf("px")).toEqual({ fontSize: 32, lineHeight: 24 });
+  });
+
+  test("fontSize percentages resolve against the inherited font size", () => {
+    render(
+      <View sx={styles.lead}>
+        <Text sx={styles.pct} testID="in">
+          hi
+        </Text>
+        <Text sx={styles.pct}>
+          <Text sx={styles.pct} testID="deeper">
+            hi
+          </Text>
+        </Text>
+      </View>,
+    );
+    expect(styleOf("in")).toEqual({ fontSize: 24, lineHeight: 36 });
+    expect(styleOf("deeper").fontSize).toBeCloseTo(28.8); // 120% of 24
+    expect(styleOf("deeper").lineHeight).toBeCloseTo(43.2);
+    render(
+      <Text sx={styles.pct} testID="root">
+        hi
+      </Text>,
+    );
+    expect(styleOf("root")).toEqual({ fontSize: 16.8 }); // 120% of config.fontSize (14)
+  });
+
+  test("TextInput does not take inherited text style, like inputs on the web", () => {
+    render(
+      <View sx={styles.card}>
+        <TextInput testID="in" />
+      </View>,
+    );
+    expect(styleOf("in")).toEqual({});
   });
 
   test("Pressable behaves like View", () => {

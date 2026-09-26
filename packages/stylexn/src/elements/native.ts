@@ -17,7 +17,8 @@ import {
   View as RNView,
 } from "react-native";
 import { TextStyleProvider, useInheritedTextStyle, useProps } from "../runtime/hooks.ts";
-import { splitInherited } from "../runtime/inherit.ts";
+import { config } from "../runtime/env.ts";
+import { mergeInherited, splitInherited } from "../runtime/inherit.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import type { StyleArg } from "../runtime/types.ts";
 import type {
@@ -85,7 +86,7 @@ export function Text({ sx, children, ...rest }: TextProps) {
   } = useProps(toList(sx));
   // Inherited text properties sit under the element's own (the CSS cascade).
   const inherited = useInheritedTextStyle();
-  const merged = { ...inherited, ...style };
+  const merged = mergeInherited(inherited, style as Record<string, RNLeaf>, config.fontSize);
   // Nested text and `em` units are relative to this element's text style.
   return createElement(
     animated ? Animated.Text : RNText,
@@ -137,6 +138,10 @@ export type TextInputProps = CommonProps & TextInputOwnProps & Readonly<{ sx?: S
  * Style-derived props land here: `::placeholder` color becomes
  * `placeholderTextColor`, `caretColor` becomes `cursorColor`. `:focus`
  * conditions attach onFocus/onBlur from the runtime.
+ *
+ * Deliberately not part of the text cascade: on web the UA stylesheet gives
+ * inputs their own font and colour, so `color`/`fontSize` on an enclosing
+ * View do not reach an input there either. Style the input itself.
  */
 export function TextInput({
   sx,

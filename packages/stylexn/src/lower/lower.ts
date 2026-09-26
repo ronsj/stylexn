@@ -65,10 +65,18 @@ const isColorProperty = (property: string): boolean =>
 const isSideStyle = (property: string): boolean => /^(border|outline).*Style$/.test(property);
 const isWidthProperty = (property: string): boolean => /^(border.*|outline)Width$/.test(property);
 
+const UNITLESS_NUMBER = /^-?\d*\.?\d+$/;
+
 /** Property-specific leaf lowerers. Anything not listed goes through `lowerGeneric`. */
 const special: Readonly<Record<string, LeafLowerer>> = {
   lineHeight: (v, diag) => {
-    if (typeof v === "number") return { style: { lineHeight: `${v}em` } }; // unitless multiplier
+    // A unitless number is a multiplier of the element's own font size, and
+    // text descendants inherit the multiplier rather than the product (CSS).
+    // It stays a bare number string; the runtime resolves it per element.
+    if (typeof v === "number") return { style: { lineHeight: String(v) } };
+    if (typeof v === "string" && UNITLESS_NUMBER.test(v.trim())) {
+      return { style: { lineHeight: v.trim() } };
+    }
     if (v === "normal") return DROP; // React Native's default
     return lowerLength("lineHeight", v, diag);
   },

@@ -348,7 +348,7 @@ Keys are camelCase CSS property names, as written in `stylex.create`. Custom pro
 | ------------------------- | ----------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `color`                   | supported   |          |                                                                                                                                                     |
 | `fontFamily`              | partial     |          | One family name; fallback lists use the first entry. Values: `<string>`.                                                                            |
-| `fontSize`                | partial     |          | Numbers only; no keyword sizes. Values: `<length>`.                                                                                                 |
+| `fontSize`                | partial     |          | No keyword sizes. Percentages and em resolve against the inherited font size at runtime. Values: `<length>`, `<percentage>`.                        |
 | `fontStyle`               | partial     |          | oblique is treated as italic. Values: `normal`, `italic`.                                                                                           |
 | `fontWeight`              | partial     |          | bolder/lighter are not supported. Values: `<number>`, `normal`, `bold`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900`.              |
 | `fontVariant`             | polyfilled  |          | Space-separated string converted to React Native's array form.                                                                                      |
@@ -362,7 +362,7 @@ Keys are camelCase CSS property names, as written in `stylex.create`. Custom pro
 | `fontSynthesis`           | unsupported |          | Not exposed by React Native.                                                                                                                        |
 | `font`                    | unsupported |          | Expand to longhands; the font shorthand grammar is not parsed.                                                                                      |
 | `letterSpacing`           | partial     |          | Numbers only; normal is 0. Values: `<length>`.                                                                                                      |
-| `lineHeight`              | polyfilled  |          | Unitless multipliers are resolved against fontSize; lengths pass through.                                                                           |
+| `lineHeight`              | polyfilled  |          | Unitless multipliers resolve against the element's font size at runtime and inherit as multipliers, like CSS; lengths pass through.                 |
 | `textAlign`               | partial     |          | start/end are mapped via direction. Values: `auto`, `left`, `right`, `center`, `justify`.                                                           |
 | `textAlignLast`           | unsupported |          | Not supported by React Native text layout.                                                                                                          |
 | `textDecoration`          | polyfilled  |          | Parsed and expanded to line, style and color. Expands to `textDecorationLine`, `textDecorationStyle`, `textDecorationColor`.                        |

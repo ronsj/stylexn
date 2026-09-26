@@ -78,6 +78,12 @@ export type Resolved = Readonly<{
   transition?: TransitionSpec;
   /** Parsed `animation*` declarations, in list order, when any. */
   animations?: readonly AnimationSpec[];
+  /**
+   * Inherited text values that differ from what the element renders: a
+   * unitless `lineHeight` is applied to the element as a number but cascades
+   * to text descendants as the multiplier (a bare number string).
+   */
+  inherit?: Readonly<Record<string, RNLeaf>>;
 }>;
 
 export function isCompiledRule(value: unknown): value is CompiledRule {

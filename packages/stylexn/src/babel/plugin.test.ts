@@ -55,7 +55,7 @@ describe("stylex.create compilation", () => {
         paddingBottom: 8,
         paddingLeft: 16,
         color: "red",
-        lineHeight: "1.5em",
+        lineHeight: "1.5",
       },
       conditional: [],
       props: {},

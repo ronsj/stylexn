@@ -18,7 +18,7 @@ import {
   setReducedMotion,
   windowMetrics,
 } from "./env.ts";
-import { shallowEqual, type InheritedTextStyle } from "./inherit.ts";
+import { registerInherit, shallowEqual, type InheritedTextStyle } from "./inherit.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
 import type { Env, InteractionState, StyleArg, Theme, VarScope, WindowMetrics } from "./types.ts";
 import { scopeWith } from "./vars.ts";
@@ -222,7 +222,7 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     fontSize: typeof inheritedFontSize === "number" ? inheritedFontSize : config.fontSize,
     platform: platform(),
   };
-  const { style, props: extra, transition, animations } = resolve(args, env);
+  const { style, props: extra, transition, animations, inherit } = resolve(args, env);
   const motion = useMotion(
     style,
     { transition, animations },
@@ -233,6 +233,7 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
   const result: Record<string, unknown> = { ...extra };
   if (needs.interaction) Object.assign(result, handlers);
   if (motion.animated) result.animated = true;
+  if (inherit) registerInherit(motion.style, inherit);
   result.style = motion.style;
   return result as UsePropsResult;
 }

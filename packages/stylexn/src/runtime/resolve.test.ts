@@ -97,6 +97,16 @@ describe("units", () => {
   test("em falls back to the inherited font size", () => {
     expect(resolve([rule({ paddingTop: "1em" })], env({ fontSize: 20 })).style.paddingTop).toBe(20);
     expect(resolve([rule({ lineHeight: 1.5 })], env({ fontSize: 20 })).style.lineHeight).toBe(30);
+    // The multiplier cascades as such; a length does not.
+    expect(resolve([rule({ lineHeight: 1.5 })], env({ fontSize: 20 })).inherit).toEqual({
+      lineHeight: "1.5",
+    });
+    expect(resolve([rule({ lineHeight: "24px" })], env()).inherit).toBeUndefined();
+    // Percentages on fontSize are relative to the inherited font size, and
+    // em on other keys to the element's resulting font size.
+    expect(
+      resolve([rule({ fontSize: "120%", paddingTop: "1em" })], env({ fontSize: 20 })).style,
+    ).toEqual({ fontSize: 24, paddingTop: 24 });
   });
 
   test("percentages and keywords pass through", () => {
@@ -217,6 +227,9 @@ describe("analyzeNeeds", () => {
     expect(constant({ paddingTop: "0.5em" })).toBe(false);
     expect(constant({ width: "50vw" })).toBe(false);
     expect(constant({ width: "calc(1rem + 8px)" })).toBe(false);
+    expect(constant({ lineHeight: 1.5 })).toBe(false);
+    expect(constant({ lineHeight: "24px" })).toBe(true);
+    expect(constant({ fontSize: "120%" })).toBe(false);
     expect(constant({ marginTop: defineVars({ a: 1 }).a })).toBe(false);
     // Several rules are constant only when each one is.
     const a = rule({ color: "red" });

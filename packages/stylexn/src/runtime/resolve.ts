@@ -40,6 +40,12 @@ const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
 /** Values `resolveValue` can only settle against an environment. */
 const ENV_VALUE =
   /\d(rem|em|vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b|\b(var|calc|min|max|clamp)\(/i;
+/** A unitless `lineHeight` (a multiplier of the font size). */
+const UNITLESS_NUMBER = /^-?\d*\.?\d+$/;
+const PERCENTAGE = /^-?\d*\.?\d+%$/;
+/** Values that depend on the (inherited) font size, beyond `em`. */
+const fontRelative = (key: string, v: string): boolean =>
+  (key === "lineHeight" && UNITLESS_NUMBER.test(v)) || (key === "fontSize" && PERCENTAGE.test(v));
 
 /**
  * What one rule needs, computed once per rule: rules are immutable and
@@ -70,10 +76,10 @@ function analyzeRule(rule: CompiledRule): Needs {
       }
     }
   };
-  const visitValue = (v: unknown) => {
+  const visitValue = (k: string, v: unknown) => {
     if (typeof v === "string") {
       if (VIEWPORT_UNIT.test(v)) dimensions = true;
-      if (constant && ENV_VALUE.test(v)) constant = false;
+      if (constant && (ENV_VALUE.test(v) || fontRelative(k, v))) constant = false;
     } else if (typeof v === "object" && v !== null && !Array.isArray(v)) {
       constant = false; // a var reference, a box or a conditional value
     }
@@ -83,17 +89,17 @@ function analyzeRule(rule: CompiledRule): Needs {
   };
   for (const [k, v] of Object.entries(rule.static)) {
     visitKey(k);
-    visitValue(v);
+    visitValue(k, v);
   }
   for (const e of rule.conditional) {
     visitWhen(e.when);
     visitKey(e.key);
-    visitValue(e.value);
+    visitValue(e.key, e.value);
   }
-  for (const v of Object.values(rule.props)) visitValue(v);
+  for (const [k, v] of Object.entries(rule.props)) visitValue(k, v);
   for (const e of rule.conditionalProps) {
     visitWhen(e.when);
-    visitValue(e.value);
+    visitValue(e.key, e.value);
   }
   if (motion) constant = false;
   // Variables may carry media defaults; subscribe conservatively.
@@ -398,20 +404,30 @@ function resolveRules(
     conditional: r.conditionalProps,
   }));
 
-  // fontSize first: `em` on other properties is relative to it.
+  // fontSize first: `em` on other properties is relative to it. Percentages
+  // and `em` on fontSize itself are relative to the inherited font size.
   const ownFontSize = styleAssignments.get("fontSize");
   let fontSize = env.fontSize;
   const style: Record<string, RNLeaf> = {};
   if (ownFontSize) {
-    const resolved = resolveValue(ownFontSize.value, env, themes, env.fontSize);
+    let resolved = resolveValue(ownFontSize.value, env, themes, env.fontSize);
+    if (typeof resolved === "string" && PERCENTAGE.test(resolved)) {
+      resolved = (Number(resolved.slice(0, -1)) / 100) * env.fontSize;
+    }
     if (resolved !== null) style.fontSize = resolved;
     if (typeof resolved === "number") fontSize = resolved;
   }
   const motionDecls: Record<string, string> = {};
+  let inherit: Record<string, RNLeaf> | undefined;
   for (const { key, value } of styleAssignments.values()) {
     if (key === "fontSize") continue;
-    const resolved = resolveValue(value, env, themes, fontSize);
+    let resolved = resolveValue(value, env, themes, fontSize);
     if (resolved === null) continue;
+    if (key === "lineHeight" && typeof resolved === "string" && UNITLESS_NUMBER.test(resolved)) {
+      // The element gets the product; text inside it inherits the multiplier.
+      inherit = { lineHeight: resolved };
+      resolved = Number(resolved) * fontSize;
+    }
     if (MOTION_KEY.test(key)) {
       // transition*/animation* describe motion, not appearance: parsed below, applied by useProps.
       if (typeof resolved === "string" || typeof resolved === "number") {
@@ -430,5 +446,5 @@ function resolveRules(
 
   const finalized = finalizeStyle(style);
   const motion = Object.keys(motionDecls).length ? parseMotion(motionDecls, warnOnce) : {};
-  return { style: finalized.style, props, needs, ...motion };
+  return { style: finalized.style, props, needs, ...motion, ...(inherit && { inherit }) };
 }
