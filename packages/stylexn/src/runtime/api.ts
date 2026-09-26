@@ -1,11 +1,11 @@
-import { compileRule } from "../compile/compile.ts";
+import { compileRule, NativeValue } from "../compile/compile.ts";
 import type { CompiledRule } from "../compile/compile.ts";
 import type { Declarations } from "../expand/types.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import { snapshotEnv } from "./env.ts";
 import { resolve } from "./resolve.ts";
 import type { StyleArg } from "./types.ts";
-import type { ValidateStyles } from "../types/index.ts";
+import type { Native, ValidateNative, ValidateStyles, Web } from "../types/index.ts";
 import { isCompiledRule } from "./types.ts";
 
 type RuleInput = CompiledRule | Declarations | ((...args: never[]) => CompiledRule | Declarations);
@@ -55,6 +55,32 @@ export type Props = Readonly<{ style: Readonly<Record<string, RNLeaf>>; [prop: s
 export function props(...args: readonly StyleArg[]): Props {
   const { style, props: extra } = resolve(args, snapshotEnv());
   return { ...extra, style };
+}
+
+/**
+ * Escape hatch: styles that only apply on web. On native the block is empty,
+ * so spreading it into a rule adds nothing (the Babel plugin removes it at
+ * build time; this is the uncompiled fallback).
+ */
+export function web<const T extends Record<string, unknown>>(
+  _styles: T,
+): { readonly [K in keyof T]?: Web<T[K]> } {
+  return {};
+}
+
+/**
+ * Escape hatch: styles that only apply on native, exempt from the compat
+ * check but validated for outright unsupported properties. Identity here.
+ */
+export function native<const T extends Record<string, unknown>>(
+  styles: T & ValidateNative<T>,
+): { readonly [K in keyof T]?: Native<T[K]> } {
+  // Values are marked so the runtime compiler can trust them like the plugin does.
+  return Object.fromEntries(
+    Object.entries(styles).map(([k, v]) => [k, new NativeValue(v)]),
+  ) as unknown as {
+    readonly [K in keyof T]?: Native<T[K]>;
+  };
 }
 
 /** Deprecated StyleX alias of `props`. */

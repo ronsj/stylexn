@@ -6,6 +6,8 @@ const monorepoRoot = path.resolve(__dirname, "../..");
 module.exports = {
   presets: ["next/babel"],
   plugins: [
+    // Resolves StyleXN escape hatches (web({ }) / native({ })) before StyleX.
+    ["stylexn/babel", { platform: "web" }],
     [
       "@stylexjs/babel-plugin",
       {

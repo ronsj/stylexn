@@ -2,7 +2,7 @@
 // `react-native` export condition; alias `@stylexjs/stylex` to `stylexn/native`
 // so shared code can keep importing StyleX by its own name.
 
-export { attrs, create, firstThatWorks, keyframes, props } from "./api.ts";
+export { attrs, create, firstThatWorks, keyframes, native, props, web } from "./api.ts";
 export type { Props } from "./api.ts";
 export { createTheme, defineConsts, defineVars } from "./vars.ts";
 export type { VarGroup } from "./vars.ts";
@@ -34,6 +34,8 @@ const stylex = {
   attrs: api.attrs,
   firstThatWorks: api.firstThatWorks,
   keyframes: api.keyframes,
+  web: api.web,
+  native: api.native,
   defineVars: vars.defineVars,
   defineConsts: vars.defineConsts,
   createTheme: vars.createTheme,

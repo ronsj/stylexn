@@ -93,8 +93,12 @@ const compat = {
           const object = ruleObject(prop.value as AstNode);
           if (!object) continue;
           try {
-            const { declarations, locations } = extractRule(object, { resolveConst });
-            for (const m of lintDeclarations(declarations, locations, options)) {
+            const { declarations, locations, trusted } = extractRule(object, {
+              resolveConst,
+              helper: (call) => tracker.helperKind(call),
+              platform: "native",
+            });
+            for (const m of lintDeclarations(declarations, locations, { ...options, trusted })) {
               context.report({
                 node: m.node ?? object,
                 messageId: "finding",

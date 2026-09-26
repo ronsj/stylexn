@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as stylex from "stylexn";
+import { native, web } from "stylexn";
 import { Pressable, Text, View } from "stylexn/elements";
 import { greeting } from "./greeting";
 import { colors } from "./tokens.stylex";
@@ -16,6 +17,10 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderColor: colors.accent,
     borderRadius: 12,
+    // Escape hatches: web-only styles StyleXN has no native answer for yet,
+    // and a native-only tweak using a React Native-specific key.
+    ...web({ transitionProperty: "border-color", transitionDuration: "150ms" }),
+    ...native({ elevation: 2 }),
     width: {
       default: "100%",
       "@media (min-width: 800px)": 512,

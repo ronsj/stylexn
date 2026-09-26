@@ -204,3 +204,54 @@ describe("policy", () => {
     );
   });
 });
+
+describe("escape hatches", () => {
+  const src = `import * as stylex from "stylexn";
+import { web, native } from "stylexn";
+const styles = stylex.create({
+  card: {
+    display: "flex",
+    color: "red",
+    ...stylex.web({ display: "grid", float: "left" }),
+    ...native({ elevation: 2, marginBlock: "4px" }),
+  },
+});`;
+
+  test("native: web blocks are dropped, native blocks are inlined and trusted", () => {
+    const warnings: string[] = [];
+    const styles = compiled(src, { strict: true, onWarning: (m) => warnings.push(m) });
+    expect(styles.card.static).toEqual({
+      display: "flex",
+      color: "red",
+      elevation: 2,
+      marginBlockStart: 4,
+      marginBlockEnd: 4,
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  test("native blocks still reject unsupported properties", () => {
+    expect(() =>
+      transform(`${HEADER}stylex.create({ a: { ...stylex.native({ float: "left" }) } });`, {
+        strict: true,
+      }),
+    ).toThrow(/float/);
+  });
+
+  test("web: web blocks are inlined and native blocks removed, before StyleX", () => {
+    const { code } = transform(src, { platform: "web" });
+    expect(code).toMatch(/display: "grid"/);
+    expect(code).toMatch(/float: "left"/);
+    expect(code).not.toMatch(/elevation/);
+    expect(code).not.toMatch(/\.\.\./);
+  });
+
+  test("other spreads are errors on both platforms", () => {
+    const bad = `${HEADER}const extra = {}; stylex.create({ a: { ...extra } });`;
+    expect(() => transform(bad)).toThrow(/web\(\{ \}\) \/ \.\.\.native/);
+    expect(() => transform(bad, { platform: "web" })).toThrow(/web\(\{ \}\) \/ \.\.\.native/);
+    expect(() =>
+      transform(`${HEADER}const o = {}; stylex.create({ a: { ...stylex.web(o) } });`),
+    ).toThrow(/object literal/);
+  });
+});

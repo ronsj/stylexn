@@ -87,3 +87,36 @@ describe("bin", () => {
     expect(run(["--help"]).out).toMatch(/Usage/);
   });
 });
+
+describe("escape hatches and ignores", () => {
+  test("web blocks are skipped, native blocks are trusted but not for unsupported properties", () => {
+    const problems = checkSource(
+      `import * as stylex from "stylexn";
+stylex.create({
+  a: {
+    ...stylex.web({ float: "left", display: "grid" }),
+    ...stylex.native({ elevation: 2, margin: "1ch", float: "right" }),
+  },
+});`,
+      "h.tsx",
+    );
+    expect(problems.map(formatProblem)).toEqual([
+      "h.tsx:5:53 error: float — React Native has no CSS flow layout; only flexbox.",
+    ]);
+  });
+
+  test("// stylexn-ignore silences a declaration", () => {
+    const problems = checkSource(
+      `${HEADER}stylex.create({
+  a: {
+    // stylexn-ignore
+    float: "left",
+    display: "grid", // stylexn-ignore
+    position: "sticky",
+  },
+});`,
+      "i.tsx",
+    );
+    expect(problems.map((p) => p.message)).toEqual([expect.stringMatching(/sticky/)]);
+  });
+});

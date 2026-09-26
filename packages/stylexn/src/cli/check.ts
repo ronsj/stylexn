@@ -25,6 +25,31 @@ export type Problem = Readonly<{
   message: string;
 }>;
 
+/**
+ * Lines carrying a `// stylexn-ignore` comment. A declaration on that line or
+ * the line below is silenced. Discouraged; prefer web({ }) / native({ }).
+ */
+type Comment = {
+  value: string;
+  loc?: { start: { line: number; column: number }; end: { line: number } };
+};
+
+function ignoreLines(comments: readonly Comment[], code: string) {
+  const lines = new Set<number>();
+  const source = code.split("\n");
+  for (const c of comments) {
+    if (!/\bstylexn-ignore\b/.test(c.value) || !c.loc) continue;
+    // A comment after code on its line covers that line; one on its own line covers the next.
+    const before = source[c.loc.start.line - 1]?.slice(0, c.loc.start.column) ?? "";
+    lines.add(before.trim() === "" ? c.loc.end.line + 1 : c.loc.start.line);
+  }
+  return lines;
+}
+
+function isIgnored(node: AstNode, lines: ReadonlySet<number>): boolean {
+  return lines.has(position(node).line);
+}
+
 function position(node: AstNode | undefined): { line: number; column: number } {
   const loc = (node as { loc?: { start: { line: number; column: number } } } | undefined)?.loc;
   return loc ? { line: loc.start.line, column: loc.start.column + 1 } : { line: 1, column: 1 };
@@ -40,6 +65,7 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
   if (!ast) return [];
 
   const tracker = new CreateCallTracker(options.importSources);
+  const ignored = ignoreLines((ast.comments ?? []) as Comment[], code);
   const problems: Problem[] = [];
   const push = (node: AstNode | undefined, severity: Severity, message: string) =>
     problems.push({ file, ...position(node), severity, message });
@@ -67,8 +93,17 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
         const object = ruleObject(prop.value as unknown as AstNode);
         if (!object) continue;
         try {
-          const { declarations, locations } = extractRule(object, { resolveConst });
-          for (const m of lintDeclarations(declarations, locations, options) as LintMessage[]) {
+          const { declarations, locations, trusted } = extractRule(object, {
+            resolveConst,
+            helper: (call) => tracker.helperKind(call as unknown as AstNode),
+            platform: "native",
+          });
+          const messages = lintDeclarations(declarations, locations, {
+            ...options,
+            trusted,
+          }) as LintMessage[];
+          for (const m of messages) {
+            if (isIgnored(m.node ?? object, ignored)) continue;
             push(m.node ?? object, m.severity, m.message);
           }
         } catch (error) {

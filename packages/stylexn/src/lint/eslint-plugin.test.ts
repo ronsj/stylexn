@@ -80,3 +80,17 @@ export const styles = stylex.create({
     ]);
   });
 });
+
+describe("escape hatches through oxlint", () => {
+  test("web blocks are ignored, native blocks are trusted", () => {
+    const diagnostics = lint(`import * as stylex from "stylexn";
+export const s = stylex.create({
+  a: {
+    ...stylex.web({ float: "left" }),
+    ...stylex.native({ elevation: 2 }),
+    display: "grid",
+  },
+});`);
+    expect(diagnostics.map((d) => d.line)).toEqual([6]);
+  });
+});

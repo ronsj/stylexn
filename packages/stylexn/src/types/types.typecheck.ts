@@ -111,3 +111,32 @@ webCreate({
   // @ts-expect-error dynamic rules are checked too
   fade: (x: number) => ({ float: "left", opacity: x }),
 });
+
+// --- escape hatches ---------------------------------------------------------
+
+import { native as nativeHatch, web as webHatch } from "../runtime/api.ts";
+import { native as webEntryNative, web as webEntryWeb } from "../web.ts";
+
+nativeCreate({
+  a: {
+    display: "flex",
+    ...webHatch({ display: "grid", float: "left", "@container": 1 }), // anything goes on web
+    ...nativeHatch({ elevation: 2, shadowColor: "#000", marginBlock: "4px" }),
+  },
+});
+webCreate({
+  a: {
+    display: "flex",
+    ...webEntryWeb({ display: "grid", float: "left" }),
+    ...webEntryNative({ elevation: 2, marginBlock: "4px" }),
+  },
+});
+
+nativeHatch({
+  // @ts-expect-error unsupported even inside native()
+  float: "left",
+});
+webEntryNative({
+  // @ts-expect-error partial values are still checked inside native()
+  display: "grid",
+});

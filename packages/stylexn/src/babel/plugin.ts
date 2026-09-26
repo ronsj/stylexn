@@ -3,11 +3,21 @@ import type { RNVersion } from "../compat/types.ts";
 import { compileRule, isBlocking } from "../compile/compile.ts";
 import type { CompiledLeaf, CompiledRule } from "../compile/compile.ts";
 import type { AstNode } from "../lint/extract.ts";
-import { CreateCallTracker, ExtractError, extractRule, ruleObject } from "../lint/extract.ts";
+import {
+  CreateCallTracker,
+  ExtractError,
+  extractRule,
+  helperSpread,
+  ruleObject,
+} from "../lint/extract.ts";
 import { isSentinel, sentinelIndex } from "../sentinel.ts";
 
 export type StyleXNPluginOptions = Readonly<{
-  /** `native` compiles; `web` leaves the file untouched (StyleX handles web). */
+  /**
+   * `native` compiles rules to the runtime shape. `web` only resolves the
+   * escape hatches (inlines `...web({ })`, drops `...native({ })`) and must
+   * run before @stylexjs/babel-plugin.
+   */
   platform?: "native" | "web";
   /** Fail the build on unsupported styles. Default: `process.env.CI` is set. */
   strict?: boolean;
@@ -30,6 +40,14 @@ class CompileError extends Error {
     super(message);
     this.node = node;
   }
+}
+
+const asNode = (n: t.Node): AstNode => n as unknown as AstNode;
+
+function rethrow(error: unknown, path: NodePath): never {
+  if (error instanceof CompileError) throw path.buildCodeFrameError(error.message);
+  if (error instanceof ExtractError) throw path.buildCodeFrameError(`StyleXN: ${error.message}`);
+  throw error;
 }
 
 export default function stylexnBabelPlugin(
@@ -111,16 +129,11 @@ export default function stylexnBabelPlugin(
   }
 
   // -------------------------------------------------------------------------
-  // per-rule compile with policy
+  // shared helpers
   // -------------------------------------------------------------------------
 
-  function compileObject(
-    object: t.ObjectExpression,
-    ruleName: string,
-    path: NodePath,
-    state: State,
-  ): t.ObjectExpression {
-    const resolveConst = (name: string): string | null => {
+  function resolveConstIn(path: NodePath) {
+    return (name: string): string | null => {
       const binding = path.scope.getBinding(name);
       const init = binding?.path.node;
       if (binding?.kind !== "const" || !T.isVariableDeclarator(init)) return null;
@@ -130,13 +143,28 @@ export default function stylexnBabelPlugin(
       }
       return null;
     };
-    const { declarations, expressions } = extractRule(object as unknown as AstNode, {
-      resolveConst,
+  }
+
+  // -------------------------------------------------------------------------
+  // native: compile each rule with policy
+  // -------------------------------------------------------------------------
+
+  function compileObject(
+    object: t.ObjectExpression,
+    ruleName: string,
+    path: NodePath,
+    state: State,
+  ): t.ObjectExpression {
+    const { declarations, expressions, trusted } = extractRule(asNode(object), {
+      resolveConst: resolveConstIn(path),
+      helper: (call) => state.stylexn.helperKind(call),
+      platform: "native",
     });
     const exprs = expressions as unknown as t.Expression[];
     const { rule, findings, diagnostics } = compileRule(declarations, {
       strict,
       rnVersion: options.rnVersion,
+      trusted,
     });
     const where = `${state.filename ?? "<unknown>"} rule "${ruleName}"`;
     const problems = [
@@ -163,9 +191,7 @@ export default function stylexnBabelPlugin(
       const name = T.isIdentifier(key) ? key.name : T.isStringLiteral(key) ? key.value : "?";
       const value = prop.value;
       try {
-        const object = ruleObject(
-          value as unknown as AstNode,
-        ) as unknown as t.ObjectExpression | null;
+        const object = ruleObject(asNode(value)) as unknown as t.ObjectExpression | null;
         if (!object) {
           throw new CompileError(
             "StyleXN: a style rule must be an object literal or an arrow function returning one",
@@ -178,15 +204,41 @@ export default function stylexnBabelPlugin(
           : T.arrowFunctionExpression((value as t.ArrowFunctionExpression).params, body);
         compiled.push(T.objectProperty(prop.key, replacement, prop.computed));
       } catch (error) {
-        if (error instanceof CompileError || error instanceof ExtractError) {
-          throw propPath.buildCodeFrameError(
-            error instanceof ExtractError ? `StyleXN: ${error.message}` : error.message,
-          );
-        }
-        throw error;
+        rethrow(error, propPath);
       }
     }
     arg.replaceWith(T.objectExpression(compiled));
+  }
+
+  // -------------------------------------------------------------------------
+  // web: resolve escape hatches in place so StyleX sees plain literals
+  // -------------------------------------------------------------------------
+
+  function resolveHatchesForWeb(arg: NodePath<t.ObjectExpression>, state: State): void {
+    for (const propPath of arg.get("properties")) {
+      const prop = propPath.node;
+      if (!T.isObjectProperty(prop)) continue;
+      const object = ruleObject(asNode(prop.value)) as unknown as t.ObjectExpression | null;
+      if (!object) continue;
+      const next: t.ObjectExpression["properties"] = [];
+      for (const member of object.properties) {
+        if (!T.isSpreadElement(member)) {
+          next.push(member);
+          continue;
+        }
+        try {
+          const { kind, object: block } = helperSpread(asNode(member), {
+            resolveConst: resolveConstIn(propPath),
+            helper: (call) => state.stylexn.helperKind(call),
+          });
+          if (kind === "web") next.push(...(block as unknown as t.ObjectExpression).properties);
+          // native blocks are dropped on web
+        } catch (error) {
+          rethrow(error, propPath);
+        }
+      }
+      object.properties = next;
+    }
   }
 
   return {
@@ -195,14 +247,26 @@ export default function stylexnBabelPlugin(
       this.stylexn = new CreateCallTracker(options.importSources);
     },
     visitor: {
+      Program(path, state) {
+        if (platform !== "web") return;
+        // Run before other plugins' visitors reach the create() calls.
+        path.traverse({
+          ImportDeclaration(p) {
+            state.stylexn.visitImport(asNode(p.node));
+          },
+          CallExpression(p) {
+            if (!state.stylexn.isCreateCall(asNode(p.node))) return;
+            const [arg] = p.get("arguments");
+            if (arg?.isObjectExpression()) resolveHatchesForWeb(arg, state);
+          },
+        });
+      },
       ImportDeclaration(path, state) {
         if (platform === "web") return;
-        state.stylexn.visitImport(path.node as unknown as AstNode);
+        state.stylexn.visitImport(asNode(path.node));
       },
       CallExpression(path, state) {
-        if (platform === "web" || !state.stylexn.isCreateCall(path.node as unknown as AstNode)) {
-          return;
-        }
+        if (platform === "web" || !state.stylexn.isCreateCall(asNode(path.node))) return;
         const [arg] = path.get("arguments");
         if (!arg || !arg.isObjectExpression()) {
           throw path.buildCodeFrameError("StyleXN: stylex.create expects an object literal");

@@ -1,5 +1,6 @@
 import { transformAsync } from "@babel/core";
 import stylexBabelPlugin from "@stylexjs/babel-plugin";
+import stylexnBabelPlugin from "./packages/stylexn/src/babel/plugin.ts";
 import type { Plugin } from "vite";
 
 const monorepoRoot = import.meta.dirname;
@@ -22,6 +23,8 @@ export function stylexTestPlugin(): Plugin {
         sourceMaps: true,
         parserOpts: { plugins: ["typescript", "jsx"] },
         plugins: [
+          // Inline web({ }) / drop native({ }) so StyleX sees plain literals.
+          [stylexnBabelPlugin, { platform: "web" }],
           [
             stylexBabelPlugin,
             {

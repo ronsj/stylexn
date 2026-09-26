@@ -84,7 +84,21 @@ describe("misc API", () => {
       "defineVars",
       "firstThatWorks",
       "keyframes",
+      "native",
       "props",
+      "web",
     ]);
+  });
+});
+
+describe("escape hatches at runtime (uncompiled fallback)", () => {
+  test("web() is empty on native, native() is identity", async () => {
+    const { web, native } = await import("./api.ts");
+    expect(web({ display: "grid" })).toEqual({});
+    expect(Object.keys(native({ elevation: 2 }))).toEqual(["elevation"]);
+    const styles = create({
+      a: { color: "red", ...web({ float: "left" }), ...native({ elevation: 2 }) },
+    });
+    expect(styles.a.static).toEqual({ color: "red", elevation: 2 });
   });
 });

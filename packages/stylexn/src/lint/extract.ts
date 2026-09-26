@@ -3,6 +3,10 @@
  * node of every property/branch so findings can point at source. Works on
  * both Babel's and ESTree's node vocabularies, so the Babel plugin, the
  * ESLint/oxlint rule and the CLI share one implementation.
+ *
+ * Escape hatches: `...web({ ... })` and `...native({ ... })` spreads inside a
+ * rule. Which side is kept depends on `platform`; native blocks are marked
+ * `trusted` so the compat check leaves them alone.
  */
 import type { Declarations, Value } from "../expand/types.ts";
 import { makeSentinel } from "../sentinel.ts";
@@ -21,9 +25,16 @@ export class ExtractError extends Error {
   }
 }
 
+export type Platform = "native" | "web";
+export type HelperKind = "web" | "native";
+
 export type ExtractOptions = Readonly<{
   /** Value of a `const` string binding for computed keys, or null if unknown. */
   resolveConst: (name: string, node: AstNode) => string | null;
+  /** Which escape-hatch helper a call expression is, if any. */
+  helper?: (call: AstNode) => HelperKind | null;
+  /** Which platform's blocks to keep. Default native. */
+  platform?: Platform;
 }>;
 
 export type Extracted = Readonly<{
@@ -32,6 +43,8 @@ export type Extracted = Readonly<{
   locations: ReadonlyMap<string, AstNode>;
   /** Non-literal value nodes, indexed by sentinel number. */
   expressions: readonly AstNode[];
+  /** Properties from `native({ ... })` blocks: exempt from compat findings. */
+  trusted: ReadonlySet<string>;
 }>;
 
 const isNode = (v: unknown): v is AstNode =>
@@ -42,6 +55,8 @@ export const isObjectExpression = (n: AstNode): boolean => n.type === "ObjectExp
 function isProperty(n: AstNode): boolean {
   return n.type === "ObjectProperty" || (n.type === "Property" && n.kind === "init" && !n.method);
 }
+
+const isSpread = (n: AstNode): boolean => n.type === "SpreadElement";
 
 function stringValue(n: AstNode): string | undefined {
   if (n.type === "StringLiteral") return n.value as string;
@@ -94,9 +109,34 @@ export function ruleObject(value: AstNode): AstNode | null {
   return null;
 }
 
+/**
+ * Classify a spread inside a rule: the helper kind and the object literal it
+ * wraps. Throws for spreads that are not escape hatches or not literals.
+ */
+export function helperSpread(
+  spread: AstNode,
+  options: ExtractOptions,
+): { kind: HelperKind; object: AstNode } {
+  const call = spread.argument as AstNode;
+  const kind = call.type === "CallExpression" ? (options.helper?.(call) ?? null) : null;
+  if (!kind) {
+    throw new ExtractError(
+      "style rules only accept plain properties, or ...web({ }) / ...native({ }) blocks",
+      spread,
+    );
+  }
+  const [object] = call.arguments as AstNode[];
+  if (!object || !isObjectExpression(object)) {
+    throw new ExtractError(`${kind}() expects an object literal`, call);
+  }
+  return { kind, object };
+}
+
 export function extractRule(object: AstNode, options: ExtractOptions): Extracted {
+  const platform = options.platform ?? "native";
   const locations = new Map<string, AstNode>();
   const expressions: AstNode[] = [];
+  const trusted = new Set<string>();
 
   const toValue = (node: AstNode, path: string): Value => {
     const literal = literalValue(node);
@@ -119,27 +159,40 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
   };
 
   const declarations: Record<string, Value> = {};
-  for (const prop of object.properties as AstNode[]) {
+  const addProperty = (prop: AstNode, trust: boolean) => {
     if (!isProperty(prop)) {
       throw new ExtractError("style rules only accept plain properties (no spread/methods)", prop);
     }
     const name = propertyName(prop, options);
     locations.set(name, prop);
     declarations[name] = toValue(prop.value as AstNode, name);
+    if (trust) trusted.add(name);
+    else trusted.delete(name);
+  };
+
+  for (const prop of object.properties as AstNode[]) {
+    if (isSpread(prop)) {
+      const { kind, object: block } = helperSpread(prop, options);
+      if (kind !== platform) continue; // the other platform's block
+      for (const inner of block.properties as AstNode[]) addProperty(inner, kind === "native");
+      continue;
+    }
+    addProperty(prop, false);
   }
-  return { declarations, locations, expressions };
+  return { declarations, locations, expressions, trusted };
 }
 
 // ---------------------------------------------------------------------------
-// Finding `stylex.create` calls
+// Finding `stylex.create` calls and escape-hatch helpers
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_IMPORT_SOURCES: readonly string[] = ["@stylexjs/stylex", "stylex", "stylexn"];
 
-/** Tracks StyleX imports in a file and recognises `create` calls through them. */
+/** Tracks StyleX imports in a file and recognises `create`, `web` and `native` through them. */
 export class CreateCallTracker {
   private readonly namespaces = new Set<string>();
   private readonly creates = new Set<string>();
+  private readonly helpers = new Map<string, HelperKind>();
   private readonly sources: ReadonlySet<string>;
 
   constructor(importSources: readonly string[] = DEFAULT_IMPORT_SOURCES) {
@@ -158,23 +211,30 @@ export class CreateCallTracker {
         const name =
           imported.type === "Identifier" ? (imported.name as string) : (imported.value as string);
         if (name === "create") this.creates.add(local);
+        if (name === "web" || name === "native") this.helpers.set(local, name);
       }
     }
+  }
+
+  private memberOf(callee: AstNode): string | null {
+    if (callee.type !== "MemberExpression" || callee.computed) return null;
+    const object = callee.object as AstNode;
+    const property = callee.property as AstNode;
+    if (object.type !== "Identifier" || property.type !== "Identifier") return null;
+    return this.namespaces.has(object.name as string) ? (property.name as string) : null;
   }
 
   isCreateCall(node: AstNode): boolean {
     const callee = node.callee as AstNode;
     if (callee.type === "Identifier") return this.creates.has(callee.name as string);
-    if (callee.type === "MemberExpression" && !callee.computed) {
-      const object = callee.object as AstNode;
-      const property = callee.property as AstNode;
-      return (
-        object.type === "Identifier" &&
-        property.type === "Identifier" &&
-        property.name === "create" &&
-        this.namespaces.has(object.name as string)
-      );
-    }
-    return false;
+    return this.memberOf(callee) === "create";
+  }
+
+  /** `web` or `native` when the call is an escape-hatch helper from a StyleX import. */
+  helperKind(node: AstNode): HelperKind | null {
+    const callee = node.callee as AstNode;
+    if (callee.type === "Identifier") return this.helpers.get(callee.name as string) ?? null;
+    const member = this.memberOf(callee);
+    return member === "web" || member === "native" ? member : null;
   }
 }

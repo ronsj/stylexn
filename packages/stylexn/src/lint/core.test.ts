@@ -62,3 +62,14 @@ describe("lintDeclarations", () => {
     ).toMatchObject([{ severity: "error", path: "boxShadow" }]);
   });
 });
+
+describe("trusted declarations", () => {
+  test("native blocks exempt unknown keys and value checks, not listed-unsupported properties", () => {
+    const messages = lintDeclarations(
+      { elevation: 2, margin: "1ch", float: "left", display: "grid" },
+      new Map(),
+      { trusted: new Set(["elevation", "margin", "float"]) },
+    );
+    expect(messages.map((m) => m.path)).toEqual(["float", "display"]);
+  });
+});

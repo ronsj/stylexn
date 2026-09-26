@@ -55,6 +55,18 @@ type AllowsNumber<K extends keyof P> = [
 /** Any `<pattern>` means free-form strings are possible; the build check judges them. */
 type AllowsString<K extends keyof P> = [Patterns<K>] extends [never] ? false : true;
 
+// ---------------------------------------------------------------------------
+// Escape hatches: values inside web({ }) / native({ }) blocks are branded so
+// the rule-level check leaves them alone (native blocks are validated by
+// ValidateNative when the helper is called).
+// ---------------------------------------------------------------------------
+
+declare const WEB: unique symbol;
+declare const NATIVE: unique symbol;
+export type Web<V> = V & { readonly [WEB]: true };
+export type Native<V> = V & { readonly [NATIVE]: true };
+type Branded = { readonly [WEB]: true } | { readonly [NATIVE]: true };
+
 /** A var reference: StyleX's branded string on web, StyleXN's object on native. */
 type VarLike = { readonly $$stylexnVar: string } | StyleXVar<unknown>;
 
@@ -109,29 +121,46 @@ type CheckConditional<K extends keyof P & string, V> = {
 
 export type CheckValue<K extends keyof P & string, V> = V extends null | undefined
   ? V
-  : V extends VarLike
+  : V extends Branded
     ? V
-    : V extends string | number
-      ? LeafOk<K, V> extends true
-        ? V
-        : Message<`"${V & (string | number)}" is not a supported ${K} value on React Native`>
-      : V extends readonly unknown[]
-        ? Message<`arrays are not style values (${K})`>
-        : V extends object
-          ? CheckConditional<K, V>
-          : Message<`unsupported ${K} value`>;
+    : V extends VarLike
+      ? V
+      : V extends string | number
+        ? LeafOk<K, V> extends true
+          ? V
+          : Message<`"${V & (string | number)}" is not a supported ${K} value on React Native`>
+        : V extends readonly unknown[]
+          ? Message<`arrays are not style values (${K})`>
+          : V extends object
+            ? CheckConditional<K, V>
+            : Message<`unsupported ${K} value`>;
 
 export type CheckRule<R> = R extends { readonly $$stylexn: 1 }
   ? R // already compiled by the Babel plugin
   : {
-      readonly [K in keyof R]: K extends NativeProperty
-        ? CheckValue<K, R[K]>
-        : K extends UnsupportedProperty
-          ? Message<`${K} is not supported on React Native`>
-          : K extends `--${string}`
-            ? R[K]
-            : Message<`unknown property ${K & string}`>;
+      readonly [K in keyof R]: NonNullable<R[K]> extends Branded
+        ? R[K] // from a web({ }) / native({ }) block
+        : K extends NativeProperty
+          ? CheckValue<K, R[K]>
+          : K extends UnsupportedProperty
+            ? Message<`${K} is not supported on React Native`>
+            : K extends `--${string}`
+              ? R[K]
+              : Message<`unknown property ${K & string}`>;
     };
+
+/**
+ * Validation for a native({ }) block: unsupported properties still error,
+ * known ones are checked, and React Native-only keys (elevation, shadow*)
+ * are allowed as written.
+ */
+export type ValidateNative<R> = {
+  readonly [K in keyof R]: K extends UnsupportedProperty
+    ? Message<`${K} is not supported on React Native`>
+    : K extends NativeProperty
+      ? CheckValue<K, R[K]>
+      : R[K];
+};
 
 /**
  * Validation type for a whole `create()` argument. Dynamic rules are checked

@@ -6,6 +6,7 @@ import { isConditional } from "../expand/types.ts";
 import { lowerDeclarations } from "../lower/lower.ts";
 import type { LoweredValue, RNLeaf } from "../lower/lower.ts";
 import { isLoweredConditional } from "../lower/lower.ts";
+import { propertyEntries } from "../compat/table.ts";
 import { isSentinel, makeSentinel, sentinelIndex } from "../sentinel.ts";
 
 /**
@@ -40,6 +41,8 @@ export type CompileOptions = CheckOptions &
   Readonly<{
     /** Keep unsupported declarations instead of stripping them (the caller errors). */
     strict?: boolean;
+    /** Authored properties from native({ }) blocks: never reported or stripped. */
+    trusted?: ReadonlySet<string>;
   }>;
 
 export type CompileResult = Readonly<{
@@ -98,6 +101,34 @@ function restore(rule: CompiledRule, opaque: readonly unknown[]): CompiledRule {
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Whether a finding is exempt because its property was authored inside a
+ * native({ }) block. Exemption covers React Native-only keys and value/unit/
+ * condition checks; a property the table lists as unsupported stays an error.
+ */
+export function isExempt(
+  finding: Finding,
+  origin: Readonly<Record<string, string>>,
+  trusted: ReadonlySet<string> | undefined,
+): boolean {
+  if (!trusted || trusted.size === 0) return false;
+  const authored = trusted.has(finding.property) || trusted.has(origin[finding.property] ?? "");
+  if (!authored) return false;
+  const listedUnsupported =
+    finding.kind === "property" &&
+    finding.status === "unsupported" &&
+    propertyEntries[finding.property] !== undefined;
+  return !listedUnsupported;
+}
+
+/** Marks a value authored in native({ }) on the uncompiled runtime path. */
+export class NativeValue {
+  readonly value: unknown;
+  constructor(value: unknown) {
+    this.value = value;
+  }
+}
 
 /** Remove the leaf at `chain` from a value; returns the pruned value or undefined if nothing is left. */
 function prune(value: Value, chain: readonly string[]): Value | undefined {
@@ -172,12 +203,21 @@ export function compileRule(
   options: CompileOptions = {},
 ): CompileResult {
   const opaque: unknown[] = [];
+  const trusted = new Set(options.trusted ?? []);
   const input: Declarations = Object.fromEntries(
-    Object.entries(declarations).map(([k, v]) => [k, substitute(v, opaque)]),
+    Object.entries(declarations).map(([k, v]) => {
+      if (v instanceof NativeValue) {
+        trusted.add(k);
+        return [k, substitute(v.value, opaque)];
+      }
+      return [k, substitute(v, opaque)];
+    }),
   );
 
   const expanded = expandDeclarations(input);
-  const findings = checkDeclarations(expanded.style, options);
+  const findings = checkDeclarations(expanded.style, options).filter(
+    (f) => !isExempt(f, expanded.origin, trusted),
+  );
   const stripped = strip(expanded.style, findings, options.strict ?? false);
   const lowered = lowerDeclarations({ style: stripped, depth: expanded.depth });
 

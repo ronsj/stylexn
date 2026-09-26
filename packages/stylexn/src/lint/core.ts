@@ -3,6 +3,7 @@
  * declarations and produce messages attached to source nodes.
  */
 import { checkDeclarations } from "../check/check.ts";
+import { isExempt } from "../compile/compile.ts";
 import type { CheckOptions, Finding } from "../check/check.ts";
 import { expandDeclarations } from "../expand/expand.ts";
 import type { Declarations, Diagnostic } from "../expand/types.ts";
@@ -22,6 +23,8 @@ export type LintOptions = CheckOptions &
   Readonly<{
     /** Report web-only declarations (stripped on native) as warnings. Default false. */
     reportWebOnly?: boolean;
+    /** Authored properties from native({ }) blocks: never reported. */
+    trusted?: ReadonlySet<string>;
   }>;
 
 function severityOf(finding: Finding): Severity | null {
@@ -66,7 +69,9 @@ export function lintDeclarations(
   options: LintOptions = {},
 ): LintMessage[] {
   const expanded = expandDeclarations(declarations);
-  const findings = checkDeclarations(expanded.style, options);
+  const findings = checkDeclarations(expanded.style, options).filter(
+    (f) => !isExempt(f, expanded.origin, options.trusted),
+  );
   const declared = new Set(Object.keys(declarations));
   const out: LintMessage[] = [];
 
