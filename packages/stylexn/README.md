@@ -55,8 +55,9 @@ module.exports = (api) => {
 
 The plugin compiles `stylex.create`, `stylex.keyframes` and `defineVars`,
 checks every style against the compatibility table (errors when `CI` is
-set, warnings otherwise), and detects the React Native version from your
-`react-native` package. `stylexn` resolves to the native runtime through
+set, warnings otherwise), gives `defineVars` groups and `keyframes` names
+ids that survive Fast Refresh, and detects the React Native version from
+your `react-native` package. `stylexn` resolves to the native runtime through
 the `react-native` export condition. If shared code imports
 `@stylexjs/stylex` by name, alias it in `metro.config.js`:
 
