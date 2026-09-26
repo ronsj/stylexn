@@ -6,6 +6,7 @@ export const PAGES = [
   { href: "/elements/", title: "Elements" },
   { href: "/checking/", title: "Checking styles" },
   { href: "/compatibility/", title: "Compatibility" },
+  { href: "/testing/", title: "Testing" },
 ] as const;
 
 export type Page = (typeof PAGES)[number];
