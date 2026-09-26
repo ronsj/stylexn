@@ -10,12 +10,13 @@ Let components author styles with the StyleX API (`stylex.create`, `stylex.props
 
 - **Package manager**: pnpm (workspaces)
 - **Language**: TypeScript everywhere
-- **Repo shape**: monorepo with two apps and two packages:
+- **Repo shape**: monorepo with three apps and two packages:
 
 ```
 apps/
   example-web/     # Next.js, styled with StyleX (real compiler)
   example-mobile/  # React Native via Expo, uses StyleXN
+  docs-site/       # stylexn documentation site; Next.js, same setup as example-web (port 3001)
 packages/
   shared/     # cross-platform components authored with the StyleX API
   stylexn/    # StyleXN: the StyleX → RN translation layer
@@ -24,8 +25,8 @@ packages/
 - **Linting**: oxlint
 - **Formatting**: oxfmt
 - **Git hooks**: lefthook, running oxlint + oxfmt on pre-commit (staged files)
-- **Unit tests**: vitest for `apps/example-web`, `packages/shared`, and `packages/stylexn`
-- **E2E tests**: Playwright for `apps/example-web`
+- **Unit tests**: vitest for `apps/example-web`, `apps/docs-site`, `packages/shared`, and `packages/stylexn`
+- **E2E tests**: Playwright for `apps/example-web` and `apps/docs-site`
 
 ### Setup notes / things to verify
 

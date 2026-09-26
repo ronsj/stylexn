@@ -38,7 +38,7 @@ jobs:
       - run: pnpm --filter stylexn pack:check
 
   web:
-    name: Web build and e2e
+    name: Web builds and e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @stylexn/example-web build
+      - run: pnpm --filter @stylexn/example-web --filter @stylexn/docs-site build
       # The browser download is the slowest step; key it on the lockfile so a
       # Playwright bump refreshes it.
       - uses: actions/cache@v4
@@ -56,13 +56,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm --filter @stylexn/example-web exec playwright install --with-deps chromium
-      # With CI set, playwright.config.ts serves the production build (next start).
+      # With CI set, each playwright.config.ts serves its production build (next start).
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
-          path: apps/example-web/playwright-report/
+          path: apps/*/playwright-report/
           retention-days: 7
 
   mobile:

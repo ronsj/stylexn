@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@stylexn/example-web", "dev"],
       "port": 3000
+    },
+    {
+      "name": "docs-site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@stylexn/docs-site", "dev"],
+      "port": 3001
     }
   ]
 }
