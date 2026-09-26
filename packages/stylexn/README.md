@@ -97,10 +97,15 @@ import "stylexn/elements.css";
   elements subscribe to dimensions, colour scheme, reduced motion, theme
   context and interaction state only when a rule needs them.
 - **`stylexn/elements`**: `View`, `Text`, `Pressable`, `Image`,
-  `TextInput`, `ScrollView` with an `sx` prop, DOM on web and React Native
-  primitives on native, with the same props (including `role` and the
-  `aria-*` attributes React Native supports). Text styles cascade from a
-  `View` to nested `Text` as on the web.
+  `TextInput`, `ScrollView`, `FlatList`, `Switch` with an `sx` prop, DOM on
+  web and React Native primitives on native, with the same props (including
+  `role` and the `aria-*` attributes React Native supports). Text styles
+  cascade from a `View` to nested `Text` as on the web. `TextInput`,
+  `ScrollView` and `FlatList` take a `ref` for `focus()`, `scrollTo()` and
+  the like; `Pressable` has `onPressIn`/`onPressOut`/`onLongPress`.
+  `FlatList` is virtualised on native and a plain scrolling list on web.
+  For safe areas use `react-native-safe-area-context` (React Native's own
+  `SafeAreaView` is deprecated) and, on web, CSS `env(safe-area-inset-*)`.
 - **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, `@media`
   (width, height, orientation, `prefers-color-scheme`,
   `prefers-reduced-motion`, `hover`, `pointer`), nested conditions.
