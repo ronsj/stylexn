@@ -1,26 +1,36 @@
+/* oxlint-disable react/refs -- refs are read in imperative-handle factories and event handlers, which run outside render */
 // Cross-platform elements, web implementation: DOM elements with React
 // Native's layout defaults, styled through the real StyleX compiler.
 // Native resolves `stylexn/elements` to ./native.ts instead.
 import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, InlineStyles, StyleXArray } from "@stylexjs/stylex";
-import { createElement, type ReactNode } from "react";
+import { createElement, useImperativeHandle, useRef, type ReactNode, type Ref } from "react";
 import type {
   CommonProps,
+  FlatListHandle,
+  FlatListOwnProps,
   ImageOwnProps,
   ImageSource,
   KeyboardType,
+  PressableOwnProps,
+  ScrollViewHandle,
   ScrollViewOwnProps,
+  SwitchOwnProps,
+  TextInputHandle,
   TextInputOwnProps,
 } from "./types.ts";
 
 export type {
   A11yProps,
   CommonProps,
+  FlatListHandle,
   ImageSource,
   KeyboardType,
   ReturnKeyType,
   Role,
   ScrollEvent,
+  ScrollViewHandle,
+  TextInputHandle,
 } from "./types.ts";
 
 /** What stylex.props() accepts; StyleXArray already allows nested arrays. */
@@ -90,7 +100,15 @@ const base = stylex.create({
   contentHorizontal: {
     flexDirection: "row",
   },
+  // <Switch>: the platform checkbox with a switch role; margins come from sx.
+  switch: {
+    margin: 0,
+    flexShrink: 0,
+  },
 });
+
+/** How long a press must be held to count as a long press (React Native's default). */
+const LONG_PRESS_MS = 500;
 
 export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
@@ -113,9 +131,42 @@ export function Text({ sx, children, testID, ...rest }: TextProps) {
 }
 
 export type PressableProps = CommonProps &
-  Readonly<{ sx?: SxProp; children?: ReactNode; disabled?: boolean; onPress?: () => void }>;
+  PressableOwnProps &
+  Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
-export function Pressable({ sx, children, testID, disabled, onPress, ...rest }: PressableProps) {
+export function Pressable({
+  sx,
+  children,
+  testID,
+  disabled,
+  onPress,
+  onPressIn,
+  onPressOut,
+  onLongPress,
+  ...rest
+}: PressableProps) {
+  // Pointer events drive press-in/out and the long-press timer; a long press
+  // swallows the click that follows it, as on native. Keyboard activation
+  // arrives as a click alone and always counts as a press.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const tracking = onPressIn || onPressOut || onLongPress;
+  const down = () => {
+    onPressIn?.();
+    longPressed.current = false;
+    if (onLongPress) {
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        longPressed.current = true;
+        onLongPress();
+      }, LONG_PRESS_MS);
+    }
+  };
+  const up = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    onPressOut?.();
+  };
   return createElement(
     "button",
     {
@@ -123,11 +174,36 @@ export function Pressable({ sx, children, testID, disabled, onPress, ...rest }: 
       type: "button",
       disabled,
       "data-testid": testID,
-      onClick: onPress,
+      onClick:
+        onPress &&
+        (() => {
+          if (longPressed.current) longPressed.current = false;
+          else onPress();
+        }),
+      onPointerDown: tracking ? down : undefined,
+      onPointerUp: tracking ? up : undefined,
+      onPointerLeave: tracking ? up : undefined,
+      onPointerCancel: tracking ? up : undefined,
       ...stylex.props(base.view, base.pressable, sx),
     },
     children,
   );
+}
+
+export type SwitchProps = CommonProps & SwitchOwnProps & Readonly<{ sx?: SxProp }>;
+
+/** A toggle: a checkbox with the switch role. `sx` styles the control itself. */
+export function Switch({ sx, value, onValueChange, disabled, testID, ...rest }: SwitchProps) {
+  return createElement("input", {
+    ...rest,
+    type: "checkbox",
+    role: "switch",
+    checked: value,
+    disabled,
+    onChange: (event: { target: { checked: boolean } }) => onValueChange?.(event.target.checked),
+    "data-testid": testID,
+    ...stylex.props(base.switch, sx),
+  });
 }
 
 export type ImageProps = CommonProps & ImageOwnProps & Readonly<{ sx?: SxProp }>;
@@ -154,7 +230,9 @@ export function Image({ sx, src, alt, testID, onLoad, onError, ...rest }: ImageP
   });
 }
 
-export type TextInputProps = CommonProps & TextInputOwnProps & Readonly<{ sx?: SxProp }>;
+export type TextInputProps = CommonProps &
+  TextInputOwnProps &
+  Readonly<{ sx?: SxProp; ref?: Ref<TextInputHandle> }>;
 
 /** keyboardType -> HTML `inputMode` and, where one exists, a matching `type`. */
 const KEYBOARDS: Readonly<Record<KeyboardType, { inputMode?: string; type?: string }>> = {
@@ -180,8 +258,23 @@ export function TextInput({
   returnKeyType,
   autoCapitalize,
   autoCorrect,
+  ref,
   ...rest
 }: TextInputProps) {
+  // No DOM lib in this package: the input is typed by what the handle uses.
+  const inner = useRef<{ focus(): void; blur(): void; value: string } | null>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => inner.current?.focus(),
+      blur: () => inner.current?.blur(),
+      clear: () => {
+        if (inner.current) inner.current.value = "";
+        onChangeText?.("");
+      },
+    }),
+    [onChangeText],
+  );
   const onChange = onChangeText
     ? (event: { target: { value: string } }) => onChangeText(event.target.value)
     : undefined;
@@ -189,6 +282,7 @@ export function TextInput({
   const type = secureTextEntry ? "password" : (keyboard.type ?? "text");
   return createElement(multiline ? "textarea" : "input", {
     ...rest,
+    ref: inner,
     ...(multiline ? {} : { type }),
     inputMode: keyboard.inputMode,
     enterKeyHint: returnKeyType === "done" ? "done" : returnKeyType,
@@ -212,7 +306,24 @@ export function TextInput({
 
 export type ScrollViewProps = CommonProps &
   ScrollViewOwnProps &
-  Readonly<{ sx?: SxProp; contentSx?: SxProp; children?: ReactNode }>;
+  Readonly<{ sx?: SxProp; contentSx?: SxProp; children?: ReactNode; ref?: Ref<ScrollViewHandle> }>;
+
+type Scroller = {
+  scrollTo(options: { left?: number; top?: number; behavior?: "smooth" | "instant" }): void;
+  scrollWidth: number;
+  scrollHeight: number;
+  scrollLeft: number;
+  scrollTop: number;
+  clientWidth: number;
+  clientHeight: number;
+};
+
+const behavior = (animated: boolean) => (animated ? "smooth" : "instant");
+
+const scrollEvent = (onScroll?: (event: { x: number; y: number }) => void) =>
+  onScroll &&
+  ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
+    onScroll({ x: event.currentTarget.scrollLeft, y: event.currentTarget.scrollTop }));
 
 export function ScrollView({
   sx,
@@ -221,23 +332,160 @@ export function ScrollView({
   children,
   testID,
   onScroll,
+  ref,
   ...rest
 }: ScrollViewProps) {
+  const inner = useRef<Scroller | null>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollTo: ({ x, y, animated: smooth = true }) =>
+        inner.current?.scrollTo({ left: x, top: y, behavior: behavior(smooth) }),
+      scrollToEnd: ({ animated: smooth = true } = {}) => {
+        const el = inner.current;
+        if (!el) return;
+        el.scrollTo(
+          horizontal
+            ? { left: el.scrollWidth, behavior: behavior(smooth) }
+            : { top: el.scrollHeight, behavior: behavior(smooth) },
+        );
+      },
+    }),
+    [horizontal],
+  );
   return createElement(
     "div",
     {
       ...rest,
+      ref: inner,
       "data-testid": testID,
-      onScroll:
-        onScroll &&
-        ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
-          onScroll({ x: event.currentTarget.scrollLeft, y: event.currentTarget.scrollTop })),
+      onScroll: scrollEvent(onScroll),
       ...stylex.props(base.view, base.scroll, horizontal && base.scrollHorizontal, sx),
     },
     createElement(
       "div",
       stylex.props(base.view, horizontal && base.contentHorizontal, contentSx),
       children,
+    ),
+  );
+}
+
+export type FlatListProps<T> = CommonProps &
+  FlatListOwnProps<T> &
+  Readonly<{ sx?: SxProp; contentSx?: SxProp; ref?: Ref<FlatListHandle> }>;
+
+const defaultKey = (item: unknown, index: number): string => {
+  const record = item as { key?: unknown; id?: unknown } | null;
+  const key = record?.key ?? record?.id;
+  return typeof key === "string" || typeof key === "number" ? String(key) : String(index);
+};
+
+/**
+ * The list on web: every item is rendered (no virtualisation), each in its
+ * own cell like React Native's FlatList, inside a scroll container.
+ * `onEndReached` fires once each time the end comes within the threshold.
+ */
+export function FlatList<T>({
+  sx,
+  contentSx,
+  data,
+  renderItem,
+  keyExtractor = defaultKey,
+  header,
+  footer,
+  empty,
+  separator,
+  horizontal,
+  testID,
+  onScroll,
+  onEndReached,
+  onEndReachedThreshold = 2,
+  ref,
+  ...rest
+}: FlatListProps<T>) {
+  const inner = useRef<Scroller | null>(null);
+  const content = useRef<{
+    querySelector(s: string): { offsetLeft: number; offsetTop: number } | null;
+  } | null>(null);
+  const nearEnd = useRef(false);
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToOffset: ({ offset, animated: smooth = true }) =>
+        inner.current?.scrollTo(
+          horizontal
+            ? { left: offset, behavior: behavior(smooth) }
+            : { top: offset, behavior: behavior(smooth) },
+        ),
+      scrollToIndex: ({ index, animated: smooth = true }) => {
+        const cell = content.current?.querySelector(`[data-index="${index}"]`);
+        if (!cell) return;
+        inner.current?.scrollTo(
+          horizontal
+            ? { left: cell.offsetLeft, behavior: behavior(smooth) }
+            : { top: cell.offsetTop, behavior: behavior(smooth) },
+        );
+      },
+      scrollToEnd: ({ animated: smooth = true } = {}) => {
+        const el = inner.current;
+        if (!el) return;
+        el.scrollTo(
+          horizontal
+            ? { left: el.scrollWidth, behavior: behavior(smooth) }
+            : { top: el.scrollHeight, behavior: behavior(smooth) },
+        );
+      },
+    }),
+    [horizontal],
+  );
+  const handleScroll = (event: { currentTarget: Scroller }) => {
+    const el = event.currentTarget;
+    onScroll?.({ x: el.scrollLeft, y: el.scrollTop });
+    if (!onEndReached) return;
+    const remaining = horizontal
+      ? el.scrollWidth - el.scrollLeft - el.clientWidth
+      : el.scrollHeight - el.scrollTop - el.clientHeight;
+    const visible = horizontal ? el.clientWidth : el.clientHeight;
+    if (remaining <= onEndReachedThreshold * visible) {
+      if (!nearEnd.current) {
+        nearEnd.current = true;
+        onEndReached();
+      }
+    } else {
+      nearEnd.current = false;
+    }
+  };
+  const cells: ReactNode[] = [];
+  data.forEach((item, index) => {
+    const key = keyExtractor(item, index);
+    if (index > 0 && separator !== undefined) {
+      cells.push(
+        createElement("div", { key: `${key}:sep`, ...stylex.props(base.view) }, separator),
+      );
+    }
+    cells.push(
+      createElement(
+        "div",
+        { key, "data-index": index, ...stylex.props(base.view) },
+        renderItem({ item, index }),
+      ),
+    );
+  });
+  return createElement(
+    "div",
+    {
+      ...rest,
+      ref: inner,
+      "data-testid": testID,
+      onScroll: onScroll || onEndReached ? handleScroll : undefined,
+      ...stylex.props(base.view, base.scroll, horizontal && base.scrollHorizontal, sx),
+    },
+    createElement(
+      "div",
+      { ref: content, ...stylex.props(base.view, horizontal && base.contentHorizontal, contentSx) },
+      header,
+      data.length === 0 ? empty : cells,
+      footer,
     ),
   );
 }

@@ -1,5 +1,16 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "stylexn/elements";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createRef } from "react";
+import {
+  FlatList,
+  Image,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "stylexn/elements";
+import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "stylexn/elements";
 import { expect, test, vi } from "vitest";
 
 // The web implementation of stylexn/elements, compiled by the real StyleX plugin.
@@ -104,4 +115,123 @@ test("Image accepts bundler objects and ScrollView reports the scroll offset", (
   box.scrollTop = 25;
   fireEvent.scroll(box);
   expect(onScroll).toHaveBeenCalledWith({ x: 0, y: 25 });
+});
+
+test("FlatList renders every item in a cell with header, separators and footer, and reports the end", () => {
+  const onEndReached = vi.fn();
+  render(
+    <FlatList
+      data={[{ id: "a" }, { id: "b" }, { id: "c" }]}
+      renderItem={({ item }) => <Text>{item.id}</Text>}
+      header={<Text>top</Text>}
+      footer={<Text>end</Text>}
+      separator={<View testID="sep" />}
+      onEndReached={onEndReached}
+      testID="list"
+    />,
+  );
+  const outer = screen.getByTestId("list");
+  const content = outer.firstElementChild as HTMLElement;
+  expect(content.textContent).toBe("topabcend");
+  expect(content.querySelectorAll("[data-index]")).toHaveLength(3);
+  expect(screen.getAllByTestId("sep")).toHaveLength(2);
+  // jsdom has no layout: everything is at the end, so the first scroll reports it once.
+  fireEvent.scroll(outer, { target: { scrollTop: 0 } });
+  fireEvent.scroll(outer, { target: { scrollTop: 1 } });
+  expect(onEndReached).toHaveBeenCalledOnce();
+});
+
+test("FlatList shows the empty slot and derives keys from key, id or index", () => {
+  const { rerender } = render(
+    <FlatList data={[]} renderItem={() => null} empty={<Text>none</Text>} testID="list" />,
+  );
+  expect(screen.getByTestId("list").textContent).toBe("none");
+  rerender(
+    <FlatList
+      data={[{ key: "k" }, { id: 7 }, {}]}
+      renderItem={({ index }) => <Text>{index}</Text>}
+      testID="list"
+    />,
+  );
+  expect(screen.getByTestId("list").textContent).toBe("012");
+});
+
+test("Switch is a checkbox with the switch role", () => {
+  const onValueChange = vi.fn();
+  render(<Switch value onValueChange={onValueChange} testID="sw" />);
+  const input = screen.getByTestId("sw") as HTMLInputElement;
+  expect(input.type).toBe("checkbox");
+  expect(input.getAttribute("role")).toBe("switch");
+  expect(input.checked).toBe(true);
+  fireEvent.click(input);
+  expect(onValueChange).toHaveBeenCalledWith(false);
+});
+
+test("Pressable reports press-in/out and long presses; a long press swallows the click", () => {
+  vi.useFakeTimers();
+  const onPress = vi.fn();
+  const onPressIn = vi.fn();
+  const onPressOut = vi.fn();
+  const onLongPress = vi.fn();
+  render(
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onLongPress={onLongPress}
+      testID="p"
+    >
+      <Text>go</Text>
+    </Pressable>,
+  );
+  const button = screen.getByTestId("p");
+  fireEvent.pointerDown(button);
+  expect(onPressIn).toHaveBeenCalledOnce();
+  fireEvent.pointerUp(button);
+  fireEvent.click(button);
+  expect(onPressOut).toHaveBeenCalledOnce();
+  expect(onPress).toHaveBeenCalledOnce();
+  expect(onLongPress).not.toHaveBeenCalled();
+  fireEvent.pointerDown(button);
+  act(() => {
+    vi.advanceTimersByTime(500);
+  });
+  expect(onLongPress).toHaveBeenCalledOnce();
+  fireEvent.pointerUp(button);
+  fireEvent.click(button);
+  expect(onPress).toHaveBeenCalledOnce(); // not again
+  vi.useRealTimers();
+});
+
+test("refs expose focus/clear on TextInput and scrolling on ScrollView and FlatList", () => {
+  const input = createRef<TextInputHandle>();
+  const scroll = createRef<ScrollViewHandle>();
+  const list = createRef<FlatListHandle>();
+  const onChangeText = vi.fn();
+  render(
+    <>
+      <TextInput ref={input} onChangeText={onChangeText} defaultValue="abc" testID="in" />
+      <ScrollView ref={scroll} testID="s">
+        <Text>x</Text>
+      </ScrollView>
+      <FlatList ref={list} data={[1, 2]} renderItem={() => <Text>x</Text>} testID="l" />
+    </>,
+  );
+  const el = screen.getByTestId("in") as HTMLInputElement;
+  input.current?.focus();
+  expect(document.activeElement).toBe(el);
+  input.current?.clear();
+  expect(el.value).toBe("");
+  expect(onChangeText).toHaveBeenCalledWith("");
+  // jsdom does not implement scrolling; observe the calls.
+  const scrollTo = vi.fn();
+  Object.assign(screen.getByTestId("s"), { scrollTo });
+  scroll.current?.scrollTo({ y: 40, animated: false });
+  expect(scrollTo).toHaveBeenCalledWith({ left: undefined, top: 40, behavior: "instant" });
+  const listScrollTo = vi.fn();
+  Object.assign(screen.getByTestId("l"), { scrollTo: listScrollTo });
+  list.current?.scrollToOffset({ offset: 12 });
+  expect(listScrollTo).toHaveBeenCalledWith({ top: 12, behavior: "smooth" });
+  list.current?.scrollToIndex({ index: 1, animated: false });
+  expect(listScrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "instant" }); // no layout in jsdom
 });

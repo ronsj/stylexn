@@ -1,10 +1,12 @@
 /** DOM stand-ins for React Native primitives (see testing/react-native.ts). */
-import { createElement, type ReactNode } from "react";
+import { createElement, type ReactNode, type Ref } from "react";
 
 type HostProps = {
   style?: unknown;
   children?: ReactNode;
   testID?: string;
+  ref?: Ref<unknown>;
+  onValueChange?: (value: boolean) => void;
   onPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
@@ -38,6 +40,8 @@ export function host(tag: string) {
     onScroll,
     onLoad,
     onError,
+    onValueChange,
+    ref,
     ...rest
   }: HostProps) {
     const serialisable = Object.fromEntries(
@@ -46,6 +50,7 @@ export function host(tag: string) {
     return createElement(
       tag,
       {
+        ref,
         "data-testid": testID,
         "data-style": JSON.stringify(style ?? null),
         "data-props": JSON.stringify(serialisable),
@@ -56,9 +61,10 @@ export function host(tag: string) {
         onBlur,
         onLoad,
         onError,
-        onChange:
-          onChangeText &&
-          ((event: { target: { value: string } }) => onChangeText(event.target.value)),
+        onChange: onChangeText
+          ? (event: { target: { value: string } }) => onChangeText(event.target.value)
+          : onValueChange &&
+            ((event: { target: { checked: boolean } }) => onValueChange(event.target.checked)),
         onKeyDown:
           onSubmitEditing &&
           ((event: { key: string }) => {

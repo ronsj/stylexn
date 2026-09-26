@@ -84,6 +84,7 @@ export const Animated = {
   Text: animated(host("rn-text")),
   Image: animated(host("rn-image")),
   ScrollView: animated(host("rn-scrollview")),
+  FlatList: animated(host("rn-flatlist")),
   createAnimatedComponent: (component: ComponentType<Record<string, unknown>>) =>
     animated(component),
 };

@@ -7,7 +7,9 @@ vi.mock("react-native", () => import("../testing/react-native.ts"));
 
 import { create } from "../runtime/api.ts";
 import { resetVarsForTesting } from "../runtime/vars.ts";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "./native.ts";
+import { createRef } from "react";
+import { FlatList, Image, Pressable, ScrollView, Switch, Text, TextInput, View } from "./native.ts";
+import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "./native.ts";
 
 beforeEach(() => {
   resetVarsForTesting();
@@ -21,6 +23,11 @@ const host = (testID: string) => screen.getByTestId(testID) as unknown as Host;
 const styleOf = (testID: string) =>
   JSON.parse(host(testID).getAttribute("data-style") ?? "null") as Record<string, unknown>;
 const tagOf = (testID: string) => host(testID).tagName;
+// Likewise for the bits of the DOM the list and focus tests read.
+type Dom = { children: ArrayLike<unknown>; textContent: string | null };
+const dom = (testID: string) => screen.getByTestId(testID) as unknown as Dom;
+const activeElement = () =>
+  (globalThis as unknown as { document: { activeElement: unknown } }).document.activeElement;
 const propsOf = (testID: string) =>
   JSON.parse(host(testID).getAttribute("data-props") ?? "null") as Record<string, unknown>;
 
@@ -312,5 +319,109 @@ describe("element follow-ups", () => {
     expect(propsOf("s").scrollEventThrottle).toBe(16);
     fireEvent.scroll(screen.getByTestId("s"), { target: { scrollLeft: 3, scrollTop: 40 } });
     expect(onScroll).toHaveBeenCalledWith({ x: 3, y: 40 });
+  });
+});
+
+describe("more elements", () => {
+  test("FlatList renders through React Native's FlatList with header, separator, empty and text cascade", () => {
+    render(
+      <FlatList
+        sx={styles.card}
+        contentSx={styles.content}
+        data={[{ id: "a" }, { id: "b" }]}
+        renderItem={({ item, index }) => <Text testID={`item-${index}`}>{item.id}</Text>}
+        header={<Text testID="header">top</Text>}
+        separator={<View testID="sep" />}
+        empty={<Text testID="empty">none</Text>}
+        onEndReached={() => {}}
+        onEndReachedThreshold={1}
+        testID="list"
+      />,
+    );
+    expect(tagOf("list")).toBe("RN-FLATLIST");
+    expect(styleOf("list")).toEqual({
+      paddingTop: 8,
+      paddingRight: 8,
+      paddingBottom: 8,
+      paddingLeft: 8,
+    });
+    expect(propsOf("list")).toMatchObject({
+      contentContainerStyle: { rowGap: 8, columnGap: 8 },
+      onEndReachedThreshold: 1,
+    });
+    expect(dom("list").children).toHaveLength(4); // header, a, sep, b
+    expect(screen.getAllByTestId("sep")).toHaveLength(1);
+    expect(screen.queryByTestId("empty")).toBeNull();
+    // Text styles on the list cascade into the items like on a View.
+    expect(styleOf("item-0")).toEqual({ color: "red", fontSize: 20, fontFamily: "Inter" });
+    expect(styleOf("header")).toEqual({ color: "red", fontSize: 20, fontFamily: "Inter" });
+  });
+
+  test("FlatList with no data shows the empty slot; plain nodes are accepted in the slots", () => {
+    render(
+      <FlatList data={[]} renderItem={() => null} empty="nothing" footer="end" testID="list" />,
+    );
+    expect(dom("list").textContent).toBe("nothingend");
+  });
+
+  test("Switch passes value, change and disabled through", () => {
+    const onValueChange = vi.fn();
+    render(<Switch sx={styles.pad} value onValueChange={onValueChange} testID="sw" />);
+    expect(tagOf("sw")).toBe("RN-SWITCH");
+    expect(propsOf("sw")).toMatchObject({ value: true });
+    expect(styleOf("sw")).toEqual({ paddingTop: 14 });
+    fireEvent.change(screen.getByTestId("sw"), { target: { checked: false } });
+    expect(onValueChange).toHaveBeenCalledWith(false);
+    render(<Switch value={false} disabled testID="off" />);
+    expect(propsOf("off")).toMatchObject({ value: false, disabled: true });
+  });
+
+  test("Pressable composes the author's press callbacks with the runtime's tracking", () => {
+    const onPressIn = vi.fn();
+    const onPressOut = vi.fn();
+    render(
+      <Pressable sx={styles.fading} onPressIn={onPressIn} onPressOut={onPressOut} testID="p">
+        <Text>hi</Text>
+      </Pressable>,
+    );
+    fireEvent.mouseDown(screen.getByTestId("p"));
+    expect(onPressIn).toHaveBeenCalledOnce();
+    expect(styleOf("p").opacity).toMatchObject({ $$interpolation: { outputRange: [1, 0.5] } });
+    fireEvent.mouseUp(screen.getByTestId("p"));
+    expect(onPressOut).toHaveBeenCalledOnce();
+  });
+
+  test("refs expose focus/blur/clear and the scroll methods of the underlying component", () => {
+    const input = createRef<TextInputHandle>();
+    const scroll = createRef<ScrollViewHandle>();
+    const list = createRef<FlatListHandle>();
+    render(
+      <>
+        <TextInput ref={input} testID="in" />
+        <ScrollView ref={scroll} testID="s">
+          <Text>x</Text>
+        </ScrollView>
+        <FlatList ref={list} data={[1]} renderItem={() => null} testID="l" />
+      </>,
+    );
+    input.current?.focus();
+    expect(activeElement()).toBe(screen.getByTestId("in"));
+    input.current?.blur();
+    expect(activeElement()).not.toBe(screen.getByTestId("in"));
+    // The doubles are DOM elements; give them the React Native methods to observe the calls.
+    const scrollTo = vi.fn();
+    const scrollToEnd = vi.fn();
+    Object.assign(screen.getByTestId("s"), { scrollTo, scrollToEnd });
+    scroll.current?.scrollTo({ y: 40 });
+    scroll.current?.scrollToEnd({ animated: false });
+    expect(scrollTo).toHaveBeenCalledWith({ x: undefined, y: 40, animated: true });
+    expect(scrollToEnd).toHaveBeenCalledWith({ animated: false });
+    const scrollToIndex = vi.fn();
+    const scrollToOffset = vi.fn();
+    Object.assign(screen.getByTestId("l"), { scrollToIndex, scrollToOffset });
+    list.current?.scrollToIndex({ index: 3 });
+    list.current?.scrollToOffset({ offset: 10, animated: false });
+    expect(scrollToIndex).toHaveBeenCalledWith({ index: 3, animated: true });
+    expect(scrollToOffset).toHaveBeenCalledWith({ offset: 10, animated: false });
   });
 });

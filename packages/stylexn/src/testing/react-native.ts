@@ -6,6 +6,7 @@
  * `testEnv`. Alias `react-native` to `stylexn/testing/react-native` in the
  * test runner's config; StyleXN's own tests use it the same way.
  */
+import { createElement, isValidElement, type ComponentType, type ReactNode, type Ref } from "react";
 import { resetFakeAnimated } from "../runtime/fake-animated.ts";
 import { host } from "./host.ts";
 
@@ -80,6 +81,89 @@ export const Image = host("rn-image");
 // A real <input>, so Testing Library can fire change events with a value.
 export const TextInput = host("input");
 export const ScrollView = host("rn-scrollview");
+export const Switch = host("rn-switch");
+
+type ListSlot = ComponentType<Record<string, never>> | ReactNode;
+type FlatListProps<T> = {
+  data: readonly T[];
+  renderItem: (info: { item: T; index: number }) => ReactNode;
+  keyExtractor?: (item: T, index: number) => string;
+  ListHeaderComponent?: ListSlot;
+  ListFooterComponent?: ListSlot;
+  ListEmptyComponent?: ListSlot;
+  ItemSeparatorComponent?: ListSlot;
+  style?: unknown;
+  contentContainerStyle?: unknown;
+  testID?: string;
+  ref?: Ref<unknown>;
+  onScroll?: (event: { nativeEvent: { contentOffset: { x: number; y: number } } }) => void;
+  [prop: string]: unknown;
+};
+
+const slot = (value: ListSlot): ReactNode =>
+  typeof value === "function"
+    ? createElement(value as ComponentType<Record<string, never>>)
+    : isValidElement(value)
+      ? value
+      : (value as ReactNode);
+
+/**
+ * FlatList double: renders every item (no virtualisation) inside an
+ * `rn-flatlist` host that exposes its style and props like the others,
+ * with the header, separators, footer and empty slot in React Native's order.
+ */
+export function FlatList<T>({
+  data,
+  renderItem,
+  keyExtractor,
+  ListHeaderComponent,
+  ListFooterComponent,
+  ListEmptyComponent,
+  ItemSeparatorComponent,
+  style,
+  contentContainerStyle,
+  testID,
+  ref,
+  onScroll,
+  ...rest
+}: FlatListProps<T>) {
+  const serialisable = Object.fromEntries(
+    Object.entries(rest).filter(([, v]) => typeof v !== "function"),
+  );
+  const cells: ReactNode[] = [];
+  data.forEach((item, index) => {
+    const key = keyExtractor ? keyExtractor(item, index) : String(index);
+    if (index > 0 && ItemSeparatorComponent) {
+      cells.push(
+        createElement("rn-separator", { key: `${key}:sep` }, slot(ItemSeparatorComponent)),
+      );
+    }
+    cells.push(createElement("rn-cell", { key }, renderItem({ item, index })));
+  });
+  return createElement(
+    "rn-flatlist",
+    {
+      ref,
+      "data-testid": testID,
+      "data-style": JSON.stringify(style ?? null),
+      "data-props": JSON.stringify({ ...serialisable, contentContainerStyle }),
+      onScroll:
+        onScroll &&
+        ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
+          onScroll({
+            nativeEvent: {
+              contentOffset: {
+                x: event.currentTarget.scrollLeft,
+                y: event.currentTarget.scrollTop,
+              },
+            },
+          })),
+    },
+    ListHeaderComponent === undefined ? null : slot(ListHeaderComponent),
+    data.length === 0 && ListEmptyComponent !== undefined ? slot(ListEmptyComponent) : cells,
+    ListFooterComponent === undefined ? null : slot(ListFooterComponent),
+  );
+}
 
 /** Read a host element's style / props back from the DOM. */
 export const styleOf = (element: { getAttribute(name: string): string | null }) =>
