@@ -10,12 +10,19 @@
  * the message.
  */
 import type { StyleXVar } from "@stylexjs/stylex";
-import type { atRules, properties, pseudoClasses, pseudoElements } from "../compat/table.ts";
+import type {
+  atRules,
+  functions,
+  properties,
+  pseudoClasses,
+  pseudoElements,
+} from "../compat/table.ts";
 
 type P = typeof properties;
 type PC = typeof pseudoClasses;
 type PE = typeof pseudoElements;
 type AR = typeof atRules;
+type F = typeof functions;
 
 /**
  * An object brand rather than a string literal: a literal would make the
@@ -70,12 +77,35 @@ type Branded = { readonly [WEB]: true } | { readonly [NATIVE]: true };
 /** A var reference: StyleX's branded string on web, StyleXN's object on native. */
 type VarLike = { readonly $$stylexnVar: string } | StyleXVar<unknown>;
 
+/** Value functions the table knows and does not reject, as `name()`. */
+export type SupportedFunction = {
+  [N in keyof F]: F[N]["status"] extends "unsupported" ? never : N;
+}[keyof F];
+
+/**
+ * A value in function syntax, judged by its first function name: `var()` is
+ * fine anywhere; a name the property lists (`rotate` for transform, `blur`
+ * for filter) is fine; otherwise it must be a value function the table
+ * accepts (`calc()`, `rgb()`, `oklch()`, ...) on a property that takes
+ * free-form strings. A name with a space in it is a multi-token value
+ * (`8px calc(...)`), left to the build check like any other string.
+ */
+type FunctionOk<K extends keyof P, N extends string> = N extends "var"
+  ? true
+  : N extends Keywords<K>
+    ? true
+    : N extends `${string} ${string}`
+      ? AllowsString<K>
+      : `${N}()` extends SupportedFunction
+        ? AllowsString<K>
+        : false;
+
 type LeafOk<K extends keyof P, V> = [ValuesOf<K>] extends [never]
   ? true
   : V extends Keywords<K>
     ? true
-    : V extends `${string}(${string})`
-      ? true // function syntax (rotate(), var(), calc(), ...): the build check judges it
+    : V extends `${infer N}(${string})`
+      ? FunctionOk<K, N>
       : V extends number
         ? AllowsNumber<K>
         : V extends string
@@ -150,6 +180,33 @@ export type CheckRule<R> = R extends { readonly $$stylexn: 1 }
               ? R[K]
               : Message<`unknown property ${K & string}`>;
     };
+
+// ---------------------------------------------------------------------------
+// Keyframes
+// ---------------------------------------------------------------------------
+
+/** `from`, `to`, a percentage, or a comma list of those. */
+export type KeyframeSelector = "from" | "to" | `${number}%` | `${string},${string}`;
+
+/** A frame is a rule without conditions: plain values (or var references) only. */
+type CheckFrame<F> = {
+  readonly [K in keyof F]: K extends UnsupportedProperty
+    ? Message<`${K} is not supported on React Native`>
+    : K extends NativeProperty
+      ? NonNullable<F[K]> extends VarLike | Branded | string | number
+        ? CheckValue<K, F[K]>
+        : Message<`keyframes take plain values, not conditions (${K})`>
+      : K extends `--${string}`
+        ? F[K]
+        : Message<`unknown property ${K & string}`>;
+};
+
+/** Validation type for a whole `keyframes()` argument. */
+export type ValidateKeyframes<T> = {
+  readonly [S in keyof T]: S extends KeyframeSelector
+    ? CheckFrame<T[S]>
+    : Message<`"${S & string}" is not a keyframe selector (from, to, or a percentage)`>;
+};
 
 /**
  * Validation for a native({ }) block: unsupported properties still error,

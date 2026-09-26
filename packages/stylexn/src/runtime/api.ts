@@ -6,7 +6,13 @@ import { snapshotEnv } from "./env.ts";
 import { keyframes as registerKeyframes } from "./keyframes.ts";
 import { resolve } from "./resolve.ts";
 import type { StyleArg } from "./types.ts";
-import type { Native, ValidateNative, ValidateStyles, Web } from "../types/index.ts";
+import type {
+  Native,
+  ValidateKeyframes,
+  ValidateNative,
+  ValidateStyles,
+  Web,
+} from "../types/index.ts";
 import { isCompiledRule } from "./types.ts";
 
 type RuleInput = CompiledRule | Declarations | ((...args: never[]) => CompiledRule | Declarations);
@@ -98,7 +104,7 @@ export function firstThatWorks<T>(...values: readonly T[]): T | undefined {
  * by stylexn/babel so the name survives Fast Refresh (see runtime/keyframes.ts).
  */
 export function keyframes<const T extends Record<string, Record<string, unknown>>>(
-  frames: T & ValidateStyles<T>,
+  frames: T & ValidateKeyframes<T>,
   id?: string,
 ): string {
   return registerKeyframes(frames as Record<string, Declarations | CompiledRule>, id);

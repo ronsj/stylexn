@@ -48,15 +48,112 @@ const n = nativeCreate(valid);
 const w = webCreate(valid);
 void [n.box.static, n.fade(0.5).static, w.box.display, w.fade(1)];
 
-// --- keyframes are checked like rules ---------------------------------------
+// --- function syntax is judged by its function name --------------------------
 
-const fade = nativeKeyframes({ from: { opacity: 0 }, to: { opacity: 1, transform: "scale(1)" } });
-void fade;
+nativeCreate({
+  a: {
+    transform: "rotate(45deg) scale(1.2)", // listed for transform
+    filter: "blur(4px)",
+    width: "calc(100% - 8px)", // a value function the table accepts
+    marginTop: "min(1rem, 4vw)",
+    color: "oklch(70% 0.1 200)",
+    backgroundColor: "rgb(0 0 0 / 0.5)",
+    display: "var(--mode)", // var() anywhere
+    padding: "8px calc(1rem + 2px)", // multi-token: the build check judges it
+  },
+});
+nativeCreate({
+  a: {
+    // @ts-expect-error not a transform function
+    transform: "bogus(1)",
+  },
+});
+webCreate({
+  a: {
+    // @ts-expect-error env() has no native value
+    width: "env(safe-area-inset-top)",
+  },
+});
+nativeCreate({
+  a: {
+    // @ts-expect-error a transform function is not a length
+    width: "rotate(1deg)",
+  },
+});
+webCreate({
+  a: {
+    // @ts-expect-error display takes keywords, not calc()
+    display: "calc(1)",
+  },
+});
+
+// --- keyframes: selectors and plain values --------------------------------------
+
+import { keyframes as webKeyframes } from "../web.ts";
+
+const fade = nativeKeyframes({
+  from: { opacity: 0 },
+  "50%": { opacity: 0.5 },
+  "0%, 100%": { transform: "scale(1)" },
+  to: { opacity: 1, transform: "scale(1)" },
+});
+void [fade, webKeyframes({ from: { opacity: 0 }, to: { opacity: 1 } })];
 nativeKeyframes({
   from: {
     // @ts-expect-error unsupported property in a keyframe
     float: "left",
   },
+});
+webKeyframes({
+  // @ts-expect-error not a keyframe selector
+  middle: { opacity: 0.5 },
+});
+nativeKeyframes({
+  from: {
+    // @ts-expect-error frames take plain values, not conditions
+    opacity: { default: 0, ":hover": 1 },
+  },
+});
+webKeyframes({
+  to: {
+    // @ts-expect-error grid is not a native display value
+    display: "grid",
+  },
+});
+
+// --- createTheme overrides match the group's value kinds -------------------------
+
+import { createTheme as nativeCreateTheme } from "../runtime/vars.ts";
+import { createTheme as webCreateTheme, defineVars as webDefineVars } from "../web.ts";
+
+const tokens = defineVars({
+  accent: "red",
+  gap: 8,
+  bg: { default: "#fff", "@media (prefers-color-scheme: dark)": "#000" },
+});
+void nativeCreateTheme(tokens, {
+  accent: "blue",
+  gap: 12,
+  bg: { default: "#eee", "@media (prefers-color-scheme: dark)": "#111" },
+});
+void nativeCreateTheme(tokens, { gap: tokens.gap }); // a var reference
+nativeCreateTheme(tokens, {
+  // @ts-expect-error accent is a string variable
+  accent: 12,
+});
+nativeCreateTheme(tokens, {
+  // @ts-expect-error gap is a number variable
+  gap: "12px",
+});
+nativeCreateTheme(tokens, {
+  // @ts-expect-error not in the group
+  other: 1,
+});
+const webTokens = webDefineVars({ accent: "red", gap: 8 });
+void webCreateTheme(webTokens, { accent: "blue", gap: 12 });
+webCreateTheme(webTokens, {
+  // @ts-expect-error accent is a string variable on web too
+  accent: 12,
 });
 
 // --- invalid rules are errors on both entries --------------------------------

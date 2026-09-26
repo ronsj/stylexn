@@ -7,7 +7,13 @@
 // the editor resolves the web entry.
 import * as stylex from "@stylexjs/stylex";
 import type { MapNamespaces } from "@stylexjs/stylex";
-import type { Native, ValidateNative, ValidateStyles, Web } from "./types/index.ts";
+import type {
+  Native,
+  ValidateKeyframes,
+  ValidateNative,
+  ValidateStyles,
+  Web,
+} from "./types/index.ts";
 
 export * from "@stylexjs/stylex";
 
@@ -30,3 +36,8 @@ export function native<const T extends Record<string, unknown>>(
 export const create: <const S extends StyleXInput>(
   styles: S & ValidateStyles<S>,
 ) => MapNamespaces<S> = stylex.create as never;
+
+/** StyleX's `keyframes`, with the frames checked like the native entry does. */
+export const keyframes: <const T extends Record<string, Record<string, unknown>>>(
+  frames: T & ValidateKeyframes<T>,
+) => string = stylex.keyframes as never;

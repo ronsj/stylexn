@@ -39,10 +39,26 @@ export function defineVars<T extends Record<string, RuntimeValue>>(
   return { ...refs, $$stylexnGroup: group } as VarGroup<T>;
 }
 
+/**
+ * What a theme may set a variable to: the kind of value the group declared
+ * (a number for a number, a string for a string), a var reference, or a
+ * conditional object of those. Mirrors StyleX's `createTheme` typing.
+ */
+export type ThemeOverride<V> = V extends VarRef
+  ? RuntimeValue
+  : V extends Readonly<{ default: infer D }>
+    ? ThemeOverride<D>
+    : V extends number
+      ? ThemeValue<number>
+      : V extends string
+        ? ThemeValue<string>
+        : RuntimeValue;
+type ThemeValue<L> = L | VarRef | Readonly<Record<string, L | VarRef>>;
+
 /** `stylex.createTheme`: new values for an existing group. Unknown keys are ignored. */
 export function createTheme<T extends Record<string, RuntimeValue>>(
   vars: VarGroup<T>,
-  overrides: Partial<{ [K in keyof T]: RuntimeValue }>,
+  overrides: Readonly<Partial<{ [K in keyof T]: ThemeOverride<T[K]> }>>,
 ): Theme {
   const values: Record<string, RuntimeValue> = {};
   for (const [key, value] of Object.entries(overrides)) {
