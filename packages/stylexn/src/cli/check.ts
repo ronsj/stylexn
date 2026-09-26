@@ -2,8 +2,8 @@
  * `stylexn check`: lint files for styles that do not work on React Native.
  * Same core as the ESLint/oxlint rule; meant for CI and whole-tree runs.
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { parseSync, traverse } from "@babel/core";
 import type { NodePath, types as t } from "@babel/core";
 import type { RNVersion } from "../compat/types.ts";
@@ -122,8 +122,33 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
   return problems;
 }
 
-export function checkFiles(files: readonly string[], options: CheckOptions = {}): Problem[] {
-  return files.flatMap((file) => checkSource(readFileSync(file, "utf8"), file, options));
+const SKIP_DIRS: ReadonlySet<string> = new Set(["node_modules", "dist", "build", ".expo", ".next"]);
+const SOURCE = /\.[cm]?[jt]sx?$/;
+
+/** Files to check for a path: the file itself, or a directory's sources recursively. */
+export function expandPaths(paths: readonly string[]): string[] {
+  const out: string[] = [];
+  const visit = (path: string) => {
+    if (!statSync(path).isDirectory()) {
+      out.push(path);
+      return;
+    }
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!SKIP_DIRS.has(entry.name)) visit(join(path, entry.name));
+      } else if (SOURCE.test(entry.name)) {
+        out.push(join(path, entry.name));
+      }
+    }
+  };
+  for (const p of paths) visit(p);
+  return out;
+}
+
+export function checkFiles(paths: readonly string[], options: CheckOptions = {}): Problem[] {
+  return expandPaths(paths).flatMap((file) =>
+    checkSource(readFileSync(file, "utf8"), file, options),
+  );
 }
 
 export function formatProblem(p: Problem): string {

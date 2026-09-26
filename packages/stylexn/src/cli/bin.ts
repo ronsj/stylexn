@@ -3,13 +3,15 @@ import { parseArgs } from "node:util";
 import type { RNVersion } from "../compat/types.ts";
 import { checkFiles, formatProblem } from "./check.ts";
 
-const USAGE = `Usage: stylexn check [options] <file>...
+const USAGE = `Usage: stylexn check [options] <file|directory>...
 
 Report styles in stylex.create() that do not work on React Native.
+Directories are searched for .ts/.tsx/.js/.jsx files (node_modules, dist,
+build, .expo and .next are skipped).
 
 Options:
   --rn-version <major.minor>  React Native version to check against
-  --report-web-only           Also warn about web-only declarations
+  --report-web-only           Also warn about web-only declarations outside web({ })
   --strict                    Treat warnings as errors
   --quiet                     Print errors only
   -h, --help                  Show this help

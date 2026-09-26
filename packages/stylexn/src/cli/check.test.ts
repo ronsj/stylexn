@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { checkSource, formatProblem } from "./check.ts";
+import { checkFiles, checkSource, expandPaths, formatProblem } from "./check.ts";
 
 const HEADER = `import * as stylex from "@stylexjs/stylex";\n`;
 
@@ -118,5 +118,41 @@ stylex.create({
       "i.tsx",
     );
     expect(problems.map((p) => p.message)).toEqual([expect.stringMatching(/sticky/)]);
+  });
+});
+
+describe("expandPaths", () => {
+  test("directories are searched recursively, skipping build output", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "stylexn-check-"));
+    mkdirSync(path.join(dir, "src/deep"), { recursive: true });
+    mkdirSync(path.join(dir, "node_modules/x"), { recursive: true });
+    mkdirSync(path.join(dir, "dist"), { recursive: true });
+    for (const f of [
+      "src/a.tsx",
+      "src/deep/b.ts",
+      "src/c.md",
+      "node_modules/x/d.ts",
+      "dist/e.js",
+    ]) {
+      writeFileSync(path.join(dir, f), "");
+    }
+    expect(
+      expandPaths([dir])
+        .map((f) => path.relative(dir, f))
+        .toSorted(),
+    ).toEqual(["src/a.tsx", "src/deep/b.ts"]);
+    expect(expandPaths([path.join(dir, "src/c.md")])).toEqual([path.join(dir, "src/c.md")]);
+  });
+
+  test("web-only leakage fails a strict run through checkFiles", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "stylexn-check-"));
+    writeFileSync(
+      path.join(dir, "leak.tsx"),
+      `${HEADER}import { web } from "stylexn";
+const s = stylex.create({ a: { willChange: "transform" }, b: { ...web({ willChange: "transform" }) } });`,
+    );
+    const problems = checkFiles([dir], { reportWebOnly: true });
+    expect(problems.map((p) => p.severity)).toEqual(["warning"]); // only the unwrapped one
+    expect(problems[0]?.line).toBe(3);
   });
 });
