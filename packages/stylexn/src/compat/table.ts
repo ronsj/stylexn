@@ -487,7 +487,7 @@ export const properties = {
   }),
   transitionProperty: poly(NO_ANIM),
   transitionDuration: poly(NO_ANIM),
-  transitionTimingFunction: poly(`${NO_ANIM} steps() falls back to linear.`),
+  transitionTimingFunction: poly(`${NO_ANIM} steps() is not supported.`),
   transitionDelay: poly(NO_ANIM),
   transitionBehavior: web("Discrete transitions have no native meaning."),
   animation: poly(`${NO_ANIM} Expanded to longhands.`, {
@@ -504,7 +504,7 @@ export const properties = {
   }),
   animationName: poly(`${NO_ANIM} The name must come from stylex.keyframes().`),
   animationDuration: poly(NO_ANIM),
-  animationTimingFunction: poly(`${NO_ANIM} steps() falls back to linear.`),
+  animationTimingFunction: poly(`${NO_ANIM} steps() is not supported.`),
   animationDelay: poly(NO_ANIM),
   animationIterationCount: poly(NO_ANIM),
   animationDirection: poly(NO_ANIM),
