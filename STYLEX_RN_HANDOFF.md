@@ -35,6 +35,7 @@ docs/rsd-spike.md
 - pnpm workspaces with isolated installs (no `node-linker=hoisted`, no custom Metro config). `packages/shared` ships TS source so each platform's pipeline sees raw `stylex.create` calls.
 - oxlint + oxfmt, run on staged files by lefthook at pre-commit. Vitest projects fan out from the root `vitest.config.ts`; each package has its own config (Vitest 5 does not search parent dirs).
 - The docs site builds its pages from the repo at build time (README code blocks, example sources, `COMPATIBILITY.md`, element prop types, live output of the checks), so nothing there is a hand copy; unit tests fail when those sources drift.
+- The docs site dogfoods the library: its own chrome imports `stylexn`, not `@stylexjs/stylex`, so its styles pass the Layer 1 types like shared code, and its CSS-only declarations (`position: sticky`, `overflowY`, `scrollMarginTop`, ...) sit in `...stylex.web({ })`. Semantic HTML (headings, links, lists, tables, code) stays HTML styled with `stylex.props`; keep new site code on the same footing.
 - CI (`.github/workflows/ci.yml`, private repo `ronsj/react-stylexn-app`, runs on push): check (lint, types, unit, check:styles, compat and pack checks), web build + Playwright, docs build + Playwright, strict Expo iOS export.
 
 ## Commands
