@@ -82,6 +82,21 @@ describe("stylex.create compilation", () => {
     ]);
   });
 
+  test("computed keys resolve through any never-reassigned binding", () => {
+    // Other plugins in the same traversal may have rewritten `const` to `var`.
+    const styles = compiled(`${HEADER}
+      var dark = "@media (prefers-color-scheme: dark)";
+      const styles = stylex.create({ a: { color: { default: "black", [dark]: "white" } } });`);
+    expect(styles.a.conditional).toEqual([
+      { key: "color", when: ["@media (prefers-color-scheme: dark)"], value: "white" },
+    ]);
+    expect(() =>
+      transform(
+        `${HEADER}let k = "x"; k = "y"; stylex.create({ a: { color: { [k]: "white" } } });`,
+      ),
+    ).toThrow(/const strings/);
+  });
+
   test("variable references are kept as expressions and flag usesVars", () => {
     const vars = { accent: { __var: "accent" }, space: { __var: "space" } };
     const styles = compiled(

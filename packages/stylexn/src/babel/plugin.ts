@@ -157,7 +157,10 @@ export default function stylexnBabelPlugin(
     return (name: string): string | null => {
       const binding = path.scope.getBinding(name);
       const init = binding?.path.node;
-      if (binding?.kind !== "const" || !T.isVariableDeclarator(init)) return null;
+      // `binding.constant` (never reassigned) rather than `kind === "const"`:
+      // all plugins share one traversal, and a preset's block-scoping plugin
+      // may already have turned the `const` into a `var` when we get here.
+      if (!binding?.constant || !T.isVariableDeclarator(init)) return null;
       if (T.isStringLiteral(init.init)) return init.init.value;
       if (T.isTemplateLiteral(init.init) && init.init.expressions.length === 0) {
         return init.init.quasis.map((q) => q.value.cooked ?? "").join("");
