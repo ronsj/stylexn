@@ -9,7 +9,8 @@
     "format:check": "oxfmt --check",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
-    "test:e2e": "pnpm --filter @stylexn/web test:e2e"
+    "test:e2e": "pnpm --filter @stylexn/web test:e2e",
+    "check:styles": "stylexn check packages/shared/src/*.ts packages/shared/src/*.tsx"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -21,6 +22,7 @@
     "lefthook": "^2.1.14",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
+    "stylexn": "workspace:*",
     "typescript": "^6.0.3",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"

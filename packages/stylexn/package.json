@@ -2,6 +2,9 @@
   "name": "stylexn",
   "version": "0.0.0",
   "private": true,
+  "bin": {
+    "stylexn": "./src/cli/bin.ts"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -14,7 +17,9 @@
     "./elements": {
       "react-native": "./src/elements/native.ts",
       "default": "./src/elements/web.ts"
-    }
+    },
+    "./eslint-plugin": "./src/lint/eslint-plugin.ts",
+    "./check": "./src/cli/check.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

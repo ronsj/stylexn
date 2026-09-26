@@ -15,10 +15,17 @@
       "rules": {
         "react/style-prop-object": "off"
       }
+    },
+    {
+      "files": ["packages/shared/**"],
+      "rules": {
+        "stylexn/compat": "error"
+      }
     }
   ],
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/.expo/**"]
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/.expo/**"],
+  "jsPlugins": ["./packages/stylexn/src/lint/eslint-plugin.ts"]
 }

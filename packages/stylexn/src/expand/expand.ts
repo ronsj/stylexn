@@ -98,10 +98,13 @@ function expandConditional(
  */
 export function expandDeclarations(declarations: Declarations): Expanded & {
   diagnostics: readonly Diagnostic[];
+  /** Expanded key -> the property it was written as (for reporting). */
+  origin: Readonly<Record<string, string>>;
 } {
   const style: Record<string, Value> = {};
   const depth: Record<string, number> = {};
   const diagnostics: Diagnostic[] = [];
+  const origin: Record<string, string> = {};
 
   for (const [property, value] of Object.entries(declarations)) {
     if (!isShorthand(property)) {
@@ -118,8 +121,9 @@ export function expandDeclarations(declarations: Declarations): Expanded & {
     const d = shorthandDepth(property);
     for (const [k, v] of Object.entries(expanded)) {
       style[k] = v;
+      if (k !== property) origin[k] = property;
       if (k !== property && d > 0) depth[k] = d;
     }
   }
-  return { style, depth, diagnostics };
+  return { style, depth, diagnostics, origin };
 }
