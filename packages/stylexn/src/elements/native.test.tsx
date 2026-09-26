@@ -16,6 +16,7 @@ vi.mock("react-native", async () => {
       onPress,
       onPressIn,
       onPressOut,
+      ...rest
     }: {
       style: unknown;
       children?: ReactNode;
@@ -23,12 +24,14 @@ vi.mock("react-native", async () => {
       onPress?: () => void;
       onPressIn?: () => void;
       onPressOut?: () => void;
+      [prop: string]: unknown;
     }) =>
       createElement(
         tag,
         {
           "data-testid": testID,
           "data-style": JSON.stringify(style),
+          "data-props": JSON.stringify(rest),
           onClick: onPress,
           onMouseDown: onPressIn,
           onMouseUp: onPressOut,
@@ -36,11 +39,14 @@ vi.mock("react-native", async () => {
         children,
       );
   return {
-    Animated,
+    Animated: { ...Animated, Image: Animated.View, ScrollView: Animated.View },
     Easing,
     View: element("div"),
     Text: element("span"),
     Pressable: element("button"),
+    Image: element("img"),
+    TextInput: element("input"),
+    ScrollView: element("scroll-view"),
     Dimensions: { get: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) },
     Appearance: { getColorScheme: () => "light", addChangeListener: () => ({ remove() {} }) },
     AccessibilityInfo: {
@@ -53,7 +59,7 @@ vi.mock("react-native", async () => {
 
 import { create } from "../runtime/api.ts";
 import { resetVarsForTesting } from "../runtime/vars.ts";
-import { Pressable, Text, View } from "./native.ts";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "./native.ts";
 
 beforeEach(() => {
   resetVarsForTesting();
@@ -67,6 +73,8 @@ const host = (testID: string) => screen.getByTestId(testID) as unknown as Host;
 const styleOf = (testID: string) =>
   JSON.parse(host(testID).getAttribute("data-style") ?? "null") as Record<string, unknown>;
 const tagOf = (testID: string) => host(testID).tagName;
+const propsOf = (testID: string) =>
+  JSON.parse(host(testID).getAttribute("data-props") ?? "null") as Record<string, unknown>;
 
 const styles = create({
   card: { padding: 8, color: "red", fontSize: 20, fontFamily: "Inter" },
@@ -76,6 +84,14 @@ const styles = create({
   pad: { paddingTop: "1em" },
   button: { color: "white", backgroundColor: "black" },
   fading: { opacity: { default: 1, ":active": 0.5 }, transitionDuration: "100ms" },
+  input: {
+    color: { default: "black", "::placeholder": "gray", ":focus": "blue" },
+    caretColor: "red",
+    borderBottomWidth: 1,
+  },
+  clamp: { lineClamp: 2, textOverflow: "ellipsis" },
+  scroll: { color: "red", padding: 4 },
+  content: { gap: 8 },
 });
 
 describe("text inheritance", () => {
@@ -169,5 +185,70 @@ describe("animated elements", () => {
     expect(tagOf("p")).toBe("ANIMATED-PRESSABLE");
     expect(tagOf("t")).toBe("SPAN");
     expect(styleOf("p").opacity).toMatchObject({ $$interpolation: { outputRange: [1, 0.5] } });
+  });
+});
+
+describe("Image, TextInput, ScrollView", () => {
+  test("Image maps src to a uri source and keeps alt", () => {
+    render(<Image sx={styles.pad} src="https://x/y.png" alt="y" testID="img" />);
+    expect(propsOf("img")).toMatchObject({ source: { uri: "https://x/y.png" }, alt: "y" });
+    expect(styleOf("img")).toEqual({ paddingTop: 14 });
+  });
+
+  test("TextInput receives style-derived props and focus handlers", () => {
+    render(<TextInput sx={styles.input} placeholder="Name" testID="in" />);
+    expect(propsOf("in")).toMatchObject({
+      placeholder: "Name",
+      placeholderTextColor: "gray",
+      cursorColor: "red",
+      editable: true,
+    });
+    expect(styleOf("in")).toEqual({ color: "black", borderBottomWidth: 1 });
+    // :focus is driven by the runtime's onFocus/onBlur, which the input receives.
+    expect(Object.keys(propsOf("in"))).not.toContain("onHoverIn");
+    render(<TextInput sx={styles.input} disabled testID="off" />);
+    expect(propsOf("off").editable).toBe(false);
+  });
+
+  test("Text gets numberOfLines and ellipsizeMode from lineClamp/textOverflow", () => {
+    render(
+      <Text sx={styles.clamp} testID="t">
+        long
+      </Text>,
+    );
+    expect(propsOf("t")).toMatchObject({ numberOfLines: 2, ellipsizeMode: "tail" });
+  });
+
+  test("ScrollView styles the container and the content separately and cascades text", () => {
+    render(
+      <ScrollView sx={styles.scroll} contentSx={styles.content} horizontal testID="s">
+        <Text testID="t">hi</Text>
+      </ScrollView>,
+    );
+    expect(tagOf("s")).toBe("SCROLL-VIEW");
+    expect(styleOf("s")).toEqual({
+      paddingTop: 4,
+      paddingRight: 4,
+      paddingBottom: 4,
+      paddingLeft: 4,
+    });
+    expect(propsOf("s")).toMatchObject({
+      horizontal: true,
+      contentContainerStyle: { rowGap: 8, columnGap: 8 },
+    });
+    expect(styleOf("t")).toEqual({ color: "red" });
+  });
+
+  test("accessibility props pass through unchanged", () => {
+    render(
+      <View role="button" aria-label="go" aria-disabled testID="v">
+        <Text>x</Text>
+      </View>,
+    );
+    expect(propsOf("v")).toMatchObject({
+      role: "button",
+      "aria-label": "go",
+      "aria-disabled": true,
+    });
   });
 });

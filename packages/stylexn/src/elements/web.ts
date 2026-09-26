@@ -4,6 +4,9 @@
 import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, InlineStyles, StyleXArray } from "@stylexjs/stylex";
 import { createElement, type ReactNode } from "react";
+import type { CommonProps, ImageOwnProps, ScrollViewOwnProps, TextInputOwnProps } from "./types.ts";
+
+export type { A11yProps, CommonProps, Role } from "./types.ts";
 
 /** What stylex.props() accepts; StyleXArray already allows nested arrays. */
 export type SxProp = StyleXArray<
@@ -41,15 +44,37 @@ const base = stylex.create({
     fontSize: "inherit",
     textAlign: "inherit",
   },
+  // <Image>: a leaf that covers its box by default (resizeMode "cover").
+  image: {
+    display: "block",
+    objectFit: "cover",
+  },
+  // <TextInput>: no UA chrome; React Native inputs start unstyled.
+  input: {
+    appearance: "none",
+    backgroundColor: "transparent",
+    color: "inherit",
+    fontFamily: "inherit",
+    fontSize: "inherit",
+    resize: "none",
+  },
+  // <ScrollView>: React Native's base styles, with overflow on the axis.
+  scroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+    overflowY: "auto",
+  },
+  scrollHorizontal: {
+    flexDirection: "row",
+    overflowX: "auto",
+    overflowY: "hidden",
+  },
+  contentHorizontal: {
+    flexDirection: "row",
+  },
 });
 
-export type ViewProps = Readonly<{
-  sx?: SxProp;
-  children?: ReactNode;
-  testID?: string;
-  role?: string;
-  "aria-label"?: string;
-}>;
+export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function View({ sx, children, testID, ...rest }: ViewProps) {
   return createElement(
@@ -59,13 +84,7 @@ export function View({ sx, children, testID, ...rest }: ViewProps) {
   );
 }
 
-export type TextProps = Readonly<{
-  sx?: SxProp;
-  children?: ReactNode;
-  testID?: string;
-  role?: string;
-  "aria-label"?: string;
-}>;
+export type TextProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function Text({ sx, children, testID, ...rest }: TextProps) {
   return createElement(
@@ -75,14 +94,8 @@ export function Text({ sx, children, testID, ...rest }: TextProps) {
   );
 }
 
-export type PressableProps = Readonly<{
-  sx?: SxProp;
-  children?: ReactNode;
-  testID?: string;
-  disabled?: boolean;
-  onPress?: () => void;
-  "aria-label"?: string;
-}>;
+export type PressableProps = CommonProps &
+  Readonly<{ sx?: SxProp; children?: ReactNode; disabled?: boolean; onPress?: () => void }>;
 
 export function Pressable({ sx, children, testID, disabled, onPress, ...rest }: PressableProps) {
   return createElement(
@@ -96,5 +109,68 @@ export function Pressable({ sx, children, testID, disabled, onPress, ...rest }: 
       ...stylex.props(base.view, base.pressable, sx),
     },
     children,
+  );
+}
+
+export type ImageProps = CommonProps & ImageOwnProps & Readonly<{ sx?: SxProp }>;
+
+export function Image({ sx, src, alt, testID, ...rest }: ImageProps) {
+  return createElement("img", {
+    ...rest,
+    src,
+    alt,
+    "data-testid": testID,
+    ...stylex.props(base.view, base.image, sx),
+  });
+}
+
+export type TextInputProps = CommonProps & TextInputOwnProps & Readonly<{ sx?: SxProp }>;
+
+export function TextInput({
+  sx,
+  testID,
+  onChangeText,
+  secureTextEntry,
+  multiline,
+  disabled,
+  ...rest
+}: TextInputProps) {
+  const onChange = onChangeText
+    ? (event: { target: { value: string } }) => onChangeText(event.target.value)
+    : undefined;
+  return createElement(multiline ? "textarea" : "input", {
+    ...rest,
+    ...(multiline ? {} : { type: secureTextEntry ? "password" : "text" }),
+    disabled,
+    onChange,
+    "data-testid": testID,
+    ...stylex.props(base.view, base.input, sx),
+  });
+}
+
+export type ScrollViewProps = CommonProps &
+  ScrollViewOwnProps &
+  Readonly<{ sx?: SxProp; contentSx?: SxProp; children?: ReactNode }>;
+
+export function ScrollView({
+  sx,
+  contentSx,
+  horizontal,
+  children,
+  testID,
+  ...rest
+}: ScrollViewProps) {
+  return createElement(
+    "div",
+    {
+      ...rest,
+      "data-testid": testID,
+      ...stylex.props(base.view, base.scroll, horizontal && base.scrollHorizontal, sx),
+    },
+    createElement(
+      "div",
+      stylex.props(base.view, horizontal && base.contentHorizontal, contentSx),
+      children,
+    ),
   );
 }

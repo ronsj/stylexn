@@ -3,7 +3,7 @@
 import { useState } from "react";
 import * as stylex from "stylexn";
 import { native, web } from "stylexn";
-import { Pressable, Text, View } from "stylexn/elements";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "stylexn/elements";
 import { greeting } from "./greeting";
 import { colors } from "./tokens.stylex";
 
@@ -42,6 +42,7 @@ const styles = stylex.create({
   title: {
     fontSize: 24,
     color: colors.accent,
+    flexShrink: 1, // React Native text does not shrink in a row by default
   },
   dot: {
     width: 10,
@@ -75,16 +76,67 @@ const styles = stylex.create({
     color: colors.onAccent,
     fontSize: 16,
   },
+  input: {
+    borderBottomWidth: 1,
+    borderBottomColor: { default: "#bbb", ":focus": colors.accent },
+    paddingBlock: 6,
+    fontSize: 16,
+    color: { default: "#222", "::placeholder": "#999" },
+    caretColor: colors.accent,
+  },
+  chips: {
+    marginInline: -16,
+  },
+  chipRow: {
+    paddingInline: 16,
+    gap: 8,
+  },
+  chip: {
+    paddingBlock: 4,
+    paddingInline: 10,
+    borderRadius: 999,
+    backgroundColor: "#eee",
+    color: "#333",
+    fontSize: 14,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
 });
+
+// A 1x1 purple PNG, so the demo needs no network.
+const AVATAR =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNIM54JAAI1ATNZtdtqAAAAAElFTkSuQmCC";
+
+const CHIPS = ["StyleX", "React Native", "Next.js", "Expo", "Animated", "oxlint"];
 
 export function Hello({ name }: { name: string }) {
   const [count, setCount] = useState(0);
+  const [who, setWho] = useState(name);
   return (
     <View sx={styles.root}>
       <View sx={styles.titleRow}>
         <View sx={styles.dot} aria-label="live" />
-        <Text sx={styles.title}>{greeting(name)}</Text>
+        <Image sx={styles.avatar} src={AVATAR} alt="" />
+        <Text sx={styles.title}>{greeting(who || name)}</Text>
       </View>
+      <TextInput
+        sx={styles.input}
+        defaultValue={name}
+        onChangeText={setWho}
+        placeholder="Your name"
+        aria-label="Your name"
+        testID="hello-name"
+      />
+      <ScrollView sx={styles.chips} contentSx={styles.chipRow} horizontal role="list">
+        {CHIPS.map((chip) => (
+          <Text key={chip} sx={styles.chip} role="listitem">
+            {chip}
+          </Text>
+        ))}
+      </ScrollView>
       <Pressable sx={styles.button} onPress={() => setCount((c) => c + 1)} testID="hello-button">
         <Text sx={styles.buttonText}>Pressed {count} times</Text>
       </Pressable>
