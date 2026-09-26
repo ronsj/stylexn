@@ -357,6 +357,25 @@ describe("more elements", () => {
     expect(styleOf("header")).toEqual({ color: "red", fontSize: 20, fontFamily: "Inter" });
   });
 
+  test("FlatList passes any other React Native FlatList prop through", () => {
+    const getItemLayout = (_: ArrayLike<number> | null | undefined, index: number) => ({
+      length: 40,
+      offset: 40 * index,
+      index,
+    });
+    render(
+      <FlatList
+        data={[1, 2]}
+        renderItem={() => null}
+        initialNumToRender={5}
+        getItemLayout={getItemLayout}
+        removeClippedSubviews
+        testID="list"
+      />,
+    );
+    expect(propsOf("list")).toMatchObject({ initialNumToRender: 5, removeClippedSubviews: true });
+  });
+
   test("FlatList with no data shows the empty slot; plain nodes are accepted in the slots", () => {
     render(
       <FlatList data={[]} renderItem={() => null} empty="nothing" footer="end" testID="list" />,
