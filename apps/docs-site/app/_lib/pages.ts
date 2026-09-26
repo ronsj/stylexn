@@ -3,6 +3,7 @@ export const PAGES = [
   { href: "/", title: "Introduction" },
   { href: "/getting-started/", title: "Getting started" },
   { href: "/styles/", title: "Authoring styles" },
+  { href: "/elements/", title: "Elements" },
 ] as const;
 
 export type Page = (typeof PAGES)[number];
