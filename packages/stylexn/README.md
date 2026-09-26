@@ -129,8 +129,9 @@ import "stylexn/elements.css";
 
 ## Checking styles
 
-- Types narrow `create()` from the table (unsupported properties, values and
-  conditions are red in the editor).
+- Types narrow `create()`, `keyframes()` and `createTheme()` from the table
+  (unsupported properties, values, function names, conditions, keyframe
+  selectors and theme value kinds are red in the editor).
 - Lint: the `stylexn/compat` rule from `stylexn/eslint-plugin` (ESLint v9
   or oxlint `jsPlugins`), or `stylexn check <files>` for CI.
 - Build: `stylexn/babel` strips web-only declarations, errors on
