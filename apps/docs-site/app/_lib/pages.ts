@@ -1,5 +1,8 @@
 /** The docs pages in reading order; the navigation and the pager follow it. */
-export const PAGES = [{ href: "/", title: "Introduction" }] as const;
+export const PAGES = [
+  { href: "/", title: "Introduction" },
+  { href: "/getting-started/", title: "Getting started" },
+] as const;
 
 export type Page = (typeof PAGES)[number];
 
