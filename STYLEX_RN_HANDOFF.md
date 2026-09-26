@@ -173,18 +173,26 @@ Items 1–8 of the previous plan are done and committed on `main` (last commit: 
 - **More elements** (`elements/types.ts`, `elements/native.ts`, `elements/web.ts`): `Image` (`src`/`alt`; native wraps `{ uri }`), `TextInput` (`onChangeText`, `secureTextEntry`, `multiline`, `disabled`; style-derived `placeholderTextColor`/`cursorColor` land as props on native, `::placeholder`/`caretColor` stay CSS on web) and `ScrollView` (`sx` for the container, `contentSx` for the content, `horizontal`). Prop types are shared between the two implementations, including an accessibility allowlist (`role` and the `aria-*` React Native supports) that passes through unchanged on both sides. The RSD-spike percentage-width overflow does not reproduce with StyleXN's elements (it was RSD's block-layout polyfill): `Hello`'s `width: 100%` root fits a padded parent on iOS.
 - **Layer 1 fix found on the way**: function-syntax strings (`rotate(45deg)`, `var()`, `calc()`) are now accepted by the types for any property; the build check judges them. Before this, `transform` strings were type errors.
 
-## Next steps (for the next session)
+## Next steps
 
-Roughly in priority order; each is independent enough to start with.
+A checklist, roughly in priority order; each unchecked item is independent enough to start with. Details for the checked ones are in the status sections above.
 
-1. **Folding follow-ups.** `calc()` with relative units could resolve at runtime (`rem`/`em`/`vw` are already runtime units); `color-mix` with named colors needs a named-color table (React Native's `@react-native/normalize-color` has one); functions nested inside `transform()` arguments are not folded.
-2. **Element follow-ups.** `TextInput` keyboard/return-key props, `onFocus`/`onBlur` callbacks for authors (the runtime owns them today), `Image` loading states and local `require()` sources, `ScrollView` scroll events; cross-platform text defaults (native `Text` does not shrink in a row: authors set `flexShrink: 1`, or the web base could stop shrinking to match).
-3. **Android.** Install an emulator and run the app: `elevation`, `verticalAlign`, `includeFontPadding`, and the `platform`-only entries in the table have not been exercised, nor has Animated on Android.
-4. **Animation follow-ups.** Native driver for `opacity`/`transform`-only transitions; resume-from-current for paused animations; base style during delay with `fill-mode: none`; `transition` on a key that disappears from the style (CSS animates to the initial value, StyleXN jumps).
-5. **Mobile testing (open question).** Unit tests for `apps/mobile` (vitest with mocked `react-native`, as the runtime tests do, vs. jest-expo) and E2E (Maestro is the lighter option with Expo Go). The runtime hooks, elements and the motion controller are tested with `@testing-library/react`, a mocked `react-native` and `runtime/fake-animated.ts`.
-6. **Publishing shape.** `exports` for `compiler`/`babel`/`eslint-plugin`/`check` point at `dist` with `types` conditions back to `.ts` source; a published package needs generated `.d.ts` (e.g. `tsc --emitDeclarationOnly` or tsdown), a README, and a decision on whether runtime/elements ship prebuilt too. Pin `oxlint` while `jsPlugins` is alpha.
-7. **Lint scope.** `stylexn/compat` is enabled for `packages/shared/**` only (web-only code is exempt by design). With the hatches in place, consider enabling it for any other package that is meant to be cross-platform, and add `reportWebOnly` in CI if web-only leakage into shared code should be visible.
-8. **Task runner (open question).** Plain `pnpm -r`/`--filter` scripts have been enough; revisit only if CI time or the root `prepare` build becomes a problem.
+- [x] **CI.** `.github/workflows/ci.yml`; pushed to the private repo `ronsj/react-stylexn-app` and green.
+- [x] **Animation runtime.** Transitions and `stylex.keyframes` on React Native's `Animated`.
+- [x] **Stable variable ids under Fast Refresh.** Injected by `stylexn/babel`.
+- [x] **Text style inheritance.** `TextStyleProvider`; View/Pressable/ScrollView cascade to nested Text.
+- [x] **Platform correctness (iOS).** `useProps` reads `Platform.OS`.
+- [x] **Compile-time value folding.** `calc()`-style math, CIE/OK/`color-mix()` colors, `light-dark()`.
+- [x] **More elements.** `Image`, `TextInput`, `ScrollView`, shared accessibility props.
+- [x] **Automatic `rnVersion`.** Detected from the installed `react-native`; per-version snapshots.
+- [ ] **Android.** Install an emulator and run the app: `elevation`, `verticalAlign`, `includeFontPadding`, and the `platform`-only entries in the table have not been exercised, nor has Animated on Android.
+- [ ] **Folding follow-ups.** `calc()` with relative units could resolve at runtime (`rem`/`em`/`vw` are already runtime units); `color-mix` with named colors needs a named-color table (React Native's `@react-native/normalize-color` has one); functions nested inside `transform()` arguments are not folded.
+- [ ] **Element follow-ups.** `TextInput` keyboard/return-key props, `onFocus`/`onBlur` callbacks for authors (the runtime owns them today), `Image` loading states and local `require()` sources, `ScrollView` scroll events; cross-platform text defaults (native `Text` does not shrink in a row: authors set `flexShrink: 1`, or the web base could stop shrinking to match).
+- [ ] **Animation follow-ups.** Native driver for `opacity`/`transform`-only transitions; resume-from-current for paused animations; base style during delay with `fill-mode: none`; `transition` on a key that disappears from the style (CSS animates to the initial value, StyleXN jumps).
+- [ ] **Mobile testing (open question).** Unit tests for `apps/mobile` (vitest with mocked `react-native`, as the runtime tests do, vs. jest-expo) and E2E (Maestro is the lighter option with Expo Go). The runtime hooks, elements and the motion controller are tested with `@testing-library/react`, a mocked `react-native` and `runtime/fake-animated.ts`.
+- [ ] **Publishing shape.** `exports` for `compiler`/`babel`/`eslint-plugin`/`check` point at `dist` with `types` conditions back to `.ts` source; a published package needs generated `.d.ts` (e.g. `tsc --emitDeclarationOnly` or tsdown), a README, and a decision on whether runtime/elements ship prebuilt too. Pin `oxlint` while `jsPlugins` is alpha.
+- [ ] **Lint scope.** `stylexn/compat` is enabled for `packages/shared/**` only (web-only code is exempt by design). With the hatches in place, consider enabling it for any other package that is meant to be cross-platform, and add `reportWebOnly` in CI if web-only leakage into shared code should be visible.
+- [ ] **Task runner (open question).** Plain `pnpm -r`/`--filter` scripts have been enough; revisit only if CI time or the root `prepare` build becomes a problem.
 
 ## Working notes / gotchas learned
 
