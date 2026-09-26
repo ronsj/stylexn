@@ -95,25 +95,56 @@ export type A11yProps = Readonly<{
 /** Props every element takes, besides `sx`. */
 export type CommonProps = A11yProps & Readonly<{ testID?: string }>;
 
+/**
+ * A URL or data URI, a bundler `require()` result (a number under Metro, a
+ * `{ src }` object under Next, a string under webpack), or a `{ uri }` object.
+ */
+export type ImageSource = string | number | Readonly<{ uri?: string; src?: string }>;
+
 export type ImageOwnProps = Readonly<{
-  /** URL or data URI. Native wraps it as `{ uri }`. */
-  src: string;
+  src: ImageSource;
   /** Accessible description; empty string for decorative images. */
   alt: string;
+  onLoad?: () => void;
+  onError?: () => void;
 }>;
+
+export type KeyboardType =
+  | "default"
+  | "email-address"
+  | "numeric"
+  | "decimal-pad"
+  | "phone-pad"
+  | "url";
+export type ReturnKeyType = "done" | "go" | "next" | "search" | "send";
 
 export type TextInputOwnProps = Readonly<{
   value?: string;
   defaultValue?: string;
   onChangeText?: (text: string) => void;
+  /** Return/Enter pressed on a single-line input. */
+  onSubmitEditing?: () => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   placeholder?: string;
   /** Password entry. */
   secureTextEntry?: boolean;
   multiline?: boolean;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Web: `inputMode` and `type`. */
+  keyboardType?: KeyboardType;
+  /** Web: `enterKeyHint`. */
+  returnKeyType?: ReturnKeyType;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  autoCorrect?: boolean;
+  maxLength?: number;
 }>;
+
+export type ScrollEvent = Readonly<{ x: number; y: number }>;
 
 export type ScrollViewOwnProps = Readonly<{
   horizontal?: boolean;
+  /** Content offset on every scroll event. */
+  onScroll?: (event: ScrollEvent) => void;
 }>;

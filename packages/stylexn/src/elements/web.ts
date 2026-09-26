@@ -4,9 +4,24 @@
 import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, InlineStyles, StyleXArray } from "@stylexjs/stylex";
 import { createElement, type ReactNode } from "react";
-import type { CommonProps, ImageOwnProps, ScrollViewOwnProps, TextInputOwnProps } from "./types.ts";
+import type {
+  CommonProps,
+  ImageOwnProps,
+  ImageSource,
+  KeyboardType,
+  ScrollViewOwnProps,
+  TextInputOwnProps,
+} from "./types.ts";
 
-export type { A11yProps, CommonProps, Role } from "./types.ts";
+export type {
+  A11yProps,
+  CommonProps,
+  ImageSource,
+  KeyboardType,
+  ReturnKeyType,
+  Role,
+  ScrollEvent,
+} from "./types.ts";
 
 /** What stylex.props() accepts; StyleXArray already allows nested arrays. */
 export type SxProp = StyleXArray<
@@ -29,10 +44,13 @@ const base = stylex.create({
     borderWidth: 0,
     borderStyle: "solid",
   },
+  // What a React Native <Text> looks like: in a row it does not shrink
+  // unless told to (set `flexShrink: 1` to wrap instead of overflowing).
   text: {
     display: "inline",
     margin: 0,
     padding: 0,
+    flexShrink: 0,
   },
   pressable: {
     cursor: "pointer",
@@ -114,11 +132,23 @@ export function Pressable({ sx, children, testID, disabled, onPress, ...rest }: 
 
 export type ImageProps = CommonProps & ImageOwnProps & Readonly<{ sx?: SxProp }>;
 
-export function Image({ sx, src, alt, testID, ...rest }: ImageProps) {
+/** Strings and bundler objects resolve to a URL; Metro's numeric assets do not exist on web. */
+function toSrc(src: ImageSource): string {
+  if (typeof src === "string") return src;
+  if (typeof src === "number") {
+    console.warn("[stylexn] Image: a numeric (Metro) asset has no URL on web");
+    return "";
+  }
+  return src.src ?? src.uri ?? "";
+}
+
+export function Image({ sx, src, alt, testID, onLoad, onError, ...rest }: ImageProps) {
   return createElement("img", {
     ...rest,
-    src,
+    src: toSrc(src),
     alt,
+    onLoad: onLoad && (() => onLoad()),
+    onError: onError && (() => onError()),
     "data-testid": testID,
     ...stylex.props(base.view, base.image, sx),
   });
@@ -126,23 +156,55 @@ export function Image({ sx, src, alt, testID, ...rest }: ImageProps) {
 
 export type TextInputProps = CommonProps & TextInputOwnProps & Readonly<{ sx?: SxProp }>;
 
+/** keyboardType -> HTML `inputMode` and, where one exists, a matching `type`. */
+const KEYBOARDS: Readonly<Record<KeyboardType, { inputMode?: string; type?: string }>> = {
+  default: {},
+  "email-address": { inputMode: "email", type: "email" },
+  numeric: { inputMode: "numeric" },
+  "decimal-pad": { inputMode: "decimal" },
+  "phone-pad": { inputMode: "tel", type: "tel" },
+  url: { inputMode: "url", type: "url" },
+};
+
 export function TextInput({
   sx,
   testID,
   onChangeText,
+  onSubmitEditing,
+  onFocus,
+  onBlur,
   secureTextEntry,
   multiline,
   disabled,
+  keyboardType = "default",
+  returnKeyType,
+  autoCapitalize,
+  autoCorrect,
   ...rest
 }: TextInputProps) {
   const onChange = onChangeText
     ? (event: { target: { value: string } }) => onChangeText(event.target.value)
     : undefined;
+  const keyboard = KEYBOARDS[keyboardType] ?? {};
+  const type = secureTextEntry ? "password" : (keyboard.type ?? "text");
   return createElement(multiline ? "textarea" : "input", {
     ...rest,
-    ...(multiline ? {} : { type: secureTextEntry ? "password" : "text" }),
+    ...(multiline ? {} : { type }),
+    inputMode: keyboard.inputMode,
+    enterKeyHint: returnKeyType === "done" ? "done" : returnKeyType,
+    autoCapitalize,
+    autoCorrect: autoCorrect === undefined ? undefined : autoCorrect ? "on" : "off",
     disabled,
     onChange,
+    onFocus: onFocus && (() => onFocus()),
+    onBlur: onBlur && (() => onBlur()),
+    // Enter submits single-line inputs, like React Native's onSubmitEditing.
+    onKeyDown:
+      onSubmitEditing && !multiline
+        ? (event: { key: string }) => {
+            if (event.key === "Enter") onSubmitEditing();
+          }
+        : undefined,
     "data-testid": testID,
     ...stylex.props(base.view, base.input, sx),
   });
@@ -158,6 +220,7 @@ export function ScrollView({
   horizontal,
   children,
   testID,
+  onScroll,
   ...rest
 }: ScrollViewProps) {
   return createElement(
@@ -165,6 +228,10 @@ export function ScrollView({
     {
       ...rest,
       "data-testid": testID,
+      onScroll:
+        onScroll &&
+        ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
+          onScroll({ x: event.currentTarget.scrollLeft, y: event.currentTarget.scrollTop })),
       ...stylex.props(base.view, base.scroll, horizontal && base.scrollHorizontal, sx),
     },
     createElement(

@@ -16,6 +16,9 @@ vi.mock("react-native", async () => {
       onPress,
       onPressIn,
       onPressOut,
+      onFocus,
+      onBlur,
+      onScroll,
       ...rest
     }: {
       style: unknown;
@@ -24,6 +27,9 @@ vi.mock("react-native", async () => {
       onPress?: () => void;
       onPressIn?: () => void;
       onPressOut?: () => void;
+      onFocus?: () => void;
+      onBlur?: () => void;
+      onScroll?: (event: unknown) => void;
       [prop: string]: unknown;
     }) =>
       createElement(
@@ -35,6 +41,20 @@ vi.mock("react-native", async () => {
           onClick: onPress,
           onMouseDown: onPressIn,
           onMouseUp: onPressOut,
+          onFocus,
+          onBlur,
+          // Emit React Native's event shape from the DOM element's scroll position.
+          onScroll:
+            onScroll &&
+            ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>
+              onScroll({
+                nativeEvent: {
+                  contentOffset: {
+                    x: event.currentTarget.scrollLeft,
+                    y: event.currentTarget.scrollTop,
+                  },
+                },
+              })),
         },
         children,
       );
@@ -250,5 +270,65 @@ describe("Image, TextInput, ScrollView", () => {
       "aria-label": "go",
       "aria-disabled": true,
     });
+  });
+});
+
+describe("element follow-ups", () => {
+  test("Image accepts require() numbers and bundler objects, and forwards load callbacks", () => {
+    const onLoad = vi.fn();
+    render(
+      <>
+        <Image src={42} alt="" testID="num" onLoad={onLoad} />
+        <Image src={{ src: "https://x/y.png" }} alt="" testID="obj" />
+      </>,
+    );
+    expect(propsOf("num").source).toBe(42);
+    expect(propsOf("obj").source).toEqual({ uri: "https://x/y.png" });
+    expect(typeof (host("num") as unknown as { onLoad?: unknown }).onLoad).toBe("undefined"); // handlers are not serialised
+    expect(onLoad).not.toHaveBeenCalled();
+  });
+
+  test("TextInput passes keyboard props through and composes focus callbacks with the runtime", () => {
+    const onFocus = vi.fn();
+    const onBlur = vi.fn();
+    render(
+      <TextInput
+        sx={styles.input}
+        keyboardType="email-address"
+        returnKeyType="send"
+        autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={10}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        testID="in"
+      />,
+    );
+    expect(propsOf("in")).toMatchObject({
+      keyboardType: "email-address",
+      returnKeyType: "send",
+      autoCapitalize: "none",
+      autoCorrect: false,
+      maxLength: 10,
+    });
+    // The host mock maps onFocus/onBlur to DOM focus events.
+    fireEvent.focus(screen.getByTestId("in"));
+    expect(onFocus).toHaveBeenCalledOnce();
+    expect(styleOf("in").color).toBe("blue"); // :focus from the runtime still applies
+    fireEvent.blur(screen.getByTestId("in"));
+    expect(onBlur).toHaveBeenCalledOnce();
+    expect(styleOf("in").color).toBe("black");
+  });
+
+  test("ScrollView normalises scroll events to a content offset", () => {
+    const onScroll = vi.fn();
+    render(
+      <ScrollView onScroll={onScroll} testID="s">
+        <Text>x</Text>
+      </ScrollView>,
+    );
+    expect(propsOf("s").scrollEventThrottle).toBe(16);
+    fireEvent.scroll(screen.getByTestId("s"), { target: { scrollLeft: 3, scrollTop: 40 } });
+    expect(onScroll).toHaveBeenCalledWith({ x: 3, y: 40 });
   });
 });

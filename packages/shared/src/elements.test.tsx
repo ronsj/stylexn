@@ -59,3 +59,49 @@ test("accessibility props reach the DOM on every element", () => {
   expect(screen.getByTestId("p").getAttribute("aria-disabled")).toBe("true");
   expect(screen.getByTestId("t").getAttribute("aria-hidden")).toBe("true");
 });
+
+test("TextInput keyboard props map to HTML, Enter submits, focus callbacks fire", () => {
+  const onSubmitEditing = vi.fn();
+  const onFocus = vi.fn();
+  render(
+    <TextInput
+      testID="email"
+      keyboardType="email-address"
+      returnKeyType="send"
+      autoCapitalize="none"
+      autoCorrect={false}
+      maxLength={20}
+      onSubmitEditing={onSubmitEditing}
+      onFocus={onFocus}
+    />,
+  );
+  const input = screen.getByTestId("email") as HTMLInputElement;
+  expect(input.type).toBe("email");
+  expect(input.getAttribute("inputmode")).toBe("email");
+  expect(input.getAttribute("enterkeyhint")).toBe("send");
+  expect(input.getAttribute("autocapitalize")).toBe("none");
+  expect(input.getAttribute("autocorrect")).toBe("off");
+  expect(input.maxLength).toBe(20);
+  fireEvent.keyDown(input, { key: "a" });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(onSubmitEditing).toHaveBeenCalledOnce();
+  fireEvent.focus(input);
+  expect(onFocus).toHaveBeenCalledOnce();
+});
+
+test("Image accepts bundler objects and ScrollView reports the scroll offset", () => {
+  const onScroll = vi.fn();
+  render(
+    <>
+      <Image src={{ src: "/static/a.png" }} alt="" testID="img" />
+      <ScrollView testID="s" onScroll={onScroll}>
+        <Text>x</Text>
+      </ScrollView>
+    </>,
+  );
+  expect((screen.getByTestId("img") as HTMLImageElement).getAttribute("src")).toBe("/static/a.png");
+  const box = screen.getByTestId("s");
+  box.scrollTop = 25;
+  fireEvent.scroll(box);
+  expect(onScroll).toHaveBeenCalledWith({ x: 0, y: 25 });
+});
