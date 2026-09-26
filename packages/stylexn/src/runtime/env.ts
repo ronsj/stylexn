@@ -31,6 +31,10 @@ export function windowMetrics(): WindowMetrics {
   return { width, height, scale, fontScale };
 }
 
+export function platform(): Env["platform"] {
+  return Platform.OS === "android" ? "android" : "ios";
+}
+
 export function colorScheme(): Env["colorScheme"] {
   return Appearance.getColorScheme() === "dark" ? "dark" : "light";
 }
@@ -48,7 +52,7 @@ export function snapshotEnv(
     vars: {},
     rootFontSize: config.rootFontSize,
     fontSize: config.fontSize,
-    platform: Platform.OS === "android" ? "android" : "ios",
+    platform: platform(),
     ...overrides,
   };
 }

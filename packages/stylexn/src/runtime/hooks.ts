@@ -10,7 +10,14 @@ import {
 } from "react";
 import { AccessibilityInfo, Appearance, Dimensions } from "react-native";
 import type { Props } from "./api.ts";
-import { colorScheme, config, getReducedMotion, setReducedMotion, windowMetrics } from "./env.ts";
+import {
+  colorScheme,
+  config,
+  getReducedMotion,
+  platform,
+  setReducedMotion,
+  windowMetrics,
+} from "./env.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
 import type { Env, InteractionState, StyleArg, Theme, VarScope, WindowMetrics } from "./types.ts";
 import { scopeWith } from "./vars.ts";
@@ -165,7 +172,7 @@ export function useProps(
     vars,
     rootFontSize: config.rootFontSize,
     fontSize: inheritedFontSize ?? config.fontSize,
-    platform: "ios",
+    platform: platform(),
   };
   const { style, props: extra } = resolve(args, env);
   return needs.interaction ? { ...extra, ...handlers, style } : { ...extra, style };
