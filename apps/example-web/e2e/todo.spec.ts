@@ -21,6 +21,9 @@ test("todo flow: add, complete, filter, paginate, edit, delete and persist", asy
   // The accent (#6a3db8) comes from packages/shared/src/todo/tokens.stylex.ts
   // via defineVars. Proves the CSS StyleX extracted from the shared package ships.
   await expect(page.getByTestId("filter-all")).toHaveCSS("background-color", "rgb(106, 61, 184)");
+  // The root sets a system font stack in web(), so text matches the native
+  // platform font instead of the browser's default serif.
+  await expect(page.getByRole("heading", { name: "Todos" })).toHaveCSS("font-family", /system-ui/);
 
   // Add, then mark done.
   await add(page, "Buy milk");

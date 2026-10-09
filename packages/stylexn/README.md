@@ -103,7 +103,10 @@ import "stylexn/elements.css";
   `TextInput`, `ScrollView`, `FlatList`, `Switch` with an `sx` prop, DOM on
   web and React Native primitives on native, with the same props (including
   `role` and the `aria-*` attributes React Native supports). Text styles
-  cascade from a `View` to nested `Text` as on the web. `TextInput`,
+  cascade from a `View` to nested `Text` as on the web. Native `Text` uses
+  the platform font; on the web it inherits the page's, so set a system
+  font stack on the page or the root `View` (inside `web({ })`, a family
+  name has no native meaning). `TextInput`,
   `ScrollView` and `FlatList` take a `ref` for `focus()`, `scrollTo()` and
   the like; `Pressable` has `onPressIn`/`onPressOut`/`onLongPress`.
   `FlatList` is virtualised on native and a plain scrolling list on web.

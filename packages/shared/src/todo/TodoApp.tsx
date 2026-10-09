@@ -39,6 +39,13 @@ const styles = stylex.create({
     // web(): StyleX types the fallback list as an array, which the native
     // style types reject, and native fills the screen with flexGrow anyway.
     ...web({ minHeight: stylex.firstThatWorks("100dvh", "100vh") }),
+    // Native text uses the platform font (San Francisco, Roboto). On the web
+    // Text inherits the page's font, so give the root the same system stack
+    // in web(): a family name is web-only, native must not see it.
+    ...web({
+      fontFamily:
+        'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    }),
     alignItems: "center",
     backgroundColor: colors.background,
     // env(safe-area-inset-*) inside calc(): clear of the notch and home
