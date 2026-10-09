@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Testing" };
 
 const VITEST_CONFIG = "apps/example-mobile/vitest.config.ts";
 const COUNTER_TEST = "apps/example-mobile/PressableCounter.test.tsx";
-const MAESTRO_FLOW = "apps/example-mobile/e2e/hello.yaml";
+const MAESTRO_FLOW = "apps/example-mobile/e2e/todo.yaml";
 
 export default function Testing() {
   return (

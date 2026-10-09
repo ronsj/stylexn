@@ -1,22 +1,23 @@
-import { Hello } from "@stylexn/shared";
+import { TodoApp } from "@stylexn/shared";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, View } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaInsetsProvider } from "stylexn";
 
-export default function App() {
+// StyleXN measures nothing: react-native-safe-area-context reports the
+// insets, and SafeAreaInsetsProvider hands them to env(safe-area-inset-*).
+function Screen() {
   return (
-    <View style={styles.container}>
-      <Hello name="mobile" />
+    <SafeAreaInsetsProvider insets={useSafeAreaInsets()}>
+      <TodoApp />
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaInsetsProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-});
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Screen />
+    </SafeAreaProvider>
+  );
+}

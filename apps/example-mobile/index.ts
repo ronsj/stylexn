@@ -1,3 +1,7 @@
+// First: installs a `localStorage` global backed by SQLite (included in Expo
+// Go), which the shared todo app persists to. A no-op on web.
+import "expo-sqlite/localStorage/install";
+
 import { registerRootComponent } from "expo";
 
 import App from "./App";

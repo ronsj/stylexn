@@ -13,6 +13,14 @@ export default defineConfig({
     alias: {
       "react-native": "stylexn/testing/react-native",
       "expo-status-bar": path.resolve(import.meta.dirname, "test/expo-status-bar.ts"),
+      "expo-sqlite/localStorage/install": path.resolve(
+        import.meta.dirname,
+        "test/expo-sqlite-localstorage.ts",
+      ),
+      "react-native-safe-area-context": path.resolve(
+        import.meta.dirname,
+        "test/react-native-safe-area-context.tsx",
+      ),
     },
   },
   test: {

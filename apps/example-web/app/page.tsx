@@ -1,5 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { Hello } from "@stylexn/shared";
+import { TodoApp } from "@stylexn/shared";
+
+// A Server Component: it renders the shared client TodoApp, which hydrates
+// in the browser and loads the saved todos from localStorage.
 
 const styles = stylex.create({
   main: {
@@ -13,7 +16,7 @@ const styles = stylex.create({
 export default function Page() {
   return (
     <main {...stylex.props(styles.main)}>
-      <Hello name="web" />
+      <TodoApp />
     </main>
   );
 }
