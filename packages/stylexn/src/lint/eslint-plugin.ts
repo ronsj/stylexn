@@ -110,6 +110,7 @@ const compat = {
               resolveConst,
               helper: (call) => tracker.helperKind(call),
               when: (call) => tracker.whenKind(call),
+              firstThatWorks: (call) => tracker.isFirstThatWorksCall(call),
               platform: "native",
             });
             for (const m of lintDeclarations(declarations, locations, { ...options, trusted })) {

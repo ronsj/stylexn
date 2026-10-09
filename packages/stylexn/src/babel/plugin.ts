@@ -204,6 +204,7 @@ export default function stylexnBabelPlugin(
       resolveConst: resolveConstIn(path),
       helper: (call) => state.stylexn.helperKind(call),
       when: (call) => state.stylexn.whenKind(call),
+      firstThatWorks: (call) => state.stylexn.isFirstThatWorksCall(call),
       platform: "native",
     });
     const exprs = expressions as unknown as t.Expression[];

@@ -1,12 +1,16 @@
 import { compileRule, NativeValue } from "../compile/compile.ts";
 import type { CompiledRule } from "../compile/compile.ts";
 import type { Declarations } from "../expand/types.ts";
+import { makeFirstThatWorks } from "../first-that-works.ts";
+import type { AuthoredDeclarations } from "../first-that-works.ts";
 import type { RNLeaf } from "../lower/lower.ts";
 import { snapshotEnv } from "./env.ts";
 import { keyframes as registerKeyframes } from "./keyframes.ts";
 import { resolve } from "./resolve.ts";
 import type { StyleArg } from "./types.ts";
 import type {
+  AuthoredRule,
+  FirstThatWorks,
   Native,
   ValidateKeyframes,
   ValidateNative,
@@ -15,11 +19,11 @@ import type {
 } from "../types/index.ts";
 import { isCompiledRule } from "./types.ts";
 
-type RuleInput = CompiledRule | Declarations | ((...args: never[]) => CompiledRule | Declarations);
+type RuleInput = CompiledRule | AuthoredRule | ((...args: never[]) => CompiledRule | AuthoredRule);
 
 let warnedUncompiled = false;
 
-function ensureCompiled(rule: CompiledRule | Declarations, name: string): CompiledRule {
+function ensureCompiled(rule: CompiledRule | AuthoredRule, name: string): CompiledRule {
   if (isCompiledRule(rule)) return rule;
   if (!warnedUncompiled) {
     warnedUncompiled = true;
@@ -27,7 +31,7 @@ function ensureCompiled(rule: CompiledRule | Declarations, name: string): Compil
       `[stylexn] stylex.create("${name}") was not compiled by stylexn/babel; compiling at runtime. Add the plugin to babel.config.js.`,
     );
   }
-  return compileRule(rule as Declarations).rule;
+  return compileRule(rule as AuthoredDeclarations).rule;
 }
 
 /**
@@ -93,9 +97,13 @@ export function native<const T extends Record<string, unknown>>(
 /** Deprecated StyleX alias of `props`. */
 export const attrs = props;
 
-/** `stylex.firstThatWorks`: the compat check picks at compile time; at runtime the first value stands. */
-export function firstThatWorks<T>(...values: readonly T[]): T | undefined {
-  return values[0];
+/**
+ * `stylex.firstThatWorks`: the candidates in preference order. The compiler
+ * (stylexn/babel, or `create` at runtime) keeps the first one the compat
+ * table accepts for the property, and reports a finding when none is.
+ */
+export function firstThatWorks<T extends string | number>(...candidates: T[]): FirstThatWorks<T> {
+  return makeFirstThatWorks(candidates) as unknown as FirstThatWorks<T>;
 }
 
 /**

@@ -12,8 +12,14 @@
  * marker)]` becomes the condition key `:where-ancestor(:hover, <marker>)`,
  * where `<marker>` is `default-marker` or a sentinel for the marker
  * expression (the Babel plugin emits it as `${marker.$$stylexnMarker}`).
+ *
+ * Fallback lists: a `stylex.firstThatWorks(a, b, ...)` value becomes a
+ * `firstThatWorks` tag (see first-that-works.ts) whose literal candidates stay
+ * literals and other candidates become sentinels; the compiler picks one.
  */
-import type { Declarations, Value } from "../expand/types.ts";
+import type { Leaf } from "../expand/types.ts";
+import { makeFirstThatWorks } from "../first-that-works.ts";
+import type { AuthoredDeclarations, AuthoredValue } from "../first-that-works.ts";
 import { makeSentinel } from "../sentinel.ts";
 
 /** The subset of AST node shape both vocabularies share. */
@@ -53,12 +59,14 @@ export type ExtractOptions = Readonly<{
   helper?: (call: AstNode) => HelperKind | null;
   /** Which `when.*` condition a call expression is, if any (computed condition keys). */
   when?: (call: AstNode) => WhenKind | null;
+  /** Whether a call expression is `firstThatWorks(...)` from a StyleX import. */
+  firstThatWorks?: (call: AstNode) => boolean;
   /** Which platform's blocks to keep. Default native. */
   platform?: Platform;
 }>;
 
 export type Extracted = Readonly<{
-  declarations: Declarations;
+  declarations: AuthoredDeclarations;
   /** Path key (`prop`, `prop[cond]`, ...) -> the node that declares it. */
   locations: ReadonlyMap<string, AstNode>;
   /** Non-literal value nodes, indexed by sentinel number. */
@@ -87,7 +95,7 @@ function stringValue(n: AstNode): string | undefined {
   return undefined;
 }
 
-function literalValue(n: AstNode): Value | undefined {
+function literalValue(n: AstNode): Leaf | undefined {
   const s = stringValue(n);
   if (s !== undefined) return s;
   if (n.type === "NumericLiteral") return n.value as number;
@@ -192,11 +200,25 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
     return makeSentinel(expressions.length - 1);
   };
 
-  const toValue = (node: AstNode, path: string): Value => {
+  const toValue = (node: AstNode, path: string): AuthoredValue => {
     const literal = literalValue(node);
     if (literal !== undefined) return literal;
+    if (node.type === "CallExpression" && options.firstThatWorks?.(node)) {
+      const args = node.arguments as AstNode[];
+      if (args.length === 0) {
+        throw new ExtractError("firstThatWorks() expects at least one value", node);
+      }
+      return makeFirstThatWorks(
+        args.map((arg): Leaf => {
+          if (isSpread(arg)) {
+            throw new ExtractError("firstThatWorks() does not accept spread arguments", arg);
+          }
+          return literalValue(arg) ?? expression(arg);
+        }),
+      );
+    }
     if (isObjectExpression(node)) {
-      const out: Record<string, Value> = {};
+      const out: Record<string, AuthoredValue> = {};
       for (const prop of node.properties as AstNode[]) {
         if (!isProperty(prop)) {
           throw new ExtractError("conditional values only accept plain properties", prop);
@@ -211,7 +233,7 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
     return expression(node);
   };
 
-  const declarations: Record<string, Value> = {};
+  const declarations: Record<string, AuthoredValue> = {};
   const addProperty = (prop: AstNode, trust: boolean) => {
     if (!isProperty(prop)) {
       throw new ExtractError("style rules only accept plain properties (no spread/methods)", prop);
@@ -243,7 +265,8 @@ export const DEFAULT_IMPORT_SOURCES: readonly string[] = ["@stylexjs/stylex", "s
 
 /**
  * Tracks StyleX imports in a file and recognises `create`, `defineVars`,
- * `defineMarker`, `keyframes`, `when.*`, `web` and `native` through them.
+ * `defineMarker`, `keyframes`, `firstThatWorks`, `when.*`, `web` and `native`
+ * through them.
  */
 export class CreateCallTracker {
   private readonly namespaces = new Set<string>();
@@ -252,6 +275,7 @@ export class CreateCallTracker {
   private readonly defineMarkers = new Set<string>();
   private readonly keyframes = new Set<string>();
   private readonly whens = new Set<string>();
+  private readonly firstThatWorks = new Set<string>();
   private readonly helpers = new Map<string, HelperKind>();
   private readonly sources: ReadonlySet<string>;
 
@@ -275,6 +299,7 @@ export class CreateCallTracker {
         if (name === "defineMarker") this.defineMarkers.add(local);
         if (name === "when") this.whens.add(local);
         if (name === "keyframes") this.keyframes.add(local);
+        if (name === "firstThatWorks") this.firstThatWorks.add(local);
         if (name === "web" || name === "native") this.helpers.set(local, name);
       }
     }
@@ -310,6 +335,12 @@ export class CreateCallTracker {
     const callee = node.callee as AstNode;
     if (callee.type === "Identifier") return this.defineMarkers.has(callee.name as string);
     return this.memberOf(callee) === "defineMarker";
+  }
+
+  isFirstThatWorksCall(node: AstNode): boolean {
+    const callee = node.callee as AstNode;
+    if (callee.type === "Identifier") return this.firstThatWorks.has(callee.name as string);
+    return this.memberOf(callee) === "firstThatWorks";
   }
 
   /** The kind of a `stylex.when.<kind>(...)` / `when.<kind>(...)` call from a StyleX import. */

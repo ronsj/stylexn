@@ -66,6 +66,22 @@ const styles = stylex.create({
     });
   });
 
+  test("firstThatWorks: judged by its candidates", () => {
+    expect(
+      checkSource(
+        `${HEADER}stylex.create({ a: { minHeight: stylex.firstThatWorks("100cqh", "100vh") } });`,
+        "x.ts",
+      ),
+    ).toEqual([]);
+    const problems = checkSource(
+      `import { create, firstThatWorks } from "stylexn";\ncreate({ a: { width: firstThatWorks("1ch", "1cqw") } });`,
+      "x.ts",
+    );
+    expect(problems).toMatchObject([
+      { line: 2, severity: "error", message: expect.stringMatching(/none of firstThatWorks/) },
+    ]);
+  });
+
   test("web-only reporting is opt-in", () => {
     const src = `${HEADER}stylex.create({ a: { willChange: "x" } });`;
     expect(checkSource(src, "x.ts")).toEqual([]);

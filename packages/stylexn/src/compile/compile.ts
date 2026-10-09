@@ -1,8 +1,14 @@
 import { checkDeclarations, isBlocking } from "../check/check.ts";
 import type { CheckOptions, Finding } from "../check/check.ts";
 import { expandDeclarations } from "../expand/expand.ts";
-import type { Declarations, Diagnostic, Value } from "../expand/types.ts";
+import type { Declarations, Diagnostic, Leaf, Value } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
+import {
+  describeFirstThatWorks,
+  isFirstThatWorks,
+  makeFirstThatWorks,
+} from "../first-that-works.ts";
+import type { AuthoredDeclarations, AuthoredValue } from "../first-that-works.ts";
 import { lowerDeclarations } from "../lower/lower.ts";
 import type { LoweredValue, RNLeaf } from "../lower/lower.ts";
 import { isLoweredConditional } from "../lower/lower.ts";
@@ -60,21 +66,28 @@ const CONDITION_KEY = /^(default$|:|@)/;
 
 function isOpaqueObject(value: unknown): value is Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if (isFirstThatWorks(value)) return false;
   const keys = Object.keys(value);
   return keys.length > 0 && !keys.every((k) => CONDITION_KEY.test(k));
 }
 
-function substitute(value: unknown, opaque: unknown[]): Value {
+function substitute(value: unknown, opaque: unknown[]): AuthoredValue {
+  if (isFirstThatWorks(value)) {
+    // Each candidate may be a var reference on the uncompiled runtime path.
+    return makeFirstThatWorks(
+      value.$$stylexnFirstThatWorks.map((c) => substitute(c, opaque) as Leaf),
+    );
+  }
   if (isOpaqueObject(value)) {
     opaque.push(value);
     return makeSentinel(opaque.length - 1);
   }
   if (typeof value === "object" && value !== null) {
-    const out: Record<string, Value> = {};
+    const out: Record<string, AuthoredValue> = {};
     for (const [k, v] of Object.entries(value)) out[k] = substitute(v, opaque);
     return out;
   }
-  return value as Value;
+  return value as Leaf;
 }
 
 function restoreLeaf(value: CompiledLeaf, opaque: readonly unknown[]): CompiledLeaf {
@@ -120,6 +133,85 @@ export function isExempt(
     finding.status === "unsupported" &&
     propertyEntries[finding.property] !== undefined;
   return !listedUnsupported;
+}
+
+// ---------------------------------------------------------------------------
+// firstThatWorks: pick the first candidate React Native accepts
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether React Native takes `candidate` for `property`: no value, unit or
+ * function finding that would block or strip it. Property-level findings
+ * (unsupported property, React Native version) do not depend on the
+ * candidate, so they are left to the rule's own check. Unset and runtime
+ * values (sentinels) cannot be judged here and are accepted.
+ */
+function acceptsCandidate(
+  property: string,
+  candidate: Leaf,
+  options: CheckOptions,
+  trusted: ReadonlySet<string> | undefined,
+): boolean {
+  if (candidate === null || isSentinel(candidate)) return true;
+  const expanded = expandDeclarations({ [property]: candidate });
+  if (expanded.diagnostics.length) return false;
+  return !checkDeclarations(expanded.style, options).some(
+    (f) =>
+      f.kind !== "property" &&
+      f.kind !== "version" &&
+      (isBlocking(f) || f.status === "web-only") &&
+      !isExempt(f, expanded.origin, trusted),
+  );
+}
+
+/**
+ * Replace every `firstThatWorks(...)` value with its first candidate the
+ * compat check accepts (StyleX on the web lists them all and the browser
+ * keeps the last it understands; authors put the preferred value first).
+ * When none is accepted, the declaration or branch is dropped and one
+ * finding names all candidates. Shared by the compiler and the lint core.
+ */
+export function resolveFirstThatWorks(
+  declarations: AuthoredDeclarations,
+  options: CheckOptions = {},
+  trusted?: ReadonlySet<string>,
+): { declarations: Declarations; findings: Finding[] } {
+  const findings: Finding[] = [];
+  const resolveValue = (
+    property: string,
+    value: AuthoredValue,
+    conditions: readonly string[],
+  ): Value | undefined => {
+    if (isFirstThatWorks(value)) {
+      const candidates = value.$$stylexnFirstThatWorks;
+      const chosen = candidates.find((c) => acceptsCandidate(property, c, options, trusted));
+      if (chosen !== undefined) return chosen;
+      const shown = describeFirstThatWorks(candidates);
+      findings.push({
+        kind: "function",
+        status: "unsupported",
+        property,
+        conditions,
+        value: shown,
+        message: `${property}: none of ${shown} is supported on React Native`,
+      });
+      return undefined;
+    }
+    if (typeof value !== "object" || value === null) return value;
+    const out: Record<string, Value> = {};
+    for (const [condition, branch] of Object.entries(value)) {
+      const resolved = resolveValue(property, branch, [...conditions, condition]);
+      if (resolved !== undefined) out[condition] = resolved;
+    }
+    return Object.keys(out).length ? out : undefined;
+  };
+
+  const out: Record<string, Value> = {};
+  for (const [property, value] of Object.entries(declarations)) {
+    const resolved = resolveValue(property, value, []);
+    if (resolved !== undefined) out[property] = resolved;
+  }
+  return { declarations: out, findings };
 }
 
 /** Marks a value authored in native({ }) on the uncompiled runtime path. */
@@ -193,18 +285,18 @@ function containsRuntimeValue(value: LoweredValue): boolean {
 }
 
 /**
- * Compile one `stylex.create` rule: expand -> check -> strip -> lower ->
- * flatten. Pure; the Babel plugin turns the result into an AST and applies
- * the error/warning policy to `findings` and `diagnostics`. Called at
- * runtime for rules the plugin did not see.
+ * Compile one `stylex.create` rule: resolve firstThatWorks -> expand ->
+ * check -> strip -> lower -> flatten. Pure; the Babel plugin turns the
+ * result into an AST and applies the error/warning policy to `findings` and
+ * `diagnostics`. Called at runtime for rules the plugin did not see.
  */
 export function compileRule(
-  declarations: Declarations,
+  declarations: AuthoredDeclarations,
   options: CompileOptions = {},
 ): CompileResult {
   const opaque: unknown[] = [];
   const trusted = new Set(options.trusted ?? []);
-  const input: Declarations = Object.fromEntries(
+  const input: AuthoredDeclarations = Object.fromEntries(
     Object.entries(declarations).map(([k, v]) => {
       if (v instanceof NativeValue) {
         trusted.add(k);
@@ -214,11 +306,14 @@ export function compileRule(
     }),
   );
 
-  const expanded = expandDeclarations(input);
-  const findings = checkDeclarations(expanded.style, options).filter(
+  const resolved = resolveFirstThatWorks(input, options, trusted);
+  const expanded = expandDeclarations(resolved.declarations);
+  const checked = checkDeclarations(expanded.style, options).filter(
     (f) => !isExempt(f, expanded.origin, trusted),
   );
-  const stripped = strip(expanded.style, findings, options.strict ?? false);
+  // A firstThatWorks with no accepted candidate is already gone from the input.
+  const findings = [...resolved.findings, ...checked];
+  const stripped = strip(expanded.style, checked, options.strict ?? false);
   const lowered = lowerDeclarations({ style: stripped, depth: expanded.depth });
 
   const staticStyle: Record<string, CompiledLeaf> = {};

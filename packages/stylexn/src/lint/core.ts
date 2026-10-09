@@ -3,10 +3,11 @@
  * declarations and produce messages attached to source nodes.
  */
 import { checkDeclarations } from "../check/check.ts";
-import { isExempt } from "../compile/compile.ts";
+import { isExempt, resolveFirstThatWorks } from "../compile/compile.ts";
 import type { CheckOptions, Finding } from "../check/check.ts";
 import { expandDeclarations } from "../expand/expand.ts";
-import type { Declarations, Diagnostic } from "../expand/types.ts";
+import type { Diagnostic } from "../expand/types.ts";
+import type { AuthoredDeclarations } from "../first-that-works.ts";
 import type { AstNode } from "./extract.ts";
 
 export type Severity = "error" | "warning";
@@ -65,14 +66,19 @@ function locate(path: string, locations: ReadonlyMap<string, AstNode>): AstNode 
 }
 
 export function lintDeclarations(
-  declarations: Declarations,
+  declarations: AuthoredDeclarations,
   locations: ReadonlyMap<string, AstNode>,
   options: LintOptions = {},
 ): LintMessage[] {
-  const expanded = expandDeclarations(declarations);
-  const findings = checkDeclarations(expanded.style, options).filter(
-    (f) => !isExempt(f, expanded.origin, options.trusted),
-  );
+  // firstThatWorks is judged like the compiler does: a finding only when no candidate works.
+  const resolved = resolveFirstThatWorks(declarations, options, options.trusted);
+  const expanded = expandDeclarations(resolved.declarations);
+  const findings = [
+    ...resolved.findings,
+    ...checkDeclarations(expanded.style, options).filter(
+      (f) => !isExempt(f, expanded.origin, options.trusted),
+    ),
+  ];
   const declared = new Set(Object.keys(declarations));
   const out: LintMessage[] = [];
 

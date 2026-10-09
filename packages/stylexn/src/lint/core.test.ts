@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { lintDeclarations } from "./core.ts";
 import type { AstNode } from "./extract.ts";
+import { makeFirstThatWorks as ftw } from "../first-that-works.ts";
 
 const node = (type: string): AstNode => ({ type });
 
@@ -71,5 +72,23 @@ describe("trusted declarations", () => {
       { trusted: new Set(["elevation", "margin", "float"]) },
     );
     expect(messages.map((m) => m.path)).toEqual(["float", "display"]);
+  });
+
+  test("firstThatWorks reports only when no candidate is accepted", () => {
+    const branch = node("Property");
+    const locations = new Map([["width[:hover]", branch]]);
+    expect(lintDeclarations({ width: ftw(["1ch", "4px"]) }, locations)).toEqual([]);
+    const messages = lintDeclarations(
+      { width: { default: 1, ":hover": ftw(["1ch", "1cqw"]) } },
+      locations,
+    );
+    expect(messages).toMatchObject([
+      {
+        severity: "error",
+        path: "width[:hover]",
+        node: branch,
+        message: 'width: none of firstThatWorks("1ch", "1cqw") is supported on React Native',
+      },
+    ]);
   });
 });

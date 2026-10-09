@@ -954,7 +954,9 @@ export const apis = {
   defineConsts: ok({ note: "Inlined at compile time." }),
   createTheme: poly("Themes become a context provider for the subtree."),
   keyframes: poly(NO_ANIM),
-  firstThatWorks: poly("Picks the first value the compat table accepts, at compile time."),
+  firstThatWorks: poly(
+    "Picks the first candidate the compat table accepts, at compile time (the compiler and the runtime fallback both do it); a finding when none is.",
+  ),
   positionTry: no("Anchor positioning does not exist on native."),
   viewTransitionClass: web("View transitions are a web API."),
   defineMarker: poly(

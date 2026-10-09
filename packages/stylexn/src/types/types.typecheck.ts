@@ -333,3 +333,36 @@ webCreate({
 });
 declare const anyCondition: string;
 nativeCreate({ a: { color: { default: "black", [anyCondition]: "blue" } } });
+
+// --- firstThatWorks: accepted when at least one candidate is ------------------
+
+import { firstThatWorks as nativeFirstThatWorks } from "../runtime/api.ts";
+import { firstThatWorks as webFirstThatWorks } from "../web.ts";
+
+nativeCreate({
+  a: {
+    minHeight: nativeFirstThatWorks("100dvh", "100vh"),
+    position: nativeFirstThatWorks("sticky", "relative"), // relative is a native value
+    color: { default: nativeFirstThatWorks("oklch(70% 0.1 200)", "gray"), ":hover": "black" },
+  },
+});
+webCreate({
+  a: {
+    minHeight: webFirstThatWorks("100dvh", "100vh"),
+    position: webFirstThatWorks("sticky", "relative"),
+    color: { default: webFirstThatWorks("oklch(70% 0.1 200)", "gray"), ":hover": "black" },
+  },
+});
+nativeCreate({
+  a: {
+    // @ts-expect-error neither candidate is a native position
+    position: nativeFirstThatWorks("sticky", "fixed"),
+  },
+});
+webCreate({
+  a: {
+    // @ts-expect-error neither candidate is a native display value
+    display: webFirstThatWorks("grid", "block"),
+  },
+});
+nativeKeyframes({ from: { opacity: nativeFirstThatWorks(0, 0.1) }, to: { opacity: 1 } });

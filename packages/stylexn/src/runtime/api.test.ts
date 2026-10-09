@@ -92,8 +92,24 @@ describe("props", () => {
 });
 
 describe("misc API", () => {
-  test("firstThatWorks returns the first value", () => {
-    expect(firstThatWorks("sticky", "fixed", "absolute")).toBe("sticky");
+  test("firstThatWorks: create keeps the first candidate the compat table accepts", () => {
+    const styles = create({
+      a: {
+        position: firstThatWorks("sticky", "fixed", "absolute"),
+        width: { default: 10, ":hover": firstThatWorks("1ch", "12px") },
+      },
+    });
+    expect(styles.a.static).toEqual({ position: "absolute", width: 10 });
+    expect(styles.a.conditional).toEqual([{ key: "width", when: [":hover"], value: 12 }]);
+  });
+
+  test("firstThatWorks: a var reference candidate is a runtime value", () => {
+    const vars = defineVars({ size: 12 });
+    const styles = create({
+      // Layer 1 types candidates as literals; at runtime a var reference is accepted.
+      a: { width: firstThatWorks("1ch", vars.size as unknown as string) },
+    });
+    expect(props(styles.a).style.width).toBe(12);
   });
 
   test("default export exposes the StyleX API", () => {

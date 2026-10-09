@@ -74,6 +74,29 @@ export type Web<V> = V & { readonly [WEB]: true };
 export type Native<V> = V & { readonly [NATIVE]: true };
 type Branded = { readonly [WEB]: true } | { readonly [NATIVE]: true };
 
+declare const FIRST_THAT_WORKS: unique symbol;
+
+/**
+ * A `firstThatWorks(...)` result. A type-only brand over StyleX's own return
+ * type (an array of the candidates, which StyleX's `create` accepts); on
+ * native the runtime value is a tagged object the compiler resolves.
+ */
+export type FirstThatWorks<T extends string | number> = ReadonlyArray<T> & {
+  readonly [FIRST_THAT_WORKS]: T;
+};
+
+/** What a native rule may hold before validation: leaves, firstThatWorks results, conditionals. */
+export type AuthoredStyleValue =
+  | string
+  | number
+  | null
+  | undefined
+  | FirstThatWorks<string | number>
+  | { readonly [condition: string]: AuthoredStyleValue };
+
+/** The input shape of a native `create()` rule; ValidateStyles judges the values. */
+export type AuthoredRule = Readonly<Record<string, AuthoredStyleValue>>;
+
 /** A var reference: StyleX's branded string on web, StyleXN's object on native. */
 type VarLike = { readonly $$stylexnVar: string } | StyleXVar<unknown>;
 
@@ -99,6 +122,9 @@ type FunctionOk<K extends keyof P, N extends string> = N extends "var"
       : `${N}()` extends SupportedFunction
         ? AllowsString<K>
         : false;
+
+/** True when at least one candidate of a firstThatWorks list is accepted (distributes over C). */
+type AnyLeafOk<K extends keyof P, C> = C extends unknown ? LeafOk<K, C> : never;
 
 type LeafOk<K extends keyof P, V> = [ValuesOf<K>] extends [never]
   ? true
@@ -175,15 +201,19 @@ export type CheckValue<K extends keyof P & string, V> = V extends null | undefin
     ? V
     : V extends VarLike
       ? V
-      : V extends string | number
-        ? LeafOk<K, V> extends true
+      : V extends FirstThatWorks<infer C>
+        ? true extends AnyLeafOk<K, C>
           ? V
-          : Message<`"${V & (string | number)}" is not a supported ${K} value on React Native`>
-        : V extends readonly unknown[]
-          ? Message<`arrays are not style values (${K})`>
-          : V extends object
-            ? CheckConditional<K, V>
-            : Message<`unsupported ${K} value`>;
+          : Message<`no firstThatWorks candidate is a supported ${K} value on React Native`>
+        : V extends string | number
+          ? LeafOk<K, V> extends true
+            ? V
+            : Message<`"${V & (string | number)}" is not a supported ${K} value on React Native`>
+          : V extends readonly unknown[]
+            ? Message<`arrays are not style values (${K})`>
+            : V extends object
+              ? CheckConditional<K, V>
+              : Message<`unsupported ${K} value`>;
 
 export type CheckRule<R> = R extends { readonly $$stylexn: 1 }
   ? R // already compiled by the Babel plugin
@@ -211,7 +241,12 @@ type CheckFrame<Frame> = {
   readonly [K in keyof Frame]: K extends UnsupportedProperty
     ? Message<`${K} is not supported on React Native`>
     : K extends NativeProperty
-      ? NonNullable<Frame[K]> extends VarLike | Branded | string | number
+      ? NonNullable<Frame[K]> extends
+          | VarLike
+          | Branded
+          | FirstThatWorks<string | number>
+          | string
+          | number
         ? CheckValue<K, Frame[K]>
         : Message<`keyframes take plain values, not conditions (${K})`>
       : K extends `--${string}`

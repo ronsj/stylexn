@@ -35,10 +35,10 @@ const styles = stylex.create({
     // Fills the screen on native (the app root) and the page on the web.
     flexGrow: 1,
     width: "100%",
-    // firstThatWorks: 100dvh where the browser has it, 100vh otherwise. In
-    // web(): StyleX types the fallback list as an array, which the native
-    // style types reject, and native fills the screen with flexGrow anyway.
-    ...web({ minHeight: stylex.firstThatWorks("100dvh", "100vh") }),
+    // firstThatWorks: the web gets 100dvh where the browser has it, 100vh
+    // otherwise. Native keeps the first candidate the compat table accepts,
+    // 100dvh (treated as 100vh); flexGrow already fills the screen there.
+    minHeight: stylex.firstThatWorks("100dvh", "100vh"),
     // Native text uses the platform font (San Francisco, Roboto). On the web
     // Text inherits the page's font, so give the root the same system stack
     // in web(): a family name is web-only, native must not see it.

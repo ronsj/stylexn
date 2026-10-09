@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { compileRule } from "./compile.ts";
+import { makeFirstThatWorks as ftw } from "../first-that-works.ts";
 import { makeSentinel } from "../sentinel.ts";
 
 describe("compileRule", () => {
@@ -103,6 +104,51 @@ describe("compileRule", () => {
   test("var() strings mark usesVars", () => {
     expect(compileRule({ color: "var(--x)" }).rule.usesVars).toBe(true);
     expect(compileRule({ color: "red" }).rule.usesVars).toBe(false);
+  });
+
+  test("firstThatWorks keeps the first accepted candidate, shorthands included", () => {
+    const { rule, findings } = compileRule({
+      minHeight: ftw(["100cqh", "100dvh", "100vh"]),
+      margin: ftw(["1ch 2px", "4px 8px"]),
+      position: { default: "relative", ":hover": ftw(["sticky", "absolute"]) },
+    });
+    expect(rule.static).toMatchObject({ minHeight: "100dvh", marginTop: 4, marginLeft: 8 });
+    expect(rule.conditional).toEqual([{ key: "position", when: [":hover"], value: "absolute" }]);
+    expect(findings).toEqual([]);
+  });
+
+  test("firstThatWorks with no accepted candidate: one finding, the declaration or branch dropped", () => {
+    for (const strict of [false, true]) {
+      const { rule, findings } = compileRule(
+        { width: ftw(["10ch", "1cqw"]), color: { default: "red", ":hover": ftw(["1ch"]) } },
+        { strict },
+      );
+      expect(rule.static).toEqual({ color: "red" });
+      expect(rule.conditional).toEqual([]);
+      expect(findings).toEqual([
+        {
+          kind: "function",
+          status: "unsupported",
+          property: "width",
+          conditions: [],
+          value: 'firstThatWorks("10ch", "1cqw")',
+          message: 'width: none of firstThatWorks("10ch", "1cqw") is supported on React Native',
+        },
+        expect.objectContaining({ property: "color", conditions: [":hover"] }),
+      ]);
+    }
+  });
+
+  test("firstThatWorks: runtime values win when reached, trusted properties take the first", () => {
+    const s = makeSentinel(0);
+    expect(compileRule({ width: ftw(["1ch", s, "4px"]) }).rule.static).toEqual({ width: s });
+    const trusted = compileRule({ width: ftw(["1ch", "4px"]) }, { trusted: new Set(["width"]) });
+    expect(trusted.rule.static).toEqual({ width: "1ch" });
+  });
+
+  test("firstThatWorks: the property-level check still applies to the chosen candidate", () => {
+    const { findings } = compileRule({ float: ftw(["left", "right"]) });
+    expect(findings).toMatchObject([{ kind: "property", property: "float" }]);
   });
 
   test("malformed shorthands surface as diagnostics", () => {

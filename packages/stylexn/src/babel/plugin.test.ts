@@ -233,6 +233,74 @@ describe("policy", () => {
   });
 });
 
+describe("firstThatWorks", () => {
+  test("native keeps the first candidate the compat table accepts", () => {
+    const styles = compiled(
+      `${HEADER}const s = stylex.create({
+        // dvh is treated as vh; cqh (container queries) is not supported
+        a: { minHeight: stylex.firstThatWorks("100dvh", "100vh") },
+        b: { minHeight: stylex.firstThatWorks("100cqh", "100vh") },
+        c: { position: stylex.firstThatWorks("sticky", "fixed", "relative") },
+      });`,
+      { strict: true },
+    );
+    expect(styles.a.static).toEqual({ minHeight: "100dvh" });
+    expect(styles.b.static).toEqual({ minHeight: "100vh" });
+    expect(styles.c.static).toEqual({ position: "relative" });
+  });
+
+  test("inside a conditional branch, and through a named import", () => {
+    const styles = compiled(
+      `import { create, firstThatWorks } from "stylexn";
+      const s = create({
+        a: { width: { default: 100, ":hover": firstThatWorks("10ch", "12px") } },
+      });`,
+      { strict: true },
+    );
+    expect(styles.a.static).toEqual({ width: 100 });
+    expect(styles.a.conditional).toEqual([{ key: "width", when: [":hover"], value: 12 }]);
+  });
+
+  test("a non-literal candidate is a runtime value and wins when reached", () => {
+    const { code } = transform(
+      `${HEADER}const s = stylex.create({ a: { width: stylex.firstThatWorks("10ch", size) } });`,
+      { strict: true },
+    );
+    expect(code).toMatch(/"width": size/);
+    expect(code).not.toContain("firstThatWorks");
+  });
+
+  test("no accepted candidate: strict fails, otherwise the declaration is stripped", () => {
+    const src = `${HEADER}const s = stylex.create({
+      a: { width: stylex.firstThatWorks("10ch", "1cqw"), color: "red" },
+    });`;
+    expect(() => transform(src, { strict: true })).toThrow(
+      /width: none of firstThatWorks\("10ch", "1cqw"\) is supported on React Native/,
+    );
+    const warnings: string[] = [];
+    const styles = compiled(src, { strict: false, onWarning: (m) => warnings.push(m) });
+    expect(styles.a.static).toEqual({ color: "red" });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/width: none of firstThatWorks/);
+  });
+
+  test("a firstThatWorks from another module is an opaque value", () => {
+    const { code } = transform(
+      `${HEADER}import { firstThatWorks } from "other";
+      const s = stylex.create({ a: { width: firstThatWorks("10ch", "12px") } });`,
+      { strict: true },
+    );
+    expect(code).toMatch(/"width": firstThatWorks\("10ch", "12px"\)/);
+  });
+
+  test("web: left for StyleX", () => {
+    const src = `${HEADER}const s = stylex.create({ a: { minHeight: stylex.firstThatWorks("100dvh", "100vh") } });`;
+    expect(transform(src, { platform: "web" }).code).toContain(
+      `stylex.firstThatWorks("100dvh", "100vh")`,
+    );
+  });
+});
+
 describe("escape hatches", () => {
   const src = `import * as stylex from "stylexn";
 import { web, native } from "stylexn";

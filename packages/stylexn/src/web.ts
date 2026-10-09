@@ -9,6 +9,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, MapNamespaces } from "@stylexjs/stylex";
 import { createElement, Fragment, type ReactNode } from "react";
 import type {
+  FirstThatWorks,
   Native,
   ValidateKeyframes,
   ValidateNative,
@@ -37,6 +38,15 @@ export function native<const T extends Record<string, unknown>>(
 export const create: <const S extends StyleXInput>(
   styles: S & ValidateStyles<S>,
 ) => MapNamespaces<S> = stylex.create as never;
+
+/**
+ * StyleX's `firstThatWorks`, typed with the native entry's brand so shared
+ * code checks the same against both. StyleX emits every candidate and the
+ * browser keeps the last it understands; native keeps the first the compat
+ * table accepts.
+ */
+export const firstThatWorks: <T extends string | number>(...candidates: T[]) => FirstThatWorks<T> =
+  stylex.firstThatWorks as never;
 
 /** StyleX's `keyframes`, with the frames checked like the native entry does. */
 export const keyframes: <const T extends Record<string, Record<string, unknown>>>(

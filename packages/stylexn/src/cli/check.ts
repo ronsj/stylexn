@@ -103,6 +103,7 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
             resolveConst,
             helper: (call) => tracker.helperKind(call as unknown as AstNode),
             when: (call) => tracker.whenKind(call as unknown as AstNode),
+            firstThatWorks: (call) => tracker.isFirstThatWorksCall(call as unknown as AstNode),
             platform: "native",
           });
           const messages = lintDeclarations(declarations, locations, {
