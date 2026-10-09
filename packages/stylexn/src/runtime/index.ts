@@ -8,6 +8,8 @@ export { createTheme, defineConsts, defineVars } from "./vars.ts";
 export { defaultMarker, defineMarker, when } from "./markers.ts";
 export type { VarGroup } from "./vars.ts";
 export { config, configure } from "./env.ts";
+export { SafeAreaInsetsProvider } from "./env-vars.ts";
+export type { SafeAreaInsets, SafeAreaInsetsProviderProps } from "./env-vars.ts";
 export {
   FontSizeProvider,
   MarkerProvider,

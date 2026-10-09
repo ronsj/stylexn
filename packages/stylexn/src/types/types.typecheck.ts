@@ -71,8 +71,17 @@ nativeCreate({
 });
 webCreate({
   a: {
-    // @ts-expect-error env() has no native value
-    width: "env(safe-area-inset-top)",
+    // env() is accepted; the build check judges the variable name.
+    paddingTop: "env(safe-area-inset-top, 12px)",
+    font: "italic 600 16px/1.5 Inter, sans-serif",
+    marginTop: "1lh",
+    lineHeight: 1.5,
+  },
+});
+webCreate({
+  a: {
+    // @ts-expect-error attr() has no native value
+    width: "attr(data-width)",
   },
 });
 nativeCreate({

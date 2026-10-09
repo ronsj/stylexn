@@ -316,6 +316,118 @@ export function expandBackground(value: string | number): LeafResult {
   return { backgroundColor: only };
 }
 
+const FONT_STYLES = new Set(["italic", "oblique"]);
+const FONT_WEIGHTS = new Set(["bold", "bolder", "lighter"]);
+const FONT_STRETCHES = new Set([
+  "ultra-condensed",
+  "extra-condensed",
+  "condensed",
+  "semi-condensed",
+  "semi-expanded",
+  "expanded",
+  "extra-expanded",
+  "ultra-expanded",
+]);
+const FONT_SIZE_KEYWORDS = new Set([
+  "xx-small",
+  "x-small",
+  "small",
+  "medium",
+  "large",
+  "x-large",
+  "xx-large",
+  "xxx-large",
+  "larger",
+  "smaller",
+]);
+const SYSTEM_FONTS = new Set([
+  "caption",
+  "icon",
+  "menu",
+  "message-box",
+  "small-caption",
+  "status-bar",
+]);
+const FONT_SIZE_FUNCTION = /^(calc|min|max|clamp|var)\(/i;
+const ANGLE = /^[+-]?(\d+\.?\d*|\.\d+)(deg|rad|grad|turn)$/i;
+
+const isFontSize = (token: string): boolean =>
+  FONT_SIZE_KEYWORDS.has(token.toLowerCase()) ||
+  FONT_SIZE_FUNCTION.test(token) ||
+  (isLength(token) && !isNumber(token));
+
+/**
+ * `font`: `[ <style> || small-caps || <weight> || <stretch> ]? <size> [ / <line-height> ]? <family>`.
+ * Omitted style, weight and line height reset to `normal`, as in CSS.
+ * `fontVariantCaps` is only written for `small-caps` (a `normal` would
+ * clear fontVariant values merged from other declarations), and
+ * `fontStretch` only when a stretch keyword is given (React Native has no
+ * font stretch, so the check reports it).
+ */
+export function expandFont(value: string | number): LeafResult {
+  if (typeof value === "number") return "expected a font size and family";
+  const t = splitSpace(value);
+  if (t.length === 1 && SYSTEM_FONTS.has((t[0] as string).toLowerCase())) {
+    return "system fonts are not supported";
+  }
+  const out: Record<string, Leaf> = { fontStyle: "normal", fontWeight: "normal" };
+  const seen = new Set<string>();
+  const set = (slot: string, token: string): string | null => {
+    if (seen.has(slot)) return `duplicate ${slot} in "${value}"`;
+    seen.add(slot);
+    out[slot] = token;
+    return null;
+  };
+  let i = 0;
+  let normals = 0;
+  for (; i < t.length; i++) {
+    const token = t[i] as string;
+    const lower = token.toLowerCase();
+    const size = splitSlash(token)[0] ?? "";
+    if (isFontSize(size)) break;
+    let error: string | null;
+    if (lower === "normal") {
+      normals++;
+      error = null;
+    } else if (FONT_STYLES.has(lower)) {
+      const angle = lower === "oblique" && ANGLE.test(t[i + 1] ?? "") ? t[++i] : undefined;
+      error = set("fontStyle", angle ? `${token} ${angle}` : token);
+    } else if (lower === "small-caps") error = set("fontVariantCaps", token);
+    else if (FONT_WEIGHTS.has(lower) || isNumber(token)) error = set("fontWeight", token);
+    else if (FONT_STRETCHES.has(lower)) error = set("fontStretch", token);
+    else error = `unrecognised token "${token}" before the font size`;
+    if (error) return error;
+  }
+  if (seen.size + normals > 4) return `too many values before the font size in "${value}"`;
+  if (i === t.length) return `missing font size in "${value}"`;
+
+  // The size, with an optional line height: `16px/1.5`, `16px / 1.5`, `16px /1.5`, `16px/ 1.5`.
+  const raw = t[i] as string;
+  const sizeParts = splitSlash(raw);
+  if (sizeParts.length > 2) return `unexpected "${raw}"`;
+  let lineHeight = sizeParts[1];
+  let rest = t.slice(i + 1);
+  if (lineHeight === undefined && raw.endsWith("/")) {
+    lineHeight = rest[0];
+    rest = rest.slice(1);
+  } else if (lineHeight === undefined && rest[0]?.startsWith("/")) {
+    lineHeight = rest[0] === "/" ? rest[1] : rest[0].slice(1);
+    rest = rest.slice(rest[0] === "/" ? 2 : 1);
+  }
+  if (
+    lineHeight !== undefined &&
+    !(isLength(lineHeight) || lineHeight === "normal" || FONT_SIZE_FUNCTION.test(lineHeight))
+  ) {
+    return `invalid line height in "${value}"`;
+  }
+  const family = rest.join(" ");
+  if (!family) return `missing font family in "${value}"`;
+  out.fontSize = sizeParts[0] as string;
+  out.lineHeight = lineHeight ?? "normal";
+  out.fontFamily = family;
+  return out;
+}
+
 /** Which expander handles which shorthand. Longhand names come from the compat table. */
 export const expanders: Readonly<Record<string, Expander>> = {
   margin: (v) => expandBox(v, ["marginTop", "marginRight", "marginBottom", "marginLeft"]),
@@ -383,4 +495,5 @@ export const expanders: Readonly<Record<string, Expander>> = {
   transition: expandTransition,
   animation: expandAnimation,
   background: expandBackground,
+  font: expandFont,
 };

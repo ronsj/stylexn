@@ -270,6 +270,98 @@ describe("text and effects", () => {
   });
 });
 
+describe("font", () => {
+  test("every part, quoted family with spaces kept as written", () => {
+    expect(
+      expand({ font: 'italic small-caps bold 16px/1.5 "Helvetica Neue", Arial' }).style,
+    ).toEqual({
+      fontStyle: "italic",
+      fontVariantCaps: "small-caps",
+      fontWeight: "bold",
+      fontSize: "16px",
+      lineHeight: "1.5",
+      fontFamily: '"Helvetica Neue", Arial',
+    });
+  });
+
+  test("omitted style, weight and line height reset to normal; no variant or stretch", () => {
+    expect(expand({ font: "16px Arial" }).style).toEqual({
+      fontStyle: "normal",
+      fontWeight: "normal",
+      fontSize: "16px",
+      lineHeight: "normal",
+      fontFamily: "Arial",
+    });
+  });
+
+  test("numeric weight, rem size and the slash in any spacing", () => {
+    const expected = {
+      fontStyle: "normal",
+      fontWeight: "700",
+      fontSize: "1.25rem",
+      lineHeight: "2",
+      fontFamily: "system-ui",
+    };
+    expect(expand({ font: "700 1.25rem/2 system-ui" }).style).toEqual(expected);
+    expect(expand({ font: "700 1.25rem / 2 system-ui" }).style).toEqual(expected);
+    expect(expand({ font: "700 1.25rem /2 system-ui" }).style).toEqual(expected);
+    expect(expand({ font: "700 1.25rem/ 2 system-ui" }).style).toEqual(expected);
+  });
+
+  test("normal, oblique angles, stretch and unquoted multi-word families", () => {
+    expect(
+      expand({ font: "normal oblique 10deg condensed 12px Helvetica Neue, sans-serif" }).style,
+    ).toEqual({
+      fontStyle: "oblique 10deg",
+      fontWeight: "normal",
+      fontStretch: "condensed",
+      fontSize: "12px",
+      lineHeight: "normal",
+      fontFamily: "Helvetica Neue, sans-serif",
+    });
+    expect(expand({ font: "large serif" }).style.fontSize).toBe("large");
+  });
+
+  test("system fonts, a missing size or family and junk are diagnostics", () => {
+    for (const [value, message] of [
+      ["menu", /system fonts are not supported/],
+      ["16px", /missing font family/],
+      ["16px/1.5", /missing font family/],
+      ["bold Arial", /unrecognised token "Arial"/],
+      ["bold", /missing font size/],
+      ["bold bold 16px Arial", /duplicate fontWeight/],
+      ["16px/wide Arial", /invalid line height/],
+    ] as const) {
+      const result = expand({ font: value });
+      expect(result.style.font).toBe(value);
+      expect(result.diagnostics[0]?.message).toMatch(message);
+    }
+  });
+
+  test("conditional values expand per branch", () => {
+    expect(
+      expand({ font: { default: "16px Arial", ":hover": "bold 18px/1.2 Arial" } }).style,
+    ).toEqual({
+      fontStyle: { default: "normal", ":hover": "normal" },
+      fontWeight: { default: "normal", ":hover": "bold" },
+      fontSize: { default: "16px", ":hover": "18px" },
+      lineHeight: { default: "normal", ":hover": "1.2" },
+      fontFamily: { default: "Arial", ":hover": "Arial" },
+    });
+  });
+
+  test("null unsets every longhand except fontStretch", () => {
+    expect(longhandsOf("font")).toEqual([
+      "fontStyle",
+      "fontVariantCaps",
+      "fontWeight",
+      "fontSize",
+      "lineHeight",
+      "fontFamily",
+    ]);
+  });
+});
+
 describe("values", () => {
   test("null unsets every longhand", () => {
     expect(expand({ padding: null }).style).toEqual({

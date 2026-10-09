@@ -16,6 +16,7 @@ export { NestedConditions } from "./NestedConditions";
 export { PressCard } from "./PressCard";
 export { PressableCounter } from "./PressableCounter";
 export { ResponsiveRow } from "./ResponsiveRow";
+export { SafeAreaHeader } from "./SafeAreaHeader";
 export { SettingsSwitches } from "./SettingsSwitches";
 export { StripedList } from "./StripedList";
 export { TextBasics } from "./TextBasics";

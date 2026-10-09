@@ -8,6 +8,7 @@ import {
   KeyframesDemo,
   NestedConditions,
   ResponsiveRow,
+  SafeAreaHeader,
   TextInheritance,
   ThemeDemo,
   TransitionDemo,
@@ -176,10 +177,34 @@ export default function AuthoringStyles() {
             <Code>vw</Code>, <Code>vh</Code>, <Code>vmin</Code> and <Code>vmax</Code> follow the
             window; the element re-renders when it is resized.
           </li>
+          <li>
+            <Code>lh</Code> is the line height of the same rule, resolved when the styles are
+            compiled: the rule needs a static <Code>lineHeight</Code>. A unitless, percentage or{" "}
+            <Code>em</Code> line height makes an <Code>em</Code> value, an absolute one a number.
+          </li>
           <li>Percentages pass through to React Native&apos;s layout, which supports them.</li>
         </Ul>
         <Example name="UnitsDemo">
           <UnitsDemo />
+        </Example>
+        <H3>Safe areas</H3>
+        <P>
+          <Code>env(safe-area-inset-top)</Code> and its <Code>right</Code>, <Code>bottom</Code> and{" "}
+          <Code>left</Code> siblings work on both platforms, also inside <Code>calc()</Code>. The
+          browser supplies them on the web. On native, wrap the app in{" "}
+          <Code>SafeAreaInsetsProvider</Code> with the insets from{" "}
+          <Code>react-native-safe-area-context</Code>, inside its <Code>SafeAreaProvider</Code>:{" "}
+          <Code>{"<SafeAreaInsetsProvider insets={useSafeAreaInsets()}>"}</Code>.
+        </P>
+        <P>
+          Without a provider the insets are 0, as in a browser on a rectangular screen, so a
+          fallback such as <Code>env(safe-area-inset-top, 12px)</Code> is not used on either
+          platform; add a minimum with <Code>calc()</Code> or <Code>max()</Code> instead. Other
+          environment variables (<Code>keyboard-inset-*</Code>, <Code>titlebar-area-*</Code>, …) do
+          not exist on native and are reported.
+        </P>
+        <Example name="SafeAreaHeader">
+          <SafeAreaHeader />
         </Example>
       </Section>
 

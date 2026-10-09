@@ -5,6 +5,8 @@ import type { RuntimeValue, Theme, VarRef, VarScope } from "./types.ts";
  * way StyleX keys them by a file hash. Themes and providers override by name.
  */
 const defaults = new Map<string, RuntimeValue>();
+/** Defaults of StyleXN's own groups (`stylexn-env`), restored by resetVarsForTesting. */
+const builtins = new Map<string, RuntimeValue>();
 let groupCounter = 0;
 
 export type VarGroup<T extends Record<string, RuntimeValue>> = Readonly<{
@@ -37,6 +39,16 @@ export function defineVars<T extends Record<string, RuntimeValue>>(
     }) as VarRef;
   }
   return { ...refs, $$stylexnGroup: group } as VarGroup<T>;
+}
+
+/** A group StyleXN itself defines, at module load; it survives resetVarsForTesting. */
+export function defineBuiltinVars<T extends Record<string, RuntimeValue>>(
+  values: T,
+  id: string,
+): VarGroup<T> {
+  const group = defineVars(values, id);
+  for (const [key, value] of Object.entries(values)) builtins.set(`${id}.${key}`, value);
+  return group;
 }
 
 /**
@@ -101,5 +113,6 @@ export function scopeWith(parent: VarScope, themes: readonly Theme[]): VarScope 
 /** Test hook: forget every registered variable. */
 export function resetVarsForTesting(): void {
   defaults.clear();
+  for (const [name, value] of builtins) defaults.set(name, value);
   groupCounter = 0;
 }

@@ -543,7 +543,20 @@ export const properties = {
   fontKerning: no("Kerning is not exposed by React Native."),
   fontOpticalSizing: no("Not exposed by React Native."),
   fontSynthesis: no("Not exposed by React Native."),
-  font: no("Expand to longhands; the font shorthand grammar is not parsed."),
+  font: some(
+    ["<string>"],
+    "Expanded to fontStyle, fontVariantCaps, fontWeight, fontSize, lineHeight and fontFamily at compile time; omitted parts reset fontStyle, fontWeight and lineHeight to normal, and fontVariantCaps is only set for small-caps. System fonts (caption, menu, …) are not supported.",
+    {
+      expandsTo: [
+        "fontStyle",
+        "fontVariantCaps",
+        "fontWeight",
+        "fontSize",
+        "lineHeight",
+        "fontFamily",
+      ],
+    },
+  ),
   letterSpacing: some(["<length>"], "Numbers only; normal is 0."),
   lineHeight: poly(
     "Unitless multipliers resolve against the element's font size at runtime and inherit as multipliers, like CSS; lengths pass through.",
@@ -856,7 +869,9 @@ export const units = {
   ex: no("Font metrics are not exposed."),
   cap: no("Font metrics are not exposed."),
   ic: no("Font metrics are not exposed."),
-  lh: no("Line height metrics are not exposed."),
+  lh: poly(
+    "Resolved at compile time against the rule's own static lineHeight: a unitless, percentage or em lineHeight makes an em value, an absolute one a number. Without one it is an error.",
+  ),
   rlh: no("Line height metrics are not exposed."),
   cqw: no("Container queries are not supported."),
   cqh: no("Container queries are not supported."),
@@ -890,7 +905,15 @@ export const functions = {
     ["<length>", "<number>"],
     "Folded at compile time, or at runtime for relative units and var().",
   ),
-  "env()": no("Safe-area insets come from react-native-safe-area-context, not styles."),
+  "env()": some(
+    [
+      "safe-area-inset-top",
+      "safe-area-inset-right",
+      "safe-area-inset-bottom",
+      "safe-area-inset-left",
+    ],
+    "Safe-area insets, read from SafeAreaInsetsProvider (wire it to react-native-safe-area-context); 0 without a provider, as on a rectangular screen, so the fallback argument is not used. Other environment variables do not exist on native.",
+  ),
   "attr()": no("No attribute access from styles."),
   "counter()": no("No generated content."),
   "url()": no("Not supported in styles; use <Image source>."),

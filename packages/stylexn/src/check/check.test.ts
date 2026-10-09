@@ -115,9 +115,44 @@ describe("units and functions", () => {
     // Colors likewise: convertible ones pass, the rest is reported.
     expect(check({ color: "color-mix(in srgb, #f00, #00f)" })).toEqual([]);
     expect(kinds({ color: "color-mix(in srgb, nope, blue)" })).toEqual(["function:partial:color"]);
-    expect(kinds({ paddingTop: "env(safe-area-inset-top)" })).toEqual([
-      "function:unsupported:paddingTop",
+  });
+
+  test("env(): safe-area insets pass, other environment variables are unsupported", () => {
+    expect(
+      check({
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom, 12px)",
+        marginTop: "calc(8px + env(safe-area-inset-top))",
+        padding: "env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)",
+      }),
+    ).toEqual([]);
+    expect(kinds({ paddingBottom: "env(keyboard-inset-height, 0px)" })).toEqual([
+      "function:unsupported:paddingBottom",
     ]);
+    const [f] = check({ top: "calc(env(titlebar-area-y) + 4px)" });
+    expect(f?.message).toMatch(/env\(titlebar-area-y\) — Safe-area insets/);
+    expect(check({ top: "calc(env(titlebar-area-y) + 4px)" })).toHaveLength(1);
+  });
+
+  test("lh resolves against the rule's static lineHeight", () => {
+    expect(check({ lineHeight: 20, paddingTop: "1lh", marginTop: "calc(1lh + 4px)" })).toEqual([]);
+    expect(check({ lineHeight: "150%", marginTop: "0.5lh" })).toEqual([]);
+    expect(kinds({ marginTop: "1lh" })).toEqual(["unit:unsupported:marginTop"]);
+    expect(check({ marginTop: "1lh" })[0]?.message).toMatch(/needs a static lineHeight/);
+    expect(
+      kinds({
+        lineHeight: { default: 20, ":hover": 24 },
+        marginTop: { default: "1lh", ":hover": 0 },
+      }),
+    ).toEqual(["unit:unsupported:marginTop"]);
+    expect(kinds({ lineHeight: "2lh" })).toEqual(["unit:unsupported:lineHeight"]);
+    expect(kinds({ lineHeight: 20, marginTop: "1rlh" })).toEqual(["unit:unsupported:marginTop"]);
+  });
+
+  test("font shorthand: checked as its longhands", () => {
+    expect(check({ font: 'italic small-caps bold 16px/1.5 "Helvetica Neue", Arial' })).toEqual([]);
+    expect(kinds({ font: "condensed 16px Arial" })).toEqual(["property:unsupported:fontStretch"]);
+    expect(kinds({ font: "bolder 16px Arial" })).toEqual(["value:partial:fontWeight"]);
   });
 });
 

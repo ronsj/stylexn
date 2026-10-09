@@ -354,6 +354,99 @@ describe("lowerDeclarations: folding and color conversion", () => {
   });
 });
 
+describe("lowerDeclarations: env()", () => {
+  test("safe-area insets become stylexn-env variables, fallback kept", () => {
+    const { style, diagnostics } = lower({
+      paddingTop: "env(safe-area-inset-top)",
+      paddingBottom: "env(safe-area-inset-bottom, 12px)",
+      marginTop: "calc(8px + env(safe-area-inset-top))",
+    });
+    expect(diagnostics).toEqual([]);
+    expect(style).toEqual({
+      paddingTop: "var(--stylexn-env.safeAreaInsetTop)",
+      paddingBottom: "var(--stylexn-env.safeAreaInsetBottom, 12px)",
+      marginTop: "calc(8px + var(--stylexn-env.safeAreaInsetTop))",
+    });
+  });
+
+  test("conditional branches and shorthands are rewritten too", () => {
+    const { style } = lower({
+      padding: "env(safe-area-inset-top) 0 0 env(safe-area-inset-left)",
+      marginTop: { default: 0, "@media (orientation: landscape)": "env(safe-area-inset-top)" },
+    });
+    expect(style.paddingTop).toBe("var(--stylexn-env.safeAreaInsetTop)");
+    expect(style.paddingLeft).toBe("var(--stylexn-env.safeAreaInsetLeft)");
+    expect(style.marginTop).toEqual({
+      default: 0,
+      "@media (orientation: landscape)": "var(--stylexn-env.safeAreaInsetTop)",
+    });
+  });
+
+  test("other environment variables are dropped with a diagnostic", () => {
+    const { style, diagnostics } = lower({ paddingBottom: "env(keyboard-inset-height, 0px)" });
+    expect(style).toEqual({});
+    expect(diagnostics[0]?.message).toMatch(/env\(keyboard-inset-height\) does not exist/);
+  });
+});
+
+describe("lowerDeclarations: lh", () => {
+  test("an absolute lineHeight makes numbers", () => {
+    expect(lower({ lineHeight: "20px", paddingTop: "1lh" }).style.paddingTop).toBe(20);
+    expect(lower({ lineHeight: "18pt", paddingTop: "0.5lh" }).style.paddingTop).toBe(12);
+    expect(lower({ lineHeight: "20px", marginTop: "calc(1lh + 4px)" }).style.marginTop).toBe(24);
+  });
+
+  test("a numeric lineHeight is a unitless multiplier, as in StyleX", () => {
+    expect(lower({ lineHeight: 20, paddingTop: "1lh" }).style.paddingTop).toBe("20em");
+  });
+
+  test("a unitless, percentage or em lineHeight makes em", () => {
+    expect(lower({ lineHeight: 1.5, marginTop: "2lh" }).style.marginTop).toBe("3em");
+    expect(lower({ lineHeight: "150%", marginTop: "1lh" }).style.marginTop).toBe("1.5em");
+    expect(lower({ lineHeight: "1.25em", marginTop: "2lh" }).style.marginTop).toBe("2.5em");
+    expect(lower({ lineHeight: 1.5, marginTop: "calc(1lh + 4px)" }).style.marginTop).toBe(
+      "calc(1.5em + 4px)",
+    );
+  });
+
+  test("conditional branches are rewritten", () => {
+    const { style } = lower({
+      lineHeight: "20px",
+      marginTop: { default: "1lh", ":hover": "2lh" },
+    });
+    expect(style.marginTop).toEqual({ default: 20, ":hover": 40 });
+  });
+
+  test("without a static lineHeight the declaration is dropped with a diagnostic", () => {
+    for (const lineHeight of [
+      undefined,
+      { default: 20, ":hover": 24 },
+      "var(--lh)",
+      "1rem",
+      "normal",
+    ]) {
+      const { style, diagnostics } = lower({
+        ...(lineHeight === undefined ? {} : { lineHeight }),
+        marginTop: "1lh",
+      } as Declarations);
+      expect(style.marginTop).toBeUndefined();
+      expect(diagnostics.map((d) => d.message)).toEqual([
+        "`lh` needs a static lineHeight in the same rule",
+      ]);
+    }
+  });
+
+  test("lh in lineHeight itself is a diagnostic", () => {
+    const { diagnostics } = lower({ lineHeight: "2lh" });
+    expect(diagnostics[0]?.message).toMatch(/parent's line height/);
+  });
+
+  test("the font shorthand's line height counts", () => {
+    const { style } = lower({ font: "16px/1.5 Arial", marginTop: "1lh" });
+    expect(style.marginTop).toBe("1.5em");
+  });
+});
+
 describe("finalizeStyle", () => {
   test("collapses equal side styles into borderStyle", () => {
     const { style, diagnostics } = finalizeStyle({

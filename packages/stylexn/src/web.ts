@@ -7,7 +7,7 @@
 // the editor resolves the web entry.
 import * as stylex from "@stylexjs/stylex";
 import type { CompiledStyles, MapNamespaces } from "@stylexjs/stylex";
-import { createElement, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode } from "react";
 import type {
   Native,
   ValidateKeyframes,
@@ -66,4 +66,20 @@ export function ThemeProvider({ theme, children }: ThemeProviderProps) {
   const themes = Array.isArray(theme) ? (theme as readonly AnyTheme[]) : [theme as AnyTheme];
   const { className, style } = stylex.props(...themes);
   return createElement("div", { className, style: { ...style, display: "contents" } }, children);
+}
+
+export type SafeAreaInsets = Readonly<{ top: number; right: number; bottom: number; left: number }>;
+
+export type SafeAreaInsetsProviderProps = Readonly<{
+  /** The subtree's safe-area insets, e.g. `useSafeAreaInsets()` from react-native-safe-area-context. */
+  insets: SafeAreaInsets;
+  children?: ReactNode;
+}>;
+
+/**
+ * Supplies `env(safe-area-inset-*)` on native. On the web the browser
+ * provides the insets to CSS `env()`, so this renders its children unchanged.
+ */
+export function SafeAreaInsetsProvider({ children }: SafeAreaInsetsProviderProps) {
+  return createElement(Fragment, null, children);
 }

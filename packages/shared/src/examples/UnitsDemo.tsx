@@ -38,15 +38,23 @@ const styles = stylex.create({
     borderRadius: 999,
     backgroundColor: "#a987e6",
   },
+  note: {
+    fontSize: 14,
+    lineHeight: 1.5,
+    // lh is this rule's line height: one blank line above the text.
+    paddingTop: "1lh",
+    borderTopWidth: 1,
+    borderTopColor: { default: "#e4dff0", [DARK]: "#3a3445" },
+  },
 });
 
 export function UnitsDemo() {
   return (
     <View sx={styles.card}>
-      <Text sx={styles.title}>Sized in rem, em and vw</Text>
+      <Text sx={styles.title}>Sized in rem, em, vw and lh</Text>
       <Text sx={styles.tag}>0.75em padding</Text>
       <View sx={styles.bar} />
-      <Text>Resize the window: my width is clamp(220px, 30vw, 340px).</Text>
+      <Text sx={styles.note}>Resize the window: my width is clamp(220px, 30vw, 340px).</Text>
     </View>
   );
 }

@@ -17,7 +17,16 @@ import { isFunction, looksLikeColor, splitSpace } from "../expand/tokenize.ts";
 import type { Leaf, Value } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
 import { convertColor } from "../lower/color.ts";
+import { rewriteEnv } from "../lower/env-function.ts";
 import { foldMath, mapFunctions } from "../lower/fold.ts";
+import {
+  containsLh,
+  LH_IN_LINE_HEIGHT,
+  LH_NEEDS_LINE_HEIGHT,
+  lineHeightBasis,
+  rewriteLh,
+  type LineHeightBasis,
+} from "../lower/lh-unit.ts";
 import { parseLength } from "../lower/units.ts";
 
 export type FindingKind =
@@ -72,14 +81,62 @@ function tokenAccepted(token: string, isNumber: boolean, values: readonly string
 const wholeValueAccepted = (value: string, values: readonly string[]): boolean =>
   value.includes(" ") && values.includes(value.trim().toLowerCase().replace(/\s+/g, " "));
 
+/** What a leaf's check may read from the rest of its rule. */
+type RuleContext = Readonly<{ lineHeight: LineHeightBasis | null }>;
+
+/**
+ * Apply the lowering's compile-time substitutions (`env(safe-area-inset-*)`
+ * to var(), `lh` to px/em) so the rest of the check sees what React Native
+ * will get. Null when the value cannot be substituted; the finding is pushed.
+ */
+function substitute(
+  property: string,
+  value: string,
+  conditions: readonly string[],
+  context: RuleContext,
+  out: Finding[],
+): string | null {
+  const env = rewriteEnv(value);
+  if (env.unknown.length) {
+    const note = lookupFunction("env").note ?? "not supported on React Native";
+    for (const name of env.unknown) {
+      out.push({
+        kind: "function",
+        status: "unsupported",
+        property,
+        conditions,
+        value,
+        message: `${property}: env(${name}) — ${note}`,
+      });
+    }
+    return null;
+  }
+  if (!containsLh(env.value)) return env.value;
+  if (property !== "lineHeight" && context.lineHeight)
+    return rewriteLh(env.value, context.lineHeight);
+  out.push({
+    kind: "unit",
+    status: "unsupported",
+    property,
+    conditions,
+    value,
+    message: `${property}: ${property === "lineHeight" ? LH_IN_LINE_HEIGHT : LH_NEEDS_LINE_HEIGHT}`,
+  });
+  return null;
+}
+
 function checkLeaf(
   property: string,
   entry: Entry,
-  value: Leaf,
+  written: Leaf,
   conditions: readonly string[],
+  context: RuleContext,
   out: Finding[],
 ): void {
-  if (value === null || isSentinel(value)) return; // unset, or only known at runtime
+  if (written === null || isSentinel(written)) return; // unset, or only known at runtime
+  const value =
+    typeof written === "string" ? substitute(property, written, conditions, context, out) : written;
+  if (value === null) return;
   const isNumber = typeof value === "number";
   const tokens = isNumber ? [String(value)] : splitSpace(value);
 
@@ -95,7 +152,7 @@ function checkLeaf(
         status: "partial",
         property,
         conditions,
-        value,
+        value: written,
         message: `${property}: "${rejected.join(" ")}" is not supported on React Native; accepted: ${entry.values.join(", ")}`,
       });
     }
@@ -116,7 +173,7 @@ function checkLeaf(
           status: "partial",
           property,
           conditions,
-          value,
+          value: written,
           message: `${property}: ${reason}`,
         });
       const folded = foldMath(token) ?? convertColor(token);
@@ -140,7 +197,7 @@ function checkLeaf(
           status: fn.status,
           property,
           conditions,
-          value,
+          value: written,
           message: `${property}: ${name}() — ${fn.note ?? "not supported on React Native"}`,
         });
       }
@@ -155,7 +212,7 @@ function checkLeaf(
           status: unit.status,
           property,
           conditions,
-          value,
+          value: written,
           message: `${property}: unit "${length.unit}" — ${unit.note ?? "not supported on React Native"}`,
         });
       }
@@ -269,16 +326,17 @@ function walk(
   entry: Entry,
   value: Value,
   conditions: readonly string[],
+  context: RuleContext,
   out: Finding[],
 ): void {
   if (!isConditional(value)) {
-    checkLeaf(property, entry, value, conditions, out);
+    checkLeaf(property, entry, value, conditions, context, out);
     return;
   }
   for (const [condition, branch] of Object.entries(value)) {
     const chain = [...conditions, condition];
     checkCondition(property, condition, chain, out);
-    walk(property, entry, branch, chain, out);
+    walk(property, entry, branch, chain, context, out);
   }
 }
 
@@ -292,6 +350,7 @@ export function checkDeclarations(
 ): Finding[] {
   const rnVersion = options.rnVersion ?? RN_TARGET;
   const out: Finding[] = [];
+  const context: RuleContext = { lineHeight: lineHeightBasis(style.lineHeight) };
   for (const [property, value] of Object.entries(style)) {
     if (rnOnlyKeys.has(property)) continue; // React Native-only keys from expansion/renames
     const entry = lookupProperty(property);
@@ -315,7 +374,7 @@ export function checkDeclarations(
       });
       continue;
     }
-    walk(property, entry, value, [], out);
+    walk(property, entry, value, [], context, out);
   }
   return out;
 }

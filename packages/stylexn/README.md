@@ -94,7 +94,8 @@ import "stylexn/elements.css";
 - **`stylexn`**: the StyleX API (`create`, `props`, `defineVars`,
   `createTheme`, `keyframes`, `firstThatWorks`, `defineMarker`,
   `defaultMarker`, `when.ancestor`), typed so that styles with no native
-  equivalent are editor errors. Markers follow the `defineVars` rule: a
+  equivalent are editor errors, plus `SafeAreaInsetsProvider` for
+  `env(safe-area-inset-*)` on native. Markers follow the `defineVars` rule: a
   named export, kept in a `*.stylex.ts` file. On native, `useProps` and the
   elements subscribe to dimensions, colour scheme, accessibility settings,
   theme context and interaction state only when a rule needs them.
@@ -109,8 +110,12 @@ import "stylexn/elements.css";
   Any React Native component also works directly with `useProps` when a
   wrapper is in the way, including for native-only props (with a marker in
   its arguments, wrap it in `MarkerProvider` with `useProps(...).marked`).
-  For safe areas use `react-native-safe-area-context` (React Native's own
-  `SafeAreaView` is deprecated) and, on web, CSS `env(safe-area-inset-*)`.
+  For safe areas write `env(safe-area-inset-*)` in styles on both
+  platforms; on native, mount `SafeAreaInsetsProvider` with the insets from
+  `react-native-safe-area-context` (React Native's own `SafeAreaView` is
+  deprecated): `<SafeAreaInsetsProvider insets={useSafeAreaInsets()}>`.
+  Without a provider the insets are 0, as in a browser on a rectangular
+  screen, so an `env()` fallback is not used on either platform.
 - **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, the form
   states `:checked` (`Switch`), `:placeholder-shown`, `:read-only` and
   `:read-write` (`TextInput`), `@media` (width, height, orientation,
@@ -121,10 +126,12 @@ import "stylexn/elements.css";
   `[stylex.when.ancestor(":active", marker)]` key follows that element's
   state (`when.descendant` and the sibling conditions have no native
   equivalent).
-- **Units and values**: `rem`, `em`, `vw`/`vh`, `calc()`/`min()`/`max()`/
-  `clamp()` (folded at compile time, or at runtime for relative units and
-  `var()`), `lab()`/`lch()`/`oklab()`/`oklch()`/`color()`/`color-mix()`
-  converted to `rgb()`, `light-dark()`.
+- **Units and values**: `rem`, `em`, `vw`/`vh`, `lh` (against the same
+  rule's static `lineHeight`), `calc()`/`min()`/`max()`/`clamp()` (folded
+  at compile time, or at runtime for relative units and `var()`),
+  `env(safe-area-inset-*)`, `lab()`/`lch()`/`oklab()`/`oklch()`/`color()`/
+  `color-mix()` converted to `rgb()`, `light-dark()`. Shorthands, `font`
+  included, expand to longhands at compile time.
 - **Motion**: `transition*` and `animation*` with `stylex.keyframes`, run
   on React Native's `Animated` (native driver for opacity, transform,
   colours, radii and shadows; layout keys stay on the JS driver). Easing

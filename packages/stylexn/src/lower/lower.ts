@@ -4,7 +4,16 @@ import type { ConditionalValue, Diagnostic, Expanded, Leaf } from "../expand/typ
 import { isConditional } from "../expand/types.ts";
 import { isSentinel } from "../sentinel.ts";
 import { convertColor } from "./color.ts";
+import { rewriteEnv } from "./env-function.ts";
 import { foldedToken, foldMath, mapFunctions } from "./fold.ts";
+import {
+  containsLh,
+  LH_IN_LINE_HEIGHT,
+  LH_NEEDS_LINE_HEIGHT,
+  lineHeightBasis,
+  rewriteLh,
+  type LineHeightBasis,
+} from "./lh-unit.ts";
 import { normalizeAngles, toNumber } from "./units.ts";
 
 /**
@@ -345,15 +354,51 @@ function foldFunctions(value: string, diag: (message: string) => void): string |
   });
 }
 
+/** What a leaf's lowering may read from the rest of its rule. */
+type RuleContext = Readonly<{ lineHeight: LineHeightBasis | null }>;
+
+/**
+ * Compile-time substitutions before folding: `env(safe-area-inset-*)` becomes
+ * a variable reference and `lh` a px or em length. Null (with a diagnostic)
+ * when the value cannot be made to work on React Native.
+ */
+function substitute(
+  property: string,
+  value: string,
+  context: RuleContext,
+  diag: (message: string) => void,
+): string | null {
+  const env = rewriteEnv(value);
+  if (env.unknown.length) {
+    for (const name of env.unknown) {
+      diag(`env(${name}) does not exist on React Native; only safe-area-inset-* is available`);
+    }
+    return null;
+  }
+  if (!containsLh(env.value)) return env.value;
+  if (property === "lineHeight") {
+    diag(LH_IN_LINE_HEIGHT);
+    return null;
+  }
+  if (!context.lineHeight) {
+    diag(LH_NEEDS_LINE_HEIGHT);
+    return null;
+  }
+  return rewriteLh(env.value, context.lineHeight);
+}
+
 function lowerLeaf(
   property: string,
   value: Leaf,
   diagnostics: Diagnostic[],
   path: string,
+  context: RuleContext,
 ): LeafOutput {
   const diag = (message: string) => diagnostics.push({ property: path, value, message });
   if (typeof value === "string" && !isSentinel(value)) {
-    const folded = foldFunctions(value, diag);
+    const substituted = substitute(property, value, context, diag);
+    if (substituted === null) return DROP;
+    const folded = foldFunctions(substituted, diag);
     if (folded === null) return DROP;
     value = folded;
   }
@@ -387,6 +432,7 @@ function lowerConditional(
   value: ConditionalValue,
   diagnostics: Diagnostic[],
   path: string,
+  context: RuleContext,
 ): Grouped {
   const out: Grouped = { style: {}, props: {} };
   for (const [condition, branch] of Object.entries(value)) {
@@ -405,8 +451,8 @@ function lowerConditional(
       continue;
     }
     const lowered = isConditional(branch)
-      ? lowerConditional(property, branch, diagnostics, branchPath)
-      : toGrouped(lowerLeaf(property, branch, diagnostics, branchPath));
+      ? lowerConditional(property, branch, diagnostics, branchPath, context)
+      : toGrouped(lowerLeaf(property, branch, diagnostics, branchPath, context));
     for (const bucket of ["style", "props"] as const) {
       for (const [k, v] of Object.entries(lowered[bucket])) {
         const existing = out[bucket][k];
@@ -432,11 +478,12 @@ export function lowerDeclarations(expanded: Expanded): LoweredRule {
   const props: Record<string, LoweredValue> = {};
   const depth: Record<string, number> = {};
   const diagnostics: Diagnostic[] = [];
+  const context: RuleContext = { lineHeight: lineHeightBasis(expanded.style.lineHeight) };
 
   for (const [property, value] of Object.entries(expanded.style)) {
     const lowered = isConditional(value)
-      ? lowerConditional(property, value, diagnostics, property)
-      : toGrouped(lowerLeaf(property, value, diagnostics, property));
+      ? lowerConditional(property, value, diagnostics, property, context)
+      : toGrouped(lowerLeaf(property, value, diagnostics, property, context));
     const d = expanded.depth[property] ?? 0;
     for (const [k, v] of Object.entries(lowered.style)) {
       const merged =
