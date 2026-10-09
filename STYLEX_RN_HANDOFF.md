@@ -92,7 +92,7 @@ Tooling:
 - Inside Vitest, module resolution is patched (`createRequire("/x")` still resolves `react-native`), so "not found" cases need a temp project rather than an assertion against the real tree.
 - oxlint's `react(refs)` rejects `ref.current` reads during render; use the derived-state pattern (`useShallowStable` in `runtime/hooks.ts`) or a controller object held in state (`useMotion`).
 - Keep `useProps` cheap for long lists: no per-render closures handed to `useSyncExternalStore`, no effects without dependencies, no allocation before the cache check. Measure with the bench.
-- Docs site: `globals.css` must be imported before `stylexn/elements.css` (the first `@layer` statement fixes the layer order). Two ambient `declare module "*.png"` declarations in one program conflict, so each app declares its own bundler's image type.
+- Docs site: `globals.css` must be imported before `stylexn/elements.css` (the first `@layer` statement fixes the layer order). Two ambient `declare module "*.png"` declarations in one program conflict, so each app declares its own bundler's image type. The Next apps take theirs from `next/image-types/global` through a committed `image-types.d.ts`, because `next-env.d.ts` is generated and gitignored and CI's typecheck runs without a Next build.
 - Android draws `elevation` shadows through a view without an opaque `backgroundColor`.
 
 ## Next steps
