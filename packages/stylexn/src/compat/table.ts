@@ -709,7 +709,9 @@ const READ_ONLY =
 
 export const pseudoClasses = {
   ":hover": poly(`${INTERACTION} Only fires with a pointer device.`),
-  ":active": poly(INTERACTION),
+  ":active": poly(
+    "Tracked at runtime on native: presses on Pressable, touches on View, Text, Switch, Image, ScrollView and FlatList (not TextInput).",
+  ),
   ":focus": poly(INTERACTION),
   ":focus-visible": poly(`${INTERACTION} Treated like :focus.`),
   ":focus-within": poly(`${INTERACTION} Requires descendant focus tracking.`),

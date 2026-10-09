@@ -50,8 +50,6 @@ const styles = stylex.create({
   },
   // :checked from the Switch's value: a done todo's switch steps back.
   toggle: {
-    // React Native's Switch defaults to alignSelf: flex-start; centre it in the row.
-    alignSelf: "center",
     opacity: { default: 1, ":checked": 0.65 },
     transitionProperty: "opacity",
     transitionDuration: "200ms",

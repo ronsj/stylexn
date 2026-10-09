@@ -142,6 +142,9 @@ type FlatListProps<T> = {
   onScroll?: (event: { nativeEvent: { contentOffset: { x: number; y: number } } }) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  onTouchStart?: () => void;
+  onTouchEnd?: () => void;
+  onTouchCancel?: () => void;
   [prop: string]: unknown;
 };
 
@@ -172,6 +175,9 @@ export function FlatList<T>({
   onScroll,
   onPointerEnter,
   onPointerLeave,
+  onTouchStart,
+  onTouchEnd,
+  onTouchCancel,
   ...rest
 }: FlatListProps<T>) {
   const serialisable = Object.fromEntries(
@@ -196,6 +202,9 @@ export function FlatList<T>({
       "data-props": JSON.stringify({ ...serialisable, contentContainerStyle }),
       onPointerEnter,
       onPointerLeave,
+      onTouchStart,
+      onTouchEnd,
+      onTouchCancel,
       onScroll:
         onScroll &&
         ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>

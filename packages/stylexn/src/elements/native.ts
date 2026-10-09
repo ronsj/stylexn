@@ -2,7 +2,10 @@
 /* oxlint-disable react/refs -- refs are read in imperative-handle factories and event handlers, which run outside render */
 // Cross-platform elements, React Native implementation: the primitives,
 // styled through the StyleXN runtime. Interaction handlers from `useProps`
-// are attached only when a rule has :hover/:active/:focus conditions.
+// are attached only when a rule has :hover/:active/:focus conditions (or a
+// marker is present); presses reach Pressable through its press callbacks
+// and View, Text, Switch, Image, ScrollView and FlatList through touch
+// events (TextInput has no :active).
 //
 // Text inheritance: CSS cascades `color`, `fontSize`, ... from any element to
 // the text inside it; React Native only inherits between nested Text. So
@@ -98,6 +101,18 @@ const compose = (first?: () => void, second?: () => void): (() => void) | undefi
     : undefined;
 
 /**
+ * The runtime's press tracking (`:active`, and a marker's state) as React
+ * Native touch events, for elements that have no press callbacks. Touch
+ * events reach every element under the finger without claiming the
+ * responder, so a Pressable inside keeps working; a cancelled touch ends the
+ * press. Nothing when the runtime returned no handlers (no rule needs them).
+ */
+const touches = (onPressIn?: () => void, onPressOut?: () => void) =>
+  onPressIn
+    ? { onTouchStart: onPressIn, onTouchEnd: onPressOut, onTouchCancel: onPressOut }
+    : undefined;
+
+/**
  * Children wrapped in a TextStyleProvider when there is anything to inherit
  * and something that could read it: a string or number child has no style.
  */
@@ -136,13 +151,21 @@ const publish = (marked: Marked | undefined, element: ReactNode): ReactNode =>
 export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function View({ sx, children, ...rest }: ViewProps) {
-  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, onPressIn, onPressOut, ...extra } =
+    useProps(toList(sx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   return publish(
     marked,
     createElement(
       animated ? Animated.View : RNView,
-      { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
+      {
+        ...rest,
+        ...extra,
+        ...touches(onPressIn, onPressOut),
+        onPointerEnter: onHoverIn,
+        onPointerLeave: onHoverOut,
+        style: own,
+      },
       cascade(sx, inherited, children),
     ),
   );
@@ -151,7 +174,9 @@ export function View({ sx, children, ...rest }: ViewProps) {
 export type TextProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function Text({ sx, children, ...rest }: TextProps) {
-  // Text has no hover/focus events; drop those handlers.
+  // Text has no hover/focus events; drop those handlers. Presses arrive as
+  // touch events: Text's own onPressIn would make it pressable, which
+  // highlights it on iOS.
   const {
     style,
     animated,
@@ -160,6 +185,8 @@ export function Text({ sx, children, ...rest }: TextProps) {
     onHoverOut: _o,
     onFocus: _f,
     onBlur: _b,
+    onPressIn,
+    onPressOut,
     ...extra
   } = useProps(toList(sx));
   // Inherited text properties sit under the element's own (the CSS cascade).
@@ -170,7 +197,7 @@ export function Text({ sx, children, ...rest }: TextProps) {
     marked,
     createElement(
       animated ? Animated.Text : RNText,
-      { ...rest, ...extra, style: merged },
+      { ...rest, ...extra, ...touches(onPressIn, onPressOut), style: merged },
       cascade(sx, splitInherited(style as Record<string, RNLeaf>).inherited, children),
     ),
   );
@@ -230,6 +257,8 @@ export function Switch({ sx, value, onValueChange, disabled, ...rest }: SwitchPr
     marked,
     onHoverIn: _h,
     onHoverOut: _o,
+    onPressIn,
+    onPressOut,
     ...extra
   } = useProps(toList(sx), {
     disabled,
@@ -242,10 +271,13 @@ export function Switch({ sx, value, onValueChange, disabled, ...rest }: SwitchPr
     createElement(animated ? AnimatedSwitch : RNSwitch, {
       ...rest,
       ...extra,
+      ...touches(onPressIn, onPressOut),
       value,
       onValueChange,
       disabled,
-      style,
+      // React Native's iOS Switch puts `alignSelf: flex-start` under the
+      // style; `auto` lets the parent's alignItems place it, as on the web.
+      style: { alignSelf: "auto", ...style },
     }),
   );
 }
@@ -262,12 +294,22 @@ function toSource(src: ImageSource): number | { uri: string } {
 
 export function Image({ sx, src, alt, onLoad, onError, ...rest }: ImageProps) {
   // Image has no pointer events on native: hover conditions never hold.
-  const { style, animated, marked, onHoverIn: _h, onHoverOut: _o, ...extra } = useProps(toList(sx));
+  const {
+    style,
+    animated,
+    marked,
+    onHoverIn: _h,
+    onHoverOut: _o,
+    onPressIn,
+    onPressOut,
+    ...extra
+  } = useProps(toList(sx));
   return publish(
     marked,
     createElement(animated ? Animated.Image : RNImage, {
       ...rest,
       ...extra,
+      ...touches(onPressIn, onPressOut),
       source: toSource(src),
       alt,
       onLoad: onLoad && (() => onLoad()),
@@ -390,7 +432,8 @@ type ScrollViewLike = {
 
 /** `sx` styles the scroll container, `contentSx` its content (contentContainerStyle). */
 export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: ScrollViewProps) {
-  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, onPressIn, onPressOut, ...extra } =
+    useProps(toList(sx));
   const content = useProps(toList(contentSx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   const inner = useRef<ScrollViewLike | null>(null);
@@ -410,6 +453,7 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
       ...rest,
       ...extra,
       ref: inner,
+      ...touches(onPressIn, onPressOut),
       onPointerEnter: onHoverIn,
       onPointerLeave: onHoverOut,
       onScroll: normaliseScroll(onScroll),
@@ -464,7 +508,8 @@ export function FlatList<T>({
   ref,
   ...rest
 }: FlatListProps<T>) {
-  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, onPressIn, onPressOut, ...extra } =
+    useProps(toList(sx));
   const content = useProps(toList(contentSx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   const inner = useRef<FlatListLike | null>(null);
@@ -492,6 +537,7 @@ export function FlatList<T>({
     ListFooterComponent: asElement(footer),
     ListEmptyComponent: asElement(empty),
     ItemSeparatorComponent: separatorElement && (() => separatorElement),
+    ...touches(onPressIn, onPressOut),
     onPointerEnter: onHoverIn,
     onPointerLeave: onHoverOut,
     onScroll: normaliseScroll(onScroll),

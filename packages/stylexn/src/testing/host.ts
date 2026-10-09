@@ -13,6 +13,9 @@ type HostProps = {
   onLongPress?: () => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  onTouchStart?: () => void;
+  onTouchEnd?: () => void;
+  onTouchCancel?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
   onChangeText?: (text: string) => void;
@@ -25,8 +28,8 @@ type HostProps = {
 
 /**
  * A host element: `data-style` holds the style, `data-props` the other
- * props (functions omitted). Press, pointer, focus, text, submit and scroll
- * handlers are wired to the DOM events Testing Library can fire.
+ * props (functions omitted). Press, pointer, touch, focus, text, submit and
+ * scroll handlers are wired to the DOM events Testing Library can fire.
  */
 export function host(tag: string) {
   return function Host({
@@ -39,6 +42,9 @@ export function host(tag: string) {
     onLongPress,
     onPointerEnter,
     onPointerLeave,
+    onTouchStart,
+    onTouchEnd,
+    onTouchCancel,
     onFocus,
     onBlur,
     onChangeText,
@@ -67,6 +73,9 @@ export function host(tag: string) {
         onContextMenu: onLongPress,
         onPointerEnter,
         onPointerLeave,
+        onTouchStart,
+        onTouchEnd,
+        onTouchCancel,
         onFocus,
         onBlur,
         onLoad,

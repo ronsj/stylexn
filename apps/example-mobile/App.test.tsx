@@ -144,6 +144,17 @@ test("the row's actions follow its hover through the marker", () => {
   expect(target(styleOf(label()).color)).toMatch(/#c2410c|rgb\(194, 65, 12\)/);
 });
 
+test("the row's actions follow a touch on the row through the marker", () => {
+  render(<App />);
+  add("Press me");
+  expect(styleOf(label()).color).toBe("#6f6880");
+  fireEvent.touchStart(screen.getByTestId("todo-item"));
+  expect(target(styleOf(label()).color)).toMatch(/#c2410c|rgb\(194, 65, 12\)/);
+  expect(target(styleOf(screen.getByTestId("todo-delete")).opacity)).toBe(1);
+  fireEvent.touchEnd(screen.getByTestId("todo-item"));
+  expect(target(styleOf(label()).color)).toBe("#6f6880");
+});
+
 test("follows the colour scheme and the teal theme through defineVars", () => {
   render(<App />);
   expect(caret()).toBe("#6a3db8");

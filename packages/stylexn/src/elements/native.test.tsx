@@ -8,9 +8,9 @@ vi.mock("react-native", () => import("../testing/react-native.ts"));
 import { create } from "../runtime/api.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "../runtime/vars.ts";
 import { defaultMarker, defineMarker, when } from "../runtime/markers.ts";
-import { createRef } from "react";
+import { createRef, isValidElement, type ReactElement } from "react";
 import { FlatList, Image, Pressable, ScrollView, Switch, Text, TextInput, View } from "./native.ts";
-import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "./native.ts";
+import type { FlatListHandle, ScrollViewHandle, SxProp, TextInputHandle } from "./native.ts";
 
 beforeEach(() => {
   resetVarsForTesting();
@@ -480,11 +480,20 @@ describe("more elements", () => {
     render(<Switch sx={styles.pad} value onValueChange={onValueChange} testID="sw" />);
     expect(tagOf("sw")).toBe("RN-SWITCH");
     expect(propsOf("sw")).toMatchObject({ value: true });
-    expect(styleOf("sw")).toEqual({ paddingTop: 14 });
+    expect(styleOf("sw")).toEqual({ alignSelf: "auto", paddingTop: 14 });
     fireEvent.change(screen.getByTestId("sw"), { target: { checked: false } });
     expect(onValueChange).toHaveBeenCalledWith(false);
     render(<Switch value={false} disabled testID="off" />);
     expect(propsOf("off")).toMatchObject({ value: false, disabled: true });
+  });
+
+  test("Switch starts from alignSelf: auto so the row's alignItems applies; sx wins", () => {
+    // React Native's iOS Switch would otherwise apply alignSelf: flex-start.
+    render(<Switch value testID="plain" />);
+    expect(Object.entries(styleOf("plain"))[0]).toEqual(["alignSelf", "auto"]);
+    const own = create({ end: { alignSelf: "flex-end" } });
+    render(<Switch sx={own.end} value testID="end" />);
+    expect(styleOf("end").alignSelf).toBe("flex-end");
   });
 
   test("Switch matches :checked from its value and is always :read-only", () => {
@@ -569,6 +578,95 @@ describe("more elements", () => {
     list.current?.scrollToOffset({ offset: 10, animated: false });
     expect(scrollToIndex).toHaveBeenCalledWith({ index: 3, animated: true });
     expect(scrollToOffset).toHaveBeenCalledWith({ offset: 10, animated: false });
+  });
+});
+
+describe(":active from touches", () => {
+  const t = create({
+    pressed: { backgroundColor: { default: "a", ":active": "b" } },
+    plain: { backgroundColor: "a" },
+  });
+
+  test("a View with an :active rule follows touchstart, touchend and touchcancel", () => {
+    render(<View sx={t.pressed} testID="v" />);
+    const v = screen.getByTestId("v");
+    expect(styleOf("v").backgroundColor).toBe("a");
+    fireEvent.touchStart(v);
+    expect(styleOf("v").backgroundColor).toBe("b");
+    fireEvent.touchEnd(v);
+    expect(styleOf("v").backgroundColor).toBe("a");
+    fireEvent.touchStart(v);
+    expect(styleOf("v").backgroundColor).toBe("b");
+    // A scroll or the system taking the touch cancels it.
+    fireEvent.touchCancel(v);
+    expect(styleOf("v").backgroundColor).toBe("a");
+  });
+
+  test("Text, Switch, Image, ScrollView and FlatList track touches the same way", () => {
+    render(
+      <>
+        <Text sx={t.pressed} testID="t">
+          x
+        </Text>
+        <Switch sx={t.pressed} value testID="sw" />
+        <Image sx={t.pressed} src="a.png" alt="" testID="img" />
+        <ScrollView sx={t.pressed} testID="sv" />
+        <FlatList sx={t.pressed} data={[]} renderItem={() => null} testID="fl" />
+      </>,
+    );
+    for (const id of ["t", "sw", "img", "sv", "fl"]) {
+      fireEvent.touchStart(screen.getByTestId(id));
+      expect(styleOf(id).backgroundColor, id).toBe("b");
+      fireEvent.touchEnd(screen.getByTestId(id));
+      expect(styleOf(id).backgroundColor, id).toBe("a");
+    }
+  });
+
+  test("touch handlers are attached only when a rule or a marker needs them", () => {
+    // Call the element inside a component to read the props it gives the primitive.
+    const seen: Record<string, readonly string[]> = {};
+    function Probe({ id, sx }: Readonly<{ id: string; sx: SxProp }>) {
+      const element = View({ sx }) as ReactElement<Record<string, unknown>>;
+      // A marked View wraps the primitive in MarkerProvider.
+      const inner = (
+        isValidElement(element.props.children) ? element.props.children : element
+      ) as ReactElement<Record<string, unknown>>;
+      seen[id] = Object.keys(inner.props).filter((key) => inner.props[key] !== undefined);
+      return element;
+    }
+    render(
+      <>
+        <Probe id="plain" sx={t.plain} />
+        <Probe id="pressed" sx={t.pressed} />
+        <Probe id="marked" sx={defineMarker("m")} />
+      </>,
+    );
+    expect(seen.plain).not.toContain("onTouchStart");
+    expect(seen.plain).not.toContain("onTouchEnd");
+    expect(seen.plain).not.toContain("onTouchCancel");
+    expect(seen.plain).not.toContain("onPressIn");
+    expect(seen.pressed).toEqual(
+      expect.arrayContaining(["onTouchStart", "onTouchEnd", "onTouchCancel"]),
+    );
+    expect(seen.pressed).not.toContain("onPressIn");
+    expect(seen.marked).toEqual(
+      expect.arrayContaining(["onTouchStart", "onTouchEnd", "onTouchCancel"]),
+    );
+  });
+
+  test("a Pressable inside a pressed View still gets its own press", () => {
+    const onPress = vi.fn();
+    render(
+      <View sx={t.pressed} testID="v">
+        <Pressable onPress={onPress} testID="p" />
+      </View>,
+    );
+    fireEvent.touchStart(screen.getByTestId("p"));
+    expect(styleOf("v").backgroundColor).toBe("b");
+    fireEvent.click(screen.getByTestId("p"));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    fireEvent.touchEnd(screen.getByTestId("p"));
+    expect(styleOf("v").backgroundColor).toBe("a");
   });
 });
 
@@ -696,6 +794,20 @@ describe("markers and when.ancestor", () => {
     fireEvent.pointerEnter(screen.getByTestId("v"));
     expect(styleOf("label").color).toBe("purple");
     fireEvent.pointerLeave(screen.getByTestId("v"));
+    expect(styleOf("label").color).toBe("black");
+  });
+
+  test("a marked View publishes press from its touch events", () => {
+    render(
+      <View sx={[card, m.surface]} testID="v">
+        <Text sx={m.label} testID="label">
+          hi
+        </Text>
+      </View>,
+    );
+    fireEvent.touchStart(screen.getByTestId("v"));
+    expect(styleOf("label").color).toBe("red");
+    fireEvent.touchEnd(screen.getByTestId("v"));
     expect(styleOf("label").color).toBe("black");
   });
 
