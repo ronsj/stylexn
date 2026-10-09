@@ -450,6 +450,10 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
   const scroll = createElement(
     withRef(animated ? Animated.ScrollView : RNScrollView),
     {
+      // As on the web, a tap on a control activates it while a focused input
+      // blurs, and a tap elsewhere dismisses the keyboard. React Native's
+      // default ("never") swallows the first tap to dismiss the keyboard.
+      keyboardShouldPersistTaps: "handled",
       ...rest,
       ...extra,
       ref: inner,
@@ -527,6 +531,8 @@ export function FlatList<T>({
   );
   const separatorElement = asElement(separator);
   const list = createElement(withRef(animated ? Animated.FlatList : RNFlatList), {
+    // Taps reach controls while the keyboard is up, as in ScrollView.
+    keyboardShouldPersistTaps: "handled",
     ...rest,
     ...extra,
     ref: inner,

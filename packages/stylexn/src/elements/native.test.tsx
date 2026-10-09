@@ -468,6 +468,17 @@ describe("more elements", () => {
     expect(propsOf("list")).toMatchObject(SNAP_PROPS);
   });
 
+  test("ScrollView and FlatList let taps through while the keyboard is up, as on the web", () => {
+    render(
+      <View>
+        <ScrollView testID="s" />
+        <FlatList data={[1]} renderItem={() => null} testID="list" />
+      </View>,
+    );
+    expect(propsOf("s").keyboardShouldPersistTaps).toBe("handled");
+    expect(propsOf("list").keyboardShouldPersistTaps).toBe("handled");
+  });
+
   test("FlatList with no data shows the empty slot; plain nodes are accepted in the slots", () => {
     render(
       <FlatList data={[]} renderItem={() => null} empty="nothing" footer="end" testID="list" />,

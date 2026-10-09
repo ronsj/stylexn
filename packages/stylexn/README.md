@@ -110,6 +110,8 @@ import "stylexn/elements.css";
   `ScrollView` and `FlatList` take a `ref` for `focus()`, `scrollTo()` and
   the like; `Pressable` has `onPressIn`/`onPressOut`/`onLongPress`.
   `FlatList` is virtualised on native and a plain scrolling list on web.
+  On native both pass `keyboardShouldPersistTaps="handled"`, so as on the
+  web a tap on a control activates it while a focused input blurs.
   Any React Native component also works directly with `useProps` when a
   wrapper is in the way, including for native-only props (with a marker in
   its arguments, wrap it in `MarkerProvider` with `useProps(...).marked`).

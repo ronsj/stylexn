@@ -48,15 +48,17 @@ test("renders the shared todo app with native styles and safe-area insets", () =
   render(<App />);
   const heading = screen.getByText("Todos");
   expect(heading.tagName).toBe("RN-TEXT");
+  // The root is a ScrollView, so a tap outside the input dismisses the keyboard.
+  const root = heading.closest("rn-scrollview") as HTMLElement;
+  expect(styleOf(root)).toMatchObject({ flexGrow: 1, backgroundColor: "#f4f1f9" });
+  expect(propsOf(root).keyboardShouldPersistTaps).toBe("handled");
   // calc(1.5rem + env(safe-area-inset-top)) with the stubbed 47pt notch inset.
-  const screenView = heading.closest("rn-view")?.parentElement?.parentElement
-    ?.parentElement as HTMLElement;
-  expect(styleOf(screenView)).toMatchObject({
+  expect(propsOf(root).contentContainerStyle).toMatchObject({
     flexGrow: 1,
+    alignItems: "center",
     paddingTop: 24 + 47,
     paddingBottom: 24 + 34,
     paddingLeft: 16,
-    backgroundColor: "#f4f1f9",
   });
   // fontFeatureSettings and the text prop mappings.
   expect(styleOf(screen.getByTestId("page-label")).fontVariant).toEqual(["tabular-nums"]);

@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import * as stylex from "stylexn";
 import { web } from "stylexn";
-import { Switch, Text, View } from "stylexn/elements";
+import { ScrollView, Switch, Text, View } from "stylexn/elements";
 import { Filters } from "./Filters";
 import { Pagination } from "./Pagination";
 import { initialState, load, newId, reducer, save, view, type Filter } from "./store";
@@ -33,6 +33,8 @@ const teal = stylex.createTheme(colors, {
 const styles = stylex.create({
   screen: {
     // Fills the screen on native (the app root) and the page on the web.
+    // A ScrollView, so on native a tap outside the input dismisses the
+    // keyboard; on the web it has no fixed height, so the page scrolls.
     flexGrow: 1,
     width: "100%",
     // firstThatWorks: the web gets 100dvh where the browser has it, 100vh
@@ -46,8 +48,13 @@ const styles = stylex.create({
       fontFamily:
         'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     }),
-    alignItems: "center",
     backgroundColor: colors.background,
+  },
+  // The ScrollView's content: grows to the screen's height so the background
+  // fills it when the list is short.
+  content: {
+    flexGrow: 1,
+    alignItems: "center",
     // env(safe-area-inset-*) inside calc(): clear of the notch and home
     // indicator; SafeAreaInsetsProvider supplies the insets on native.
     paddingTop: "calc(1.5rem + env(safe-area-inset-top))",
@@ -178,7 +185,7 @@ export function TodoApp() {
   };
 
   return (
-    <View sx={[alt && teal, styles.screen]}>
+    <ScrollView sx={[alt && teal, styles.screen]} contentSx={styles.content}>
       <View sx={styles.card}>
         <View sx={styles.header}>
           <View>
@@ -219,6 +226,6 @@ export function TodoApp() {
         />
         <Pagination page={v.page} pageCount={v.pageCount} onChange={setPage} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
