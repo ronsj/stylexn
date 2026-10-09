@@ -11,7 +11,7 @@ import {
   MATH_ANYWHERE,
 } from "../lower/fold.ts";
 import { finalizeStyle } from "../lower/lower.ts";
-import { parseLength, RELATIVE_UNITS } from "../lower/units.ts";
+import { ABSOLUTE_UNITS, parseLength, RELATIVE_UNITS, toNumber } from "../lower/units.ts";
 import { splitSpace } from "../expand/tokenize.ts";
 import { matchesMedia } from "./media.ts";
 import { MOTION_KEY, parseMotion } from "./motion.ts";
@@ -448,10 +448,16 @@ function resolveValue(
   return value;
 }
 
-/** Convert a single relative-unit token to a number; other strings pass through. */
+/**
+ * Convert a single length token to a number: absolute units (as the compiler
+ * does for rule values; variable values only reach the runtime) and relative
+ * units. Bare numbers, percentages and other strings pass through.
+ */
 function resolveUnits(value: string, env: Env, fontSize: number): RNLeaf {
   const parsed = parseLength(value);
-  if (!parsed || !RELATIVE_UNITS.has(parsed.unit)) return value;
+  if (!parsed) return value;
+  if (Object.hasOwn(ABSOLUTE_UNITS, parsed.unit)) return toNumber(value) ?? value;
+  if (!RELATIVE_UNITS.has(parsed.unit)) return value;
   const { width, height } = env.window;
   switch (parsed.unit) {
     case "rem":

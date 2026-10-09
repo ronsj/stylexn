@@ -23,8 +23,10 @@ export const colors = stylex.defineVars({
   focusRing: "#f0a531",
 });
 
-// Lengths in rem: a bare number in a CSS custom property is not a length on
-// the web, and native resolves rem to points (1rem = 16).
+// Lengths carry a unit: a bare number in a CSS custom property is not a
+// length on the web. Native folds both kinds to points: rem at runtime
+// against the root font size (1rem = 16), px one to one. Spacing uses rem
+// and radii px, so the todo app exercises both.
 export const space = stylex.defineVars({
   xs: "0.25rem",
   sm: "0.5rem",
@@ -34,8 +36,8 @@ export const space = stylex.defineVars({
 });
 
 export const radii = stylex.defineVars({
-  sm: "0.375rem",
-  md: "0.625rem",
-  lg: "1rem",
-  pill: "999rem",
+  sm: "6px",
+  md: "10px",
+  lg: "16px",
+  pill: "9999px",
 });

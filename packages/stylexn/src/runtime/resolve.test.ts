@@ -175,6 +175,64 @@ describe("variables and themes", () => {
     expect(resolve([r], env({ colorScheme: "dark" })).style.backgroundColor).toBe("black");
   });
 
+  test("absolute units in variable values fold to numbers like rule values", () => {
+    const vars = defineVars({ gap: "8px", pt: "1.5pt", inch: "1in", half: "50%" });
+    const r = rule({
+      paddingTop: vars.gap,
+      paddingBottom: vars.pt,
+      marginTop: vars.inch,
+      width: vars.half,
+      height: "var(--nope, 3px)",
+    });
+    expect(resolve([r], env()).style).toEqual({
+      paddingTop: 8,
+      paddingBottom: 2,
+      marginTop: 96,
+      width: "50%",
+      height: 3,
+    });
+    const theme = createTheme(vars, { gap: "12px" });
+    expect(resolve([theme, r], env()).style.paddingTop).toBe(12);
+    const named = rule({ paddingTop: `${vars.gap}` });
+    expect(resolve([named], env()).style.paddingTop).toBe(8);
+  });
+
+  test("conditional variable values fold absolute units in every branch", () => {
+    const vars = defineVars({ pad: { default: "8px", "@media (min-width: 800px)": "12px" } });
+    const r = rule({ paddingTop: vars.pad });
+    expect(resolve([r], env()).style.paddingTop).toBe(8);
+    const wide = env({ window: { width: 1024, height: 768, scale: 2, fontScale: 1 } });
+    expect(resolve([r], wide).style.paddingTop).toBe(12);
+  });
+
+  test("lineHeight from a variable: a bare number stays a multiplier, px is a length", () => {
+    const vars = defineVars({ ratio: "1.5", fixed: "24px" });
+    const ratio = resolve([rule({ lineHeight: vars.ratio })], env({ fontSize: 20 }));
+    expect(ratio.style.lineHeight).toBe(30);
+    expect(ratio.inherit).toEqual({ lineHeight: "1.5" });
+    const fixed = resolve([rule({ lineHeight: vars.fixed })], env({ fontSize: 20 }));
+    expect(fixed.style.lineHeight).toBe(24);
+    expect(fixed.inherit).toBeUndefined();
+  });
+
+  test("a box value from a variable folds both sides", () => {
+    // No authoring syntax yields a box held in a variable today, so the
+    // compiled rules are built by hand to reach the runtime path.
+    const vars = defineVars({ offset: { width: "2px", height: "4px" }, x: "1pt", y: "3px" });
+    const held: CompiledRule = {
+      ...rule({}),
+      static: { textShadowOffset: vars.offset },
+      usesVars: true,
+    };
+    expect(resolve([held], env()).style.textShadowOffset).toEqual({ width: 2, height: 4 });
+    const sides: CompiledRule = {
+      ...rule({}),
+      static: { textShadowOffset: { width: vars.x, height: vars.y } },
+      usesVars: true,
+    };
+    expect(resolve([sides], env()).style.textShadowOffset).toEqual({ width: 1.333, height: 3 });
+  });
+
   test("var() strings look up by name with a fallback", () => {
     const r = rule({ color: "var(--missing, red)" });
     expect(resolve([r], env()).style.color).toBe("red");
@@ -464,6 +522,13 @@ describe("runtime math", () => {
       env({ window: { width: 400, height: 800, scale: 2, fontScale: 1 } }),
     );
     expect(style).toEqual({ width: 190, paddingTop: 18, marginTop: 14 });
+  });
+
+  test("absolute-unit variables inside calc() give the same math", () => {
+    const vars = defineVars({ x: "8px" });
+    expect(resolve([rule({ paddingTop: `calc(${vars.x} + 2px)` })], env()).style.paddingTop).toBe(
+      10,
+    );
   });
 
   test("var() inside math and template-string refs", () => {

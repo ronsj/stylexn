@@ -845,7 +845,9 @@ export const mediaFeatures = {
 
 export const units = {
   "<number>": ok(),
-  px: ok({ note: "Converted to a plain number." }),
+  px: ok({
+    note: "Converted to a plain number, in rules at compile time and in variables at runtime.",
+  }),
   "%": some(["<percentage>"], "Accepted where React Native accepts percentages."),
   rem: poly("Multiplied by the configured root font size (default 16)."),
   em: poly("Resolved at runtime against the element's own font size, else the inherited one."),

@@ -65,7 +65,7 @@ test("renders the shared todo app with native styles and safe-area insets", () =
     numberOfLines: 2,
     ellipsizeMode: "tail",
   });
-  // rem tokens resolve to points; the web-only declarations are gone.
+  // rem (space) and px (radii) tokens resolve to points; the web-only declarations are gone.
   expect(styleOf(screen.getByTestId("todo-item"))).toMatchObject({
     height: 56,
     rowGap: 8,

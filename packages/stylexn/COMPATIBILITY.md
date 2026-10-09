@@ -547,7 +547,7 @@ How each feature inside `@media` is evaluated on native.
 | Unit       | Status      | Notes                                                                                                                                                                               |
 | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<number>` | supported   |                                                                                                                                                                                     |
-| `px`       | supported   | Converted to a plain number.                                                                                                                                                        |
+| `px`       | supported   | Converted to a plain number, in rules at compile time and in variables at runtime.                                                                                                  |
 | `%`        | partial     | Accepted where React Native accepts percentages. Values: `<percentage>`.                                                                                                            |
 | `rem`      | polyfilled  | Multiplied by the configured root font size (default 16).                                                                                                                           |
 | `em`       | polyfilled  | Resolved at runtime against the element's own font size, else the inherited one.                                                                                                    |
