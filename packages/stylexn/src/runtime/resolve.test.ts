@@ -11,6 +11,9 @@ const env = (overrides: Partial<Env> = {}): Env => ({
   window: { width: 390, height: 844, scale: 3, fontScale: 1 },
   colorScheme: "light",
   reducedMotion: false,
+  contrast: "no-preference",
+  reducedTransparency: false,
+  invertedColors: false,
   pointer: "coarse",
   interaction: {},
   vars: {},
@@ -219,6 +222,9 @@ describe("analyzeNeeds", () => {
       dimensions: false,
       colorScheme: false,
       reducedMotion: false,
+      contrast: false,
+      reducedTransparency: false,
+      invertedColors: false,
       vars: false,
       motion: false,
       constant: true,
@@ -239,6 +245,62 @@ describe("analyzeNeeds", () => {
       vars: true,
       colorScheme: true,
       dimensions: true,
+    });
+  });
+
+  test("accessibility media features set only their own flag", () => {
+    const flags = (decls: Declarations) => {
+      const n = analyzeNeeds([rule(decls)]);
+      return {
+        reducedMotion: n.reducedMotion,
+        contrast: n.contrast,
+        reducedTransparency: n.reducedTransparency,
+        invertedColors: n.invertedColors,
+        dimensions: n.dimensions,
+        colorScheme: n.colorScheme,
+      };
+    };
+    const none = {
+      reducedMotion: false,
+      contrast: false,
+      reducedTransparency: false,
+      invertedColors: false,
+      dimensions: false,
+      colorScheme: false,
+    };
+    expect(flags({ color: { "@media (prefers-contrast: more)": "x" } })).toEqual({
+      ...none,
+      contrast: true,
+    });
+    expect(flags({ color: { "@media (prefers-reduced-transparency: reduce)": "x" } })).toEqual({
+      ...none,
+      reducedTransparency: true,
+    });
+    expect(flags({ color: { "@media (inverted-colors: inverted)": "x" } })).toEqual({
+      ...none,
+      invertedColors: true,
+    });
+    expect(flags({ color: { "@media (prefers-reduced-motion: reduce)": "x" } })).toEqual({
+      ...none,
+      reducedMotion: true,
+    });
+    // Across several rules, flags combine.
+    const combined = analyzeNeeds([
+      rule({ color: { "@media (prefers-contrast)": "x" } }),
+      rule({ opacity: { "@media (inverted-colors)": 0.5 } }),
+    ]);
+    expect(combined).toMatchObject({
+      contrast: true,
+      invertedColors: true,
+      reducedTransparency: false,
+      reducedMotion: false,
+    });
+    // Variables do not subscribe to accessibility settings.
+    const vars = defineVars({ a: 1 });
+    expect(analyzeNeeds([rule({ marginTop: vars.a })])).toMatchObject({
+      contrast: false,
+      reducedTransparency: false,
+      invertedColors: false,
     });
   });
 

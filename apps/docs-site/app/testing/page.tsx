@@ -52,12 +52,12 @@ export default function Testing() {
               "The style and the other props an element received, as objects.",
             ],
             [
-              <Code key="w">setWindow(), setColorScheme()</Code>,
-              "Change the window size or the colour scheme; subscribed elements re-render.",
+              <Code key="w">setWindow(), setColorScheme(), setAccessibilityInfo()</Code>,
+              "Change the window size, the colour scheme or an AccessibilityInfo setting; subscribed elements re-render.",
             ],
             [
               <Code key="e">testEnv, resetTestEnv()</Code>,
-              "The environment the mocked modules read (window, colour scheme, reduced motion, platform), and a reset for between tests.",
+              "The environment the mocked modules read (window, colour scheme, accessibility settings, platform), and a reset for between tests.",
             ],
             [
               <Code key="a">Animated, startedAnimations</Code>,

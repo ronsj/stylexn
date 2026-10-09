@@ -46,6 +46,12 @@ export type Env = Readonly<{
   window: WindowMetrics;
   colorScheme: "light" | "dark";
   reducedMotion: boolean;
+  /** `prefers-contrast`: iOS Increase Contrast / Android high-contrast text. */
+  contrast: "more" | "no-preference";
+  /** `prefers-reduced-transparency`: iOS Reduce Transparency (always false on Android). */
+  reducedTransparency: boolean;
+  /** `inverted-colors`: iOS Smart/Classic Invert (always false on Android). */
+  invertedColors: boolean;
   /** Assumed input capabilities for `hover`/`pointer` media features. */
   pointer: "coarse" | "fine" | "none";
   interaction: InteractionState;
@@ -63,6 +69,12 @@ export type Needs = Readonly<{
   dimensions: boolean;
   colorScheme: boolean;
   reducedMotion: boolean;
+  /** A `prefers-contrast` media condition. */
+  contrast: boolean;
+  /** A `prefers-reduced-transparency` media condition. */
+  reducedTransparency: boolean;
+  /** An `inverted-colors` media condition. */
+  invertedColors: boolean;
   vars: boolean;
   /** Any transition or animation declaration: the element needs a motion controller. */
   motion: boolean;

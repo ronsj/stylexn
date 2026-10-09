@@ -17,15 +17,45 @@ export function configure(overrides: Partial<typeof config>): void {
   Object.assign(config, overrides);
 }
 
-let reducedMotion = false;
+/** The accessibility settings `@media` reads; one object so one store slot serves all four. */
+export type Accessibility = Readonly<
+  Pick<Env, "reducedMotion" | "contrast" | "reducedTransparency" | "invertedColors">
+>;
 
-/** Cached by the hooks module (AccessibilityInfo is async). */
-export function setReducedMotion(value: boolean): void {
-  reducedMotion = value;
+export const DEFAULT_ACCESSIBILITY: Accessibility = {
+  reducedMotion: false,
+  contrast: "no-preference",
+  reducedTransparency: false,
+  invertedColors: false,
+};
+
+let accessibility = DEFAULT_ACCESSIBILITY;
+
+/**
+ * Cached by the hooks module (AccessibilityInfo is async). The snapshot keeps
+ * its identity until a value actually changes, as useSyncExternalStore needs.
+ * Returns whether anything changed.
+ */
+export function setAccessibility(patch: Partial<Accessibility>): boolean {
+  let changed = false;
+  for (const key of Object.keys(patch) as (keyof Accessibility)[]) {
+    if (patch[key] !== accessibility[key]) changed = true;
+  }
+  if (changed) accessibility = { ...accessibility, ...patch };
+  return changed;
 }
 
-export function getReducedMotion(): boolean {
-  return reducedMotion;
+export function getAccessibility(): Accessibility {
+  return accessibility;
+}
+
+export function setReducedMotion(value: boolean): void {
+  setAccessibility({ reducedMotion: value });
+}
+
+/** Back to the defaults (all settings off), for tests. */
+export function resetAccessibilityForTesting(): void {
+  accessibility = DEFAULT_ACCESSIBILITY;
 }
 
 export function windowMetrics(): WindowMetrics {
@@ -48,7 +78,7 @@ export function snapshotEnv(
   return {
     window: windowMetrics(),
     colorScheme: colorScheme(),
-    reducedMotion,
+    ...accessibility,
     pointer: config.pointer,
     interaction: {},
     vars: {},

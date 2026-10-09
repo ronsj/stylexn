@@ -140,6 +140,13 @@ describe("conditions", () => {
     }
   });
 
+  test("every polyfilled media feature is listed as accepted by @media", () => {
+    const accepted: readonly string[] = atRules["@media"].values;
+    for (const [feature, entry] of entries(mediaFeatures)) {
+      if (entry.status === "polyfilled") expect(accepted, feature).toContain(feature);
+    }
+  });
+
   test("container queries are unsupported, @supports is web-only", () => {
     expect(atRules["@container"].status).toBe("unsupported");
     expect(atRules["@supports"].status).toBe("web-only");

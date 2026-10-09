@@ -6,6 +6,9 @@ const env = (overrides: Partial<Env> = {}): Env => ({
   window: { width: 390, height: 844, scale: 3, fontScale: 1 },
   colorScheme: "light",
   reducedMotion: false,
+  contrast: "no-preference",
+  reducedTransparency: false,
+  invertedColors: false,
   pointer: "coarse",
   interaction: {},
   vars: {},
@@ -62,6 +65,43 @@ describe("matchesMedia", () => {
       matchesMedia("@media (prefers-reduced-motion: reduce)", env({ reducedMotion: true })),
     ).toBe(true);
     expect(matchesMedia("@media (prefers-reduced-motion: no-preference)", env())).toBe(true);
+  });
+
+  test("prefers-contrast: only more and no-preference are detectable", () => {
+    const more = env({ contrast: "more" });
+    expect(matchesMedia("@media (prefers-contrast: more)", env())).toBe(false);
+    expect(matchesMedia("@media (prefers-contrast: more)", more)).toBe(true);
+    expect(matchesMedia("@media (prefers-contrast: no-preference)", env())).toBe(true);
+    expect(matchesMedia("@media (prefers-contrast: no-preference)", more)).toBe(false);
+    expect(matchesMedia("@media (prefers-contrast)", env())).toBe(false);
+    expect(matchesMedia("@media (prefers-contrast)", more)).toBe(true);
+    for (const value of ["less", "custom"]) {
+      expect(matchesMedia(`@media (prefers-contrast: ${value})`, env()), value).toBe(false);
+      expect(matchesMedia(`@media (prefers-contrast: ${value})`, more), value).toBe(false);
+    }
+  });
+
+  test("prefers-reduced-transparency", () => {
+    const reduce = env({ reducedTransparency: true });
+    expect(matchesMedia("@media (prefers-reduced-transparency: reduce)", env())).toBe(false);
+    expect(matchesMedia("@media (prefers-reduced-transparency: reduce)", reduce)).toBe(true);
+    expect(matchesMedia("@media (prefers-reduced-transparency: no-preference)", env())).toBe(true);
+    expect(matchesMedia("@media (prefers-reduced-transparency: no-preference)", reduce)).toBe(
+      false,
+    );
+    expect(matchesMedia("@media (prefers-reduced-transparency)", env())).toBe(false);
+    expect(matchesMedia("@media (prefers-reduced-transparency)", reduce)).toBe(true);
+  });
+
+  test("inverted-colors", () => {
+    const inverted = env({ invertedColors: true });
+    expect(matchesMedia("@media (inverted-colors: inverted)", env())).toBe(false);
+    expect(matchesMedia("@media (inverted-colors: inverted)", inverted)).toBe(true);
+    expect(matchesMedia("@media (inverted-colors: none)", env())).toBe(true);
+    expect(matchesMedia("@media (inverted-colors: none)", inverted)).toBe(false);
+    expect(matchesMedia("@media (inverted-colors)", env())).toBe(false);
+    expect(matchesMedia("@media (inverted-colors)", inverted)).toBe(true);
+    expect(matchesMedia("@media not all and (inverted-colors)", inverted)).toBe(false);
   });
 
   test("hover and pointer", () => {

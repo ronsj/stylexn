@@ -94,8 +94,8 @@ import "stylexn/elements.css";
 - **`stylexn`**: the StyleX API (`create`, `props`, `defineVars`,
   `createTheme`, `keyframes`, `firstThatWorks`), typed so that styles with
   no native equivalent are editor errors. On native, `useProps` and the
-  elements subscribe to dimensions, colour scheme, reduced motion, theme
-  context and interaction state only when a rule needs them.
+  elements subscribe to dimensions, colour scheme, accessibility settings,
+  theme context and interaction state only when a rule needs them.
 - **`stylexn/elements`**: `View`, `Text`, `Pressable`, `Image`,
   `TextInput`, `ScrollView`, `FlatList`, `Switch` with an `sx` prop, DOM on
   web and React Native primitives on native, with the same props (including
@@ -111,7 +111,8 @@ import "stylexn/elements.css";
 - **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, the form
   states `:checked` (`Switch`), `:placeholder-shown`, `:read-only` and
   `:read-write` (`TextInput`), `@media` (width, height, orientation,
-  `prefers-color-scheme`, `prefers-reduced-motion`, `hover`, `pointer`),
+  `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`,
+  `prefers-reduced-transparency`, `inverted-colors`, `hover`, `pointer`),
   nested conditions.
 - **Units and values**: `rem`, `em`, `vw`/`vh`, `calc()`/`min()`/`max()`/
   `clamp()` (folded at compile time, or at runtime for relative units and
@@ -144,7 +145,8 @@ import "stylexn/elements.css";
 Alias `react-native` to `stylexn/testing/react-native` in Vitest or Jest and
 resolve packages with the `react-native` export condition: the primitives
 render DOM elements that expose their style (`styleOf`, `propsOf`), the
-environment is controllable (`setWindow`, `setColorScheme`), and animations
+environment is controllable (`setWindow`, `setColorScheme`,
+`setAccessibilityInfo`), and animations
 are recorded instead of run.
 
 ## Status

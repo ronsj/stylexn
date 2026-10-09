@@ -90,7 +90,9 @@ export default function AuthoringStyles() {
           <li>
             <Code>@media</Code> with <Code>width</Code>, <Code>height</Code>,{" "}
             <Code>orientation</Code>, <Code>prefers-color-scheme</Code>,{" "}
-            <Code>prefers-reduced-motion</Code>, <Code>hover</Code> and <Code>pointer</Code>.
+            <Code>prefers-reduced-motion</Code>, <Code>prefers-contrast</Code>,{" "}
+            <Code>prefers-reduced-transparency</Code>, <Code>inverted-colors</Code>,{" "}
+            <Code>hover</Code> and <Code>pointer</Code>.
           </li>
           <li>
             <Code>::placeholder</Code> on a <Code>TextInput</Code>, which becomes the{" "}

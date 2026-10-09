@@ -140,6 +140,13 @@ describe("conditions", () => {
   test("at-rules and media features", () => {
     expect(check({ width: { "@media (min-width: 800px)": "50%" } })).toEqual([]);
     expect(check({ color: { "@media (prefers-color-scheme: dark)": "white" } })).toEqual([]);
+    for (const query of [
+      "(prefers-contrast: more)",
+      "(prefers-reduced-transparency: reduce)",
+      "(inverted-colors: inverted)",
+    ]) {
+      expect(check({ color: { [`@media ${query}`]: "white" } }), query).toEqual([]);
+    }
     expect(kinds({ color: { "@media print": "black" } })).toEqual([]); // no parenthesised feature
     expect(kinds({ color: { "@media (forced-colors: active)": "black" } })).toEqual([
       "media-feature:web-only:color",

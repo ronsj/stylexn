@@ -774,6 +774,9 @@ export const atRules = {
       "max-resolution",
       "prefers-color-scheme",
       "prefers-reduced-motion",
+      "prefers-contrast",
+      "prefers-reduced-transparency",
+      "inverted-colors",
       "hover",
       "any-hover",
       "pointer",
@@ -803,11 +806,17 @@ export const mediaFeatures = {
   "max-resolution": poly("PixelRatio.get()"),
   "prefers-color-scheme": poly("useColorScheme()"),
   "prefers-reduced-motion": poly("AccessibilityInfo.isReduceMotionEnabled()"),
+  "prefers-contrast": poly(
+    "AccessibilityInfo.isDarkerSystemColorsEnabled() (iOS) / isHighTextContrastEnabled() (Android); only more / no-preference.",
+  ),
+  "prefers-reduced-transparency": poly(
+    "AccessibilityInfo.isReduceTransparencyEnabled() (iOS); no-preference on Android.",
+  ),
+  "inverted-colors": poly("AccessibilityInfo.isInvertColorsEnabled() (iOS); none on Android."),
   hover: poly("Assumed none on touch devices."),
   "any-hover": poly("Assumed none on touch devices."),
   pointer: poly("Assumed coarse on touch devices."),
   "any-pointer": poly("Assumed coarse on touch devices."),
-  "prefers-contrast": no("Not exposed cross-platform."),
   "forced-colors": web("Evaluates to false on native."),
   "display-mode": web("Evaluates to false on native."),
   print: web("Evaluates to false on native."),
@@ -815,7 +824,6 @@ export const mediaFeatures = {
   scripting: web("Evaluates to enabled on native."),
   "color-gamut": no("Not exposed by React Native."),
   "dynamic-range": no("Not exposed by React Native."),
-  "inverted-colors": poly("AccessibilityInfo.isInvertColorsEnabled() (iOS)."),
 } as const satisfies Table;
 
 // ---------------------------------------------------------------------------

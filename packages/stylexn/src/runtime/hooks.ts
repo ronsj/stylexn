@@ -13,10 +13,12 @@ import type { CompiledRule } from "../compile/compile.ts";
 import {
   colorScheme,
   config,
-  getReducedMotion,
+  DEFAULT_ACCESSIBILITY,
+  getAccessibility,
   platform,
-  setReducedMotion,
+  setAccessibility,
   windowMetrics,
+  type Accessibility,
 } from "./env.ts";
 import { registerInherit, shallowEqual, type InheritedTextStyle } from "./inherit.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
@@ -47,26 +49,133 @@ function subscribeColorScheme(onChange: () => void): () => void {
   return () => sub.remove();
 }
 
-function subscribeReducedMotion(onChange: () => void): () => void {
-  AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-    if (enabled !== getReducedMotion()) {
-      setReducedMotion(enabled);
-      onChange();
-    }
-  });
-  const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) => {
-    setReducedMotion(enabled);
-    onChange();
-  });
+// ---------------------------------------------------------------------------
+// Accessibility settings: reduced motion, contrast, reduced transparency and
+// inverted colours share one store (one useSyncExternalStore slot per
+// element). Each setting has its own subscriber set, and its native listener
+// is attached (and its initial value read) only while an element needs it.
+// ---------------------------------------------------------------------------
+
+type Remove = () => void;
+type Setting = Readonly<{
+  /** Read the current value and listen for changes; null where the platform has no such setting. */
+  attach: (apply: (on: boolean) => void) => Remove | null;
+  patch: (on: boolean) => Partial<Accessibility>;
+}>;
+
+const listen = (
+  read: () => Promise<boolean>,
+  add: (cb: (on: boolean) => void) => { remove(): void },
+  apply: (on: boolean) => void,
+): Remove => {
+  read().then(apply, () => {}); // a method for the other platform may reject
+  const sub = add(apply);
   return () => sub.remove();
+};
+
+// Bit order: reducedMotion, contrast, reducedTransparency, invertedColors.
+const SETTINGS: readonly Setting[] = [
+  {
+    attach: (apply) =>
+      listen(
+        () => AccessibilityInfo.isReduceMotionEnabled(),
+        (cb) => AccessibilityInfo.addEventListener("reduceMotionChanged", cb),
+        apply,
+      ),
+    patch: (on) => ({ reducedMotion: on }),
+  },
+  {
+    attach: (apply) =>
+      platform() === "android"
+        ? listen(
+            () => AccessibilityInfo.isHighTextContrastEnabled(),
+            (cb) => AccessibilityInfo.addEventListener("highTextContrastChanged", cb),
+            apply,
+          )
+        : listen(
+            () => AccessibilityInfo.isDarkerSystemColorsEnabled(),
+            (cb) => AccessibilityInfo.addEventListener("darkerSystemColorsChanged", cb),
+            apply,
+          ),
+    patch: (on) => ({ contrast: on ? "more" : "no-preference" }),
+  },
+  {
+    attach: (apply) =>
+      platform() === "android"
+        ? null
+        : listen(
+            () => AccessibilityInfo.isReduceTransparencyEnabled(),
+            (cb) => AccessibilityInfo.addEventListener("reduceTransparencyChanged", cb),
+            apply,
+          ),
+    patch: (on) => ({ reducedTransparency: on }),
+  },
+  {
+    attach: (apply) =>
+      platform() === "android"
+        ? null
+        : listen(
+            () => AccessibilityInfo.isInvertColorsEnabled(),
+            (cb) => AccessibilityInfo.addEventListener("invertColorsChanged", cb),
+            apply,
+          ),
+    patch: (on) => ({ invertedColors: on }),
+  },
+];
+
+const settingSubscribers = SETTINGS.map(() => new Set<() => void>());
+const settingRemove: (Remove | null)[] = SETTINGS.map(() => null);
+
+function applySetting(bit: number, on: boolean): void {
+  if (!setAccessibility((SETTINGS[bit] as Setting).patch(on))) return;
+  for (const cb of settingSubscribers[bit] as Set<() => void>) cb();
 }
+
+function subscribeSetting(bit: number, onChange: () => void): void {
+  const subscribers = settingSubscribers[bit] as Set<() => void>;
+  subscribers.add(onChange);
+  if (subscribers.size === 1) {
+    settingRemove[bit] = (SETTINGS[bit] as Setting).attach((on) => applySetting(bit, on));
+  }
+}
+
+function unsubscribeSetting(bit: number, onChange: () => void): void {
+  const subscribers = settingSubscribers[bit] as Set<() => void>;
+  subscribers.delete(onChange);
+  if (subscribers.size === 0) {
+    settingRemove[bit]?.();
+    settingRemove[bit] = null;
+  }
+}
+
+/** One subscribe function per combination of needed settings, so its identity is stable. */
+const accessibilitySubscribers: ((onChange: () => void) => () => void)[] = [];
+
+function subscribeAccessibility(mask: number): (onChange: () => void) => () => void {
+  let subscribe = accessibilitySubscribers[mask];
+  if (!subscribe) {
+    subscribe = (onChange) => {
+      for (let bit = 0; bit < SETTINGS.length; bit++) {
+        if (mask & (1 << bit)) subscribeSetting(bit, onChange);
+      }
+      return () => {
+        for (let bit = 0; bit < SETTINGS.length; bit++) {
+          if (mask & (1 << bit)) unsubscribeSetting(bit, onChange);
+        }
+      };
+    };
+    accessibilitySubscribers[mask] = subscribe;
+  }
+  return subscribe;
+}
+
+const getDefaultAccessibility = () => DEFAULT_ACCESSIBILITY;
 
 // Stable subscribe/snapshot functions for stores a rule does not need: a
 // new getSnapshot identity per render makes useSyncExternalStore schedule a
 // passive effect on every element every render.
 const noop = () => () => {};
 const getNull = () => null;
-const getFalse = () => false;
 
 // ---------------------------------------------------------------------------
 // Theme context
@@ -191,8 +300,8 @@ export type UsePropsResult = Readonly<{
   Partial<InteractionHandlers>;
 
 /**
- * `props()` for components: subscribes to dimensions, color scheme, reduced
- * motion and theme context only when the rules need them, and returns
+ * `props()` for components: subscribes to dimensions, color scheme,
+ * accessibility settings and theme context only when the rules need them, and returns
  * interaction handlers when a rule has `:hover`/`:active`/`:focus`.
  */
 export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {}): UsePropsResult {
@@ -208,9 +317,14 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     needs.colorScheme ? subscribeColorScheme : noop,
     needs.colorScheme ? colorScheme : getNull,
   );
-  const reducedMotion = useSyncExternalStore(
-    needs.reducedMotion ? subscribeReducedMotion : noop,
-    needs.reducedMotion ? getReducedMotion : getFalse,
+  const a11yMask =
+    (needs.reducedMotion ? 1 : 0) |
+    (needs.contrast ? 2 : 0) |
+    (needs.reducedTransparency ? 4 : 0) |
+    (needs.invertedColors ? 8 : 0);
+  const accessibility = useSyncExternalStore(
+    a11yMask === 0 ? noop : subscribeAccessibility(a11yMask),
+    a11yMask === 0 ? getDefaultAccessibility : getAccessibility,
   );
   const vars = useContext(VarsContext);
   const inheritedFontSize = useContext(TextStyleContext).fontSize;
@@ -219,7 +333,10 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
   const env: Env = {
     window: window ?? getWindow(),
     colorScheme: scheme ?? colorScheme(),
-    reducedMotion,
+    reducedMotion: accessibility.reducedMotion,
+    contrast: accessibility.contrast,
+    reducedTransparency: accessibility.reducedTransparency,
+    invertedColors: accessibility.invertedColors,
     pointer: config.pointer,
     interaction: needs.interaction
       ? {

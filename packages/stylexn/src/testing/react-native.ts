@@ -24,17 +24,33 @@ export const testEnv = {
   window: { width: 390, height: 844, scale: 3, fontScale: 1 },
   colorScheme: "light" as "light" | "dark",
   reduceMotion: false,
+  /** iOS Increase Contrast (`isDarkerSystemColorsEnabled`). */
+  darkerSystemColors: false,
+  /** Android high-contrast text (`isHighTextContrastEnabled`). */
+  highTextContrast: false,
+  reduceTransparency: false,
+  invertColors: false,
   platform: "ios" as "ios" | "android",
-  listeners: { dimensions: new Set<Listener>(), appearance: new Set<Listener>() },
+  listeners: {
+    dimensions: new Set<Listener>(),
+    appearance: new Set<Listener>(),
+    /** AccessibilityInfo listeners by event name (`reduceMotionChanged`, ...). */
+    accessibility: new Map<string, Set<Listener>>(),
+  },
 };
 
 export function resetTestEnv(): void {
   testEnv.window = { width: 390, height: 844, scale: 3, fontScale: 1 };
   testEnv.colorScheme = "light";
   testEnv.reduceMotion = false;
+  testEnv.darkerSystemColors = false;
+  testEnv.highTextContrast = false;
+  testEnv.reduceTransparency = false;
+  testEnv.invertColors = false;
   testEnv.platform = "ios";
   testEnv.listeners.dimensions.clear();
   testEnv.listeners.appearance.clear();
+  testEnv.listeners.accessibility.clear();
   resetFakeAnimated();
 }
 
@@ -46,6 +62,24 @@ export function setWindow(window: Partial<typeof testEnv.window>): void {
 export function setColorScheme(scheme: "light" | "dark"): void {
   testEnv.colorScheme = scheme;
   for (const cb of testEnv.listeners.appearance) cb();
+}
+
+const ACCESSIBILITY_EVENTS = {
+  reduceMotion: "reduceMotionChanged",
+  darkerSystemColors: "darkerSystemColorsChanged",
+  highTextContrast: "highTextContrastChanged",
+  reduceTransparency: "reduceTransparencyChanged",
+  invertColors: "invertColorsChanged",
+} as const;
+
+/** Simulate an accessibility setting change: updates `testEnv` and fires its AccessibilityInfo event. */
+export function setAccessibilityInfo(
+  setting: keyof typeof ACCESSIBILITY_EVENTS,
+  enabled: boolean,
+): void {
+  testEnv[setting] = enabled;
+  const listeners = testEnv.listeners.accessibility.get(ACCESSIBILITY_EVENTS[setting]);
+  for (const cb of listeners ?? []) (cb as (enabled: boolean) => void)(enabled);
 }
 
 export const Dimensions = {
@@ -64,7 +98,16 @@ export const Appearance = {
 };
 export const AccessibilityInfo = {
   isReduceMotionEnabled: () => Promise.resolve(testEnv.reduceMotion),
-  addEventListener: () => ({ remove() {} }),
+  isDarkerSystemColorsEnabled: () => Promise.resolve(testEnv.darkerSystemColors),
+  isHighTextContrastEnabled: () => Promise.resolve(testEnv.highTextContrast),
+  isReduceTransparencyEnabled: () => Promise.resolve(testEnv.reduceTransparency),
+  isInvertColorsEnabled: () => Promise.resolve(testEnv.invertColors),
+  addEventListener: (event: string, cb: Listener) => {
+    const listeners = testEnv.listeners.accessibility.get(event) ?? new Set<Listener>();
+    testEnv.listeners.accessibility.set(event, listeners);
+    listeners.add(cb);
+    return { remove: () => listeners.delete(cb) };
+  },
 };
 export const Platform = {
   get OS() {

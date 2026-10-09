@@ -24,7 +24,7 @@ This file is rendered from `src/compat/table.ts`, the table that the types, the 
 | Pseudo-classes  | 35      | 0         | 11         | 0       | 6        | 18          |
 | Pseudo-elements | 11      | 0         | 0          | 1       | 4        | 6           |
 | At-rules        | 4       | 0         | 0          | 1       | 2        | 1           |
-| Media features  | 28      | 0         | 20         | 0       | 5        | 3           |
+| Media features  | 29      | 0         | 22         | 0       | 5        | 2           |
 | Units           | 39      | 6         | 23         | 1       | 0        | 9           |
 | Functions       | 30      | 7         | 11         | 4       | 0        | 8           |
 | StyleX API      | 14      | 6         | 4          | 0       | 1        | 3           |
@@ -497,47 +497,48 @@ As StyleX condition keys, for example `{ default: 1, ":hover": 0.8 }`.
 
 As StyleX condition keys, for example `"@media (min-width: 800px)"`.
 
-| At-rule           | Status      | Notes                                                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@media`          | partial     | Evaluated at runtime against window dimensions, color scheme and accessibility settings. Values: `width`, `min-width`, `max-width`, `height`, `min-height`, `max-height`, `aspect-ratio`, `min-aspect-ratio`, `max-aspect-ratio`, `orientation`, `resolution`, `min-resolution`, `max-resolution`, `prefers-color-scheme`, `prefers-reduced-motion`, `hover`, `any-hover`, `pointer`, `any-pointer`. |
-| `@container`      | unsupported | Container queries need layout measurement StyleXN does not do.                                                                                                                                                                                                                                                                                                                                       |
-| `@supports`       | web-only    | Feature queries evaluate against CSS; native ignores the block.                                                                                                                                                                                                                                                                                                                                      |
-| `@starting-style` | web-only    | Entry animations are a web API.                                                                                                                                                                                                                                                                                                                                                                      |
+| At-rule           | Status      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@media`          | partial     | Evaluated at runtime against window dimensions, color scheme and accessibility settings. Values: `width`, `min-width`, `max-width`, `height`, `min-height`, `max-height`, `aspect-ratio`, `min-aspect-ratio`, `max-aspect-ratio`, `orientation`, `resolution`, `min-resolution`, `max-resolution`, `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`, `prefers-reduced-transparency`, `inverted-colors`, `hover`, `any-hover`, `pointer`, `any-pointer`. |
+| `@container`      | unsupported | Container queries need layout measurement StyleXN does not do.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `@supports`       | web-only    | Feature queries evaluate against CSS; native ignores the block.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `@starting-style` | web-only    | Entry animations are a web API.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ## Media features
 
 How each feature inside `@media` is evaluated on native.
 
-| Feature                  | Status      | Notes                                            |
-| ------------------------ | ----------- | ------------------------------------------------ |
-| `width`                  | polyfilled  | useWindowDimensions().width                      |
-| `min-width`              | polyfilled  | useWindowDimensions().width                      |
-| `max-width`              | polyfilled  | useWindowDimensions().width                      |
-| `height`                 | polyfilled  | useWindowDimensions().height                     |
-| `min-height`             | polyfilled  | useWindowDimensions().height                     |
-| `max-height`             | polyfilled  | useWindowDimensions().height                     |
-| `aspect-ratio`           | polyfilled  | useWindowDimensions()                            |
-| `min-aspect-ratio`       | polyfilled  | useWindowDimensions()                            |
-| `max-aspect-ratio`       | polyfilled  | useWindowDimensions()                            |
-| `orientation`            | polyfilled  | useWindowDimensions()                            |
-| `resolution`             | polyfilled  | PixelRatio.get()                                 |
-| `min-resolution`         | polyfilled  | PixelRatio.get()                                 |
-| `max-resolution`         | polyfilled  | PixelRatio.get()                                 |
-| `prefers-color-scheme`   | polyfilled  | useColorScheme()                                 |
-| `prefers-reduced-motion` | polyfilled  | AccessibilityInfo.isReduceMotionEnabled()        |
-| `hover`                  | polyfilled  | Assumed none on touch devices.                   |
-| `any-hover`              | polyfilled  | Assumed none on touch devices.                   |
-| `pointer`                | polyfilled  | Assumed coarse on touch devices.                 |
-| `any-pointer`            | polyfilled  | Assumed coarse on touch devices.                 |
-| `prefers-contrast`       | unsupported | Not exposed cross-platform.                      |
-| `forced-colors`          | web-only    | Evaluates to false on native.                    |
-| `display-mode`           | web-only    | Evaluates to false on native.                    |
-| `print`                  | web-only    | Evaluates to false on native.                    |
-| `screen`                 | web-only    | Evaluates to true on native.                     |
-| `scripting`              | web-only    | Evaluates to enabled on native.                  |
-| `color-gamut`            | unsupported | Not exposed by React Native.                     |
-| `dynamic-range`          | unsupported | Not exposed by React Native.                     |
-| `inverted-colors`        | polyfilled  | AccessibilityInfo.isInvertColorsEnabled() (iOS). |
+| Feature                        | Status      | Notes                                                                                                                     |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `width`                        | polyfilled  | useWindowDimensions().width                                                                                               |
+| `min-width`                    | polyfilled  | useWindowDimensions().width                                                                                               |
+| `max-width`                    | polyfilled  | useWindowDimensions().width                                                                                               |
+| `height`                       | polyfilled  | useWindowDimensions().height                                                                                              |
+| `min-height`                   | polyfilled  | useWindowDimensions().height                                                                                              |
+| `max-height`                   | polyfilled  | useWindowDimensions().height                                                                                              |
+| `aspect-ratio`                 | polyfilled  | useWindowDimensions()                                                                                                     |
+| `min-aspect-ratio`             | polyfilled  | useWindowDimensions()                                                                                                     |
+| `max-aspect-ratio`             | polyfilled  | useWindowDimensions()                                                                                                     |
+| `orientation`                  | polyfilled  | useWindowDimensions()                                                                                                     |
+| `resolution`                   | polyfilled  | PixelRatio.get()                                                                                                          |
+| `min-resolution`               | polyfilled  | PixelRatio.get()                                                                                                          |
+| `max-resolution`               | polyfilled  | PixelRatio.get()                                                                                                          |
+| `prefers-color-scheme`         | polyfilled  | useColorScheme()                                                                                                          |
+| `prefers-reduced-motion`       | polyfilled  | AccessibilityInfo.isReduceMotionEnabled()                                                                                 |
+| `prefers-contrast`             | polyfilled  | AccessibilityInfo.isDarkerSystemColorsEnabled() (iOS) / isHighTextContrastEnabled() (Android); only more / no-preference. |
+| `prefers-reduced-transparency` | polyfilled  | AccessibilityInfo.isReduceTransparencyEnabled() (iOS); no-preference on Android.                                          |
+| `inverted-colors`              | polyfilled  | AccessibilityInfo.isInvertColorsEnabled() (iOS); none on Android.                                                         |
+| `hover`                        | polyfilled  | Assumed none on touch devices.                                                                                            |
+| `any-hover`                    | polyfilled  | Assumed none on touch devices.                                                                                            |
+| `pointer`                      | polyfilled  | Assumed coarse on touch devices.                                                                                          |
+| `any-pointer`                  | polyfilled  | Assumed coarse on touch devices.                                                                                          |
+| `forced-colors`                | web-only    | Evaluates to false on native.                                                                                             |
+| `display-mode`                 | web-only    | Evaluates to false on native.                                                                                             |
+| `print`                        | web-only    | Evaluates to false on native.                                                                                             |
+| `screen`                       | web-only    | Evaluates to true on native.                                                                                              |
+| `scripting`                    | web-only    | Evaluates to enabled on native.                                                                                           |
+| `color-gamut`                  | unsupported | Not exposed by React Native.                                                                                              |
+| `dynamic-range`                | unsupported | Not exposed by React Native.                                                                                              |
 
 ## Units
 

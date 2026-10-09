@@ -1,45 +1,31 @@
 // @vitest-environment jsdom
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-type Listener = (...args: never[]) => void;
-const listeners = { dimensions: new Set<Listener>(), appearance: new Set<Listener>() };
-const window = { width: 390, height: 844, scale: 3, fontScale: 1 };
-let scheme: "light" | "dark" = "light";
+vi.mock("react-native", () => import("../testing/react-native.ts"));
 
-vi.mock("react-native", () => ({
-  Dimensions: {
-    get: () => window,
-    addEventListener: (_: string, cb: Listener) => {
-      listeners.dimensions.add(cb);
-      return { remove: () => listeners.dimensions.delete(cb) };
-    },
-  },
-  Appearance: {
-    getColorScheme: () => scheme,
-    addChangeListener: (cb: Listener) => {
-      listeners.appearance.add(cb);
-      return { remove: () => listeners.appearance.delete(cb) };
-    },
-  },
-  AccessibilityInfo: {
-    isReduceMotionEnabled: () => Promise.resolve(false),
-    addEventListener: () => ({ remove: () => {} }),
-  },
-  Platform: { OS: "ios" },
-}));
-
+import {
+  resetTestEnv,
+  setAccessibilityInfo,
+  setColorScheme,
+  setWindow,
+  testEnv,
+} from "../testing/react-native.ts";
 import { create } from "./api.ts";
+import { resetAccessibilityForTesting } from "./env.ts";
 import { FontSizeProvider, ThemeProvider, useProps, type UsePropsOptions } from "./hooks.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "./vars.ts";
 
+const listeners = testEnv.listeners;
+/** Event names with at least one AccessibilityInfo listener attached. */
+const accessibilityEvents = () =>
+  [...listeners.accessibility].filter(([, set]) => set.size > 0).map(([event]) => event);
+
 beforeEach(() => {
   resetVarsForTesting();
-  listeners.dimensions.clear();
-  listeners.appearance.clear();
-  window.width = 390;
-  scheme = "light";
+  resetTestEnv();
+  resetAccessibilityForTesting();
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
@@ -53,6 +39,7 @@ describe("useProps subscriptions", () => {
     expect(result.current).toEqual({ style: { color: "red" } });
     expect(listeners.dimensions.size).toBe(0);
     expect(listeners.appearance.size).toBe(0);
+    expect(accessibilityEvents()).toEqual([]);
   });
 
   test("media rules subscribe to dimensions and update on change", () => {
@@ -62,10 +49,7 @@ describe("useProps subscriptions", () => {
     const { result } = renderHook(() => useProps([styles.a]));
     expect(result.current.style.width).toBe("100%");
     expect(listeners.dimensions.size).toBe(1);
-    act(() => {
-      window.width = 1000;
-      for (const cb of listeners.dimensions) cb();
-    });
+    act(() => setWindow({ width: 1000 }));
     expect(result.current.style.width).toBe("50%");
   });
 
@@ -76,11 +60,92 @@ describe("useProps subscriptions", () => {
     const { result } = renderHook(() => useProps([styles.a]));
     expect(result.current.style.color).toBe("black");
     expect(listeners.dimensions.size).toBe(0);
-    act(() => {
-      scheme = "dark";
-      for (const cb of listeners.appearance) cb();
-    });
+    act(() => setColorScheme("dark"));
     expect(result.current.style.color).toBe("white");
+  });
+});
+
+describe("useProps accessibility settings", () => {
+  const contrastStyles = compiled({
+    a: { color: { default: "gray", "@media (prefers-contrast: more)": "black" } },
+  });
+
+  test("prefers-contrast reads darker system colors on iOS and follows its event", async () => {
+    testEnv.darkerSystemColors = true;
+    const { result } = renderHook(() => useProps([contrastStyles.a]));
+    expect(accessibilityEvents()).toEqual(["darkerSystemColorsChanged"]);
+    await waitFor(() => expect(result.current.style.color).toBe("black"));
+    act(() => setAccessibilityInfo("darkerSystemColors", false));
+    expect(result.current.style.color).toBe("gray");
+    act(() => setAccessibilityInfo("darkerSystemColors", true));
+    expect(result.current.style.color).toBe("black");
+  });
+
+  test("prefers-contrast reads high text contrast on Android and follows its event", async () => {
+    testEnv.platform = "android";
+    testEnv.highTextContrast = true;
+    testEnv.darkerSystemColors = false;
+    const { result } = renderHook(() => useProps([contrastStyles.a]));
+    expect(accessibilityEvents()).toEqual(["highTextContrastChanged"]);
+    await waitFor(() => expect(result.current.style.color).toBe("black"));
+    act(() => setAccessibilityInfo("highTextContrast", false));
+    expect(result.current.style.color).toBe("gray");
+  });
+
+  test("elements share one listener; every one sees the initial read and changes", async () => {
+    testEnv.darkerSystemColors = true;
+    const first = renderHook(() => useProps([contrastStyles.a]));
+    const second = renderHook(() => useProps([contrastStyles.a]));
+    expect(listeners.accessibility.get("darkerSystemColorsChanged")?.size).toBe(1);
+    await waitFor(() => expect(second.result.current.style.color).toBe("black"));
+    expect(first.result.current.style.color).toBe("black");
+    act(() => setAccessibilityInfo("darkerSystemColors", false));
+    expect(first.result.current.style.color).toBe("gray");
+    expect(second.result.current.style.color).toBe("gray");
+    first.unmount();
+    expect(accessibilityEvents()).toEqual(["darkerSystemColorsChanged"]);
+    second.unmount();
+    expect(accessibilityEvents()).toEqual([]);
+  });
+
+  test("reduced transparency and inverted colors attach only what the rules use", async () => {
+    testEnv.invertColors = true;
+    const styles = compiled({
+      a: { opacity: { default: 0.8, "@media (prefers-reduced-transparency: reduce)": 1 } },
+      b: { flexGrow: { default: 0, "@media (inverted-colors: inverted)": 2 } },
+    });
+    const { result } = renderHook(() => useProps([styles.b]));
+    expect(accessibilityEvents()).toEqual(["invertColorsChanged"]);
+    await waitFor(() => expect(result.current.style.flexGrow).toBe(2));
+    const transparency = renderHook(() => useProps([styles.a]));
+    expect(accessibilityEvents().toSorted()).toEqual([
+      "invertColorsChanged",
+      "reduceTransparencyChanged",
+    ]);
+    act(() => setAccessibilityInfo("reduceTransparency", true));
+    expect(transparency.result.current.style.opacity).toBe(1);
+  });
+
+  test("reduced transparency and inverted colors are off on Android, with no listeners", () => {
+    testEnv.platform = "android";
+    const styles = compiled({
+      a: {
+        opacity: { default: 0.8, "@media (prefers-reduced-transparency)": 1 },
+        flexGrow: { default: 0, "@media (inverted-colors: none)": 2 },
+      },
+    });
+    const { result } = renderHook(() => useProps([styles.a]));
+    expect(accessibilityEvents()).toEqual([]);
+    expect(result.current.style).toMatchObject({ opacity: 0.8, flexGrow: 2 });
+  });
+
+  test("rules without accessibility conditions attach no accessibility listeners", () => {
+    const styles = compiled({
+      a: { width: { default: "100%", "@media (min-width: 800px)": "50%" } },
+      b: { color: { default: "black", ":hover": "red" } },
+    });
+    renderHook(() => useProps([styles.a, styles.b]));
+    expect(accessibilityEvents()).toEqual([]);
   });
 });
 

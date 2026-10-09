@@ -67,6 +67,9 @@ function analyzeRule(rule: CompiledRule): Needs {
   let dimensions = false;
   let colorScheme = false;
   let reducedMotion = false;
+  let contrast = false;
+  let reducedTransparency = false;
+  let invertedColors = false;
   let motion = false;
   let constant =
     !rule.usesVars && rule.conditional.length === 0 && rule.conditionalProps.length === 0;
@@ -77,6 +80,9 @@ function analyzeRule(rule: CompiledRule): Needs {
         if (DIMENSION_FEATURE.test(c)) dimensions = true;
         if (c.includes("prefers-color-scheme")) colorScheme = true;
         if (c.includes("prefers-reduced-motion")) reducedMotion = true;
+        if (c.includes("prefers-contrast")) contrast = true;
+        if (c.includes("prefers-reduced-transparency")) reducedTransparency = true;
+        if (c.includes("inverted-colors")) invertedColors = true;
       }
     }
   };
@@ -118,6 +124,9 @@ function analyzeRule(rule: CompiledRule): Needs {
     dimensions,
     colorScheme,
     reducedMotion,
+    contrast,
+    reducedTransparency,
+    invertedColors,
     vars: rule.usesVars,
     motion,
     constant,
@@ -131,6 +140,9 @@ const NO_NEEDS: Needs = {
   dimensions: false,
   colorScheme: false,
   reducedMotion: false,
+  contrast: false,
+  reducedTransparency: false,
+  invertedColors: false,
   vars: false,
   motion: false,
   constant: true,
@@ -144,6 +156,9 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
   let dimensions = false;
   let colorScheme = false;
   let reducedMotion = false;
+  let contrast = false;
+  let reducedTransparency = false;
+  let invertedColors = false;
   let vars = false;
   let motion = false;
   let constant = true;
@@ -153,11 +168,25 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
     dimensions ||= n.dimensions;
     colorScheme ||= n.colorScheme;
     reducedMotion ||= n.reducedMotion;
+    contrast ||= n.contrast;
+    reducedTransparency ||= n.reducedTransparency;
+    invertedColors ||= n.invertedColors;
     vars ||= n.vars;
     motion ||= n.motion;
     constant &&= n.constant;
   }
-  return { interaction, dimensions, colorScheme, reducedMotion, vars, motion, constant };
+  return {
+    interaction,
+    dimensions,
+    colorScheme,
+    reducedMotion,
+    contrast,
+    reducedTransparency,
+    invertedColors,
+    vars,
+    motion,
+    constant,
+  };
 }
 
 function conditionHolds(condition: string, env: Env): boolean {

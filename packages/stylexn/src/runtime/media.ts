@@ -94,6 +94,15 @@ function matchesNamed(name: string, value: string, env: Env): boolean {
       return env.colorScheme === value;
     case "prefers-reduced-motion":
       return value === "reduce" ? env.reducedMotion : !env.reducedMotion;
+    case "prefers-contrast":
+      // Only `more` is detectable; `less` and `custom` never hold.
+      return value === env.contrast;
+    case "prefers-reduced-transparency":
+      if (value === "reduce") return env.reducedTransparency;
+      return value === "no-preference" && !env.reducedTransparency;
+    case "inverted-colors":
+      if (value === "inverted") return env.invertedColors;
+      return value === "none" && !env.invertedColors;
     case "hover":
     case "any-hover":
       return value === "hover" ? env.pointer === "fine" : env.pointer !== "fine";
@@ -111,6 +120,13 @@ function matchesNamed(name: string, value: string, env: Env): boolean {
 
 function matchesBoolean(name: string, env: Env): boolean {
   switch (name) {
+    // A boolean preference holds for any value but its "off" one.
+    case "prefers-contrast":
+      return env.contrast !== "no-preference";
+    case "prefers-reduced-transparency":
+      return env.reducedTransparency;
+    case "inverted-colors":
+      return env.invertedColors;
     case "hover":
     case "any-hover":
       return env.pointer === "fine";
