@@ -227,11 +227,13 @@ export default function AuthoringStyles() {
           <ThemeDemo />
         </Example>
         <Note title="Themes and descendants">
-          On the web a theme in <Code>sx</Code> also reaches everything inside the element, because
-          custom properties cascade. On native it applies to the element alone; to theme a whole
-          subtree, wrap it in <Code>ThemeProvider</Code> from <Code>stylexn</Code> (native only).
-          The button above sets <Code>color</Code> on itself, so the resolved colour reaches its
-          text through text inheritance on both platforms.
+          A theme in <Code>sx</Code> reaches everything inside the element on both platforms: on the
+          web custom properties cascade, and on native the element wraps its children in a theme
+          scope. To theme a subtree without an element of your own, or below a custom component
+          styled with <Code>useProps</Code> (which does not wrap its children), use{" "}
+          <Code>ThemeProvider</Code> from <Code>stylexn</Code>. The button above sets{" "}
+          <Code>color</Code> on itself, so the resolved colour reaches its text through text
+          inheritance on both platforms.
         </Note>
       </Section>
 
