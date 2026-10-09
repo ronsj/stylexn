@@ -68,6 +68,10 @@ function tokenAccepted(token: string, isNumber: boolean, values: readonly string
   return false;
 }
 
+/** A multi-word keyword the entry lists as a whole (`x mandatory`), not token by token. */
+const wholeValueAccepted = (value: string, values: readonly string[]): boolean =>
+  value.includes(" ") && values.includes(value.trim().toLowerCase().replace(/\s+/g, " "));
+
 function checkLeaf(
   property: string,
   entry: Entry,
@@ -79,7 +83,11 @@ function checkLeaf(
   const isNumber = typeof value === "number";
   const tokens = isNumber ? [String(value)] : splitSpace(value);
 
-  if (entry.status === "partial" && entry.values) {
+  if (
+    entry.status === "partial" &&
+    entry.values &&
+    !(typeof value === "string" && wholeValueAccepted(value, entry.values))
+  ) {
     const rejected = tokens.filter((t) => !tokenAccepted(t, isNumber, entry.values as string[]));
     if (rejected.length) {
       out.push({
@@ -284,6 +292,7 @@ export function isBlocking(finding: Finding): boolean {
 export function acceptsValue(entry: Entry, value: string | number): boolean {
   if (entry.status !== "partial" || !entry.values) return true;
   const isNumber = typeof value === "number";
+  if (typeof value === "string" && wholeValueAccepted(value, entry.values)) return true;
   const tokens = isNumber ? [String(value)] : splitSpace(value);
   return tokens.every((t) => tokenAccepted(t, isNumber, entry.values as string[]));
 }

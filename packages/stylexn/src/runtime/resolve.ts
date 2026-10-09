@@ -296,6 +296,11 @@ function resolveMath(
   return folded;
 }
 
+const INSET_KEYS = ["top", "right", "bottom", "left"];
+type InsetBox = Readonly<{ top: number; right: number; bottom: number; left: number }>;
+const isInsetBox = (value: object): value is InsetBox =>
+  Object.keys(value).length === 4 && INSET_KEYS.every((k) => k in value);
+
 function resolveValue(
   value: RuntimeValue,
   env: Env,
@@ -330,6 +335,10 @@ function resolveValue(
         width: resolveValue(box.width, env, themes, fontSize, guard + 1),
         height: resolveValue(box.height, env, themes, fontSize, guard + 1),
       };
+    }
+    if (isInsetBox(value)) {
+      // contentInset (from scrollPadding): numbers already, resolved at compile time.
+      return value;
     }
     return resolveValue(
       resolveConditional(value as Readonly<Record<string, RuntimeValue>>, env),

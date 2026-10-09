@@ -56,7 +56,24 @@ const styles = create({
   },
   scroll: { color: "red", padding: 4 },
   content: { gap: 8 },
+  snap: {
+    scrollSnapType: "x mandatory",
+    scrollSnapAlign: "center",
+    scrollSnapStop: "always",
+    overscrollBehavior: "contain",
+    scrollPadding: "8px 16px",
+  },
+  typeset: { hyphens: "auto", fontVariantNumeric: "tabular-nums", fontFeatureSettings: `"smcp"` },
 });
+
+const SNAP_PROPS = {
+  pagingEnabled: true,
+  snapToAlignment: "center",
+  disableIntervalMomentum: true,
+  bounces: false,
+  overScrollMode: "never",
+  contentInset: { top: 8, right: 16, bottom: 8, left: 16 },
+};
 
 describe("text inheritance", () => {
   test("View keeps layout keys and hands text keys to nested Text", () => {
@@ -321,6 +338,22 @@ describe("Image, TextInput, ScrollView", () => {
     expect(styleOf("t")).toEqual({ color: "red" });
   });
 
+  test("scroll-snap, overscroll and scroll-padding styles become ScrollView props", () => {
+    render(<ScrollView sx={styles.snap} horizontal testID="s" />);
+    expect(propsOf("s")).toMatchObject(SNAP_PROPS);
+    expect(styleOf("s")).toEqual({});
+  });
+
+  test("hyphens and font features reach Text as a prop and a fontVariant array", () => {
+    render(
+      <Text sx={styles.typeset} testID="t">
+        x
+      </Text>,
+    );
+    expect(propsOf("t")).toMatchObject({ android_hyphenationFrequency: "full" });
+    expect(styleOf("t")).toEqual({ fontVariant: ["tabular-nums", "small-caps"] });
+  });
+
   test("accessibility props pass through unchanged", () => {
     render(
       <View role="button" aria-label="go" aria-disabled testID="v">
@@ -427,6 +460,11 @@ describe("more elements", () => {
     // Text styles on the list cascade into the items like on a View.
     expect(styleOf("item-0")).toEqual({ color: "red", fontSize: 20, fontFamily: "Inter" });
     expect(styleOf("header")).toEqual({ color: "red", fontSize: 20, fontFamily: "Inter" });
+  });
+
+  test("FlatList receives the scroll props from its sx", () => {
+    render(<FlatList sx={styles.snap} data={[1]} renderItem={() => null} testID="list" />);
+    expect(propsOf("list")).toMatchObject(SNAP_PROPS);
   });
 
   test("FlatList with no data shows the empty slot; plain nodes are accepted in the slots", () => {

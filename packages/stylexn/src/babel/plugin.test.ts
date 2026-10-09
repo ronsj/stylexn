@@ -136,6 +136,19 @@ describe("stylex.create compilation", () => {
     expect(styles.input.props).toEqual({ placeholderTextColor: "gray", numberOfLines: 2 });
   });
 
+  test("scroll container props, including contentInset's box, are emitted in strict mode", () => {
+    const styles = compiled(
+      `${HEADER}const styles = stylex.create({ list: { scrollSnapType: "y mandatory", overscrollBehavior: "none", scrollPadding: "4px 8px" } });`,
+      { strict: true },
+    );
+    expect(styles.list.props).toEqual({
+      pagingEnabled: true,
+      bounces: false,
+      overScrollMode: "never",
+      contentInset: { top: 4, right: 8, bottom: 4, left: 8 },
+    });
+  });
+
   test("named import and other import sources", () => {
     const a = compiled(
       `import { create } from "stylexn";\nconst s = create({ a: { color: "red" } });`,

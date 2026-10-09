@@ -17,7 +17,8 @@ export type RNLeaf =
   | boolean
   | null
   | readonly string[]
-  | Readonly<{ width: RNLeaf; height: RNLeaf }>;
+  | Readonly<{ width: RNLeaf; height: RNLeaf }>
+  | Readonly<{ top: RNLeaf; right: RNLeaf; bottom: RNLeaf; left: RNLeaf }>;
 
 export type LoweredValue = RNLeaf | Readonly<{ [condition: string]: LoweredValue }>;
 
@@ -59,6 +60,93 @@ const BORDER_STYLE_FALLBACK: Readonly<Record<string, string>> = {
   auto: "solid",
 };
 const ELLIPSIZE: Readonly<Record<string, string>> = { ellipsis: "tail", clip: "clip" };
+const SNAP_AXES = new Set(["x", "y", "both", "block", "inline"]);
+const SNAP_STRICTNESS = new Set(["mandatory", "proximity"]);
+const SNAP_ALIGN = new Set(["start", "center", "end"]);
+const SNAP_STOP: Readonly<Record<string, boolean>> = { normal: false, always: true };
+const OVERSCROLL: Readonly<Record<string, Record<string, RNLeaf>>> = {
+  auto: { bounces: true, overScrollMode: "auto" },
+  contain: { bounces: false, overScrollMode: "never" },
+  none: { bounces: false, overScrollMode: "never" },
+};
+const HYPHENATION: Readonly<Record<string, string>> = {
+  auto: "full",
+  manual: "normal",
+  none: "none",
+};
+
+/**
+ * OpenType feature tags with a React Native `fontVariant` counterpart:
+ * [enabled, disabled]. A null disabled form means "off" is the default and
+ * adds nothing.
+ */
+const FEATURES: Readonly<Record<string, readonly [string, string | null]>> = {
+  tnum: ["tabular-nums", null],
+  pnum: ["proportional-nums", null],
+  lnum: ["lining-nums", null],
+  onum: ["oldstyle-nums", null],
+  smcp: ["small-caps", null],
+  liga: ["common-ligatures", "no-common-ligatures"],
+  dlig: ["discretionary-ligatures", "no-discretionary-ligatures"],
+  hlig: ["historical-ligatures", "no-historical-ligatures"],
+  calt: ["contextual", "no-contextual"],
+};
+const STYLISTIC = [
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+] as const;
+/** `"tnum"`, `"tnum" 1`, `'liga' off`: a quoted 4-character tag and an optional flag. */
+const FEATURE = /^(["'])([\x20-\x7e]{4})\1(?:\s+(on|off|\d+))?$/i;
+
+/** One `font-feature-settings` item as a fontVariant entry; undefined for an unknown tag. */
+function featureVariant(tag: string, on: boolean): string | null | undefined {
+  const ss = tag.match(/^ss(\d\d)$/);
+  if (ss) {
+    const name = STYLISTIC[Number(ss[1]) - 1];
+    if (!name) return undefined;
+    return on ? `stylistic-${name}` : null;
+  }
+  const pair = FEATURES[tag];
+  if (!pair) return undefined;
+  return on ? pair[0] : pair[1];
+}
+
+/**
+ * Properties whose lowering reads the value to pick props or fontVariant
+ * entries. A value only known at runtime (a var, a style-function argument)
+ * cannot be translated, so it is a diagnostic.
+ */
+const STATIC_ONLY = new Set([
+  "scrollSnapType",
+  "scrollSnapAlign",
+  "scrollSnapStop",
+  "overscrollBehavior",
+  "scrollPadding",
+  "hyphens",
+  "fontFeatureSettings",
+]);
+/** Props a value-reading lowerer writes, unset together by `null`. */
+const UNSET_PROPS: Readonly<Record<string, readonly string[]>> = {
+  overscrollBehavior: ["bounces", "overScrollMode"],
+};
 
 const isColorProperty = (property: string): boolean =>
   property === "color" || property.endsWith("Color");
@@ -117,8 +205,82 @@ const special: Readonly<Record<string, LeafLowerer>> = {
     }
     return { props: { ellipsizeMode: mode } };
   },
+  fontFeatureSettings: (v, diag) => {
+    if (v === "normal") return { style: { fontVariant: [] } };
+    const variants: string[] = [];
+    let known = 0;
+    for (const item of splitComma(String(v))) {
+      const m = item.match(FEATURE);
+      const tag = m?.[2] ?? "";
+      const flag = (m?.[3] ?? "1").toLowerCase();
+      const variant = m ? featureVariant(tag, flag !== "0" && flag !== "off") : undefined;
+      if (variant === undefined) {
+        diag(`fontFeatureSettings ${item} has no React Native fontVariant counterpart`);
+        continue;
+      }
+      known++;
+      if (variant !== null && !variants.includes(variant)) variants.push(variant);
+    }
+    return known ? { style: { fontVariant: variants } } : DROP;
+  },
+  hyphens: (v, diag) => {
+    const frequency = HYPHENATION[String(v)];
+    if (!frequency) {
+      diag(`hyphens "${v}" is not supported`);
+      return DROP;
+    }
+    return { props: { android_hyphenationFrequency: frequency } };
+  },
   lineClamp: (v) => ({ props: { numberOfLines: v === "none" ? 0 : Number(v) } }),
   WebkitLineClamp: (v) => ({ props: { numberOfLines: v === "none" ? 0 : Number(v) } }),
+  scrollSnapType: (v, diag) => {
+    const [axis = "", strictness, ...rest] = splitSpace(String(v));
+    if (axis === "none" && strictness === undefined) return { props: { pagingEnabled: false } };
+    if (
+      SNAP_AXES.has(axis) &&
+      (strictness === undefined || SNAP_STRICTNESS.has(strictness)) &&
+      rest.length === 0
+    ) {
+      return { props: { pagingEnabled: true } };
+    }
+    diag(`scrollSnapType "${v}" is not supported`);
+    return DROP;
+  },
+  scrollSnapAlign: (v, diag) => {
+    // none: no prop reaches React Native (its default applies), but the null
+    // still overrides an earlier value, as none does in CSS.
+    if (v === "none") return { props: { snapToAlignment: null } };
+    if (!SNAP_ALIGN.has(String(v))) {
+      diag(`scrollSnapAlign "${v}" is not supported; use one of start, center, end, none`);
+      return DROP;
+    }
+    return { props: { snapToAlignment: v } };
+  },
+  scrollSnapStop: (v, diag) => {
+    const disable = SNAP_STOP[String(v)];
+    if (disable === undefined) {
+      diag(`scrollSnapStop "${v}" is not supported`);
+      return DROP;
+    }
+    return { props: { disableIntervalMomentum: disable } };
+  },
+  overscrollBehavior: (v, diag) => {
+    const props = OVERSCROLL[String(v)];
+    if (!props) {
+      diag(`overscrollBehavior "${v}" is not supported; use one of auto, contain, none`);
+      return DROP;
+    }
+    return { props: { ...props } };
+  },
+  scrollPadding: (v, diag) => {
+    const sides = splitSpace(String(v)).map(toNumber);
+    if (sides.length === 0 || sides.length > 4 || sides.some((n) => n === null)) {
+      diag(`scrollPadding "${v}" is not supported; use one to four absolute lengths`);
+      return DROP;
+    }
+    const [top, right = top, bottom = top, left = right] = sides as [number, ...number[]];
+    return { props: { contentInset: { top, right, bottom, left } } };
+  },
   visibility: (v) => (v === "hidden" ? { style: { opacity: 0, pointerEvents: "none" } } : DROP),
   opacity: (v) => ({ style: { opacity: typeof v === "number" ? v : Number(v) } }),
 };
@@ -195,6 +357,10 @@ function lowerLeaf(
     if (folded === null) return DROP;
     value = folded;
   }
+  if (isSentinel(value) && STATIC_ONLY.has(property)) {
+    diag(`${property} needs a static value on React Native`);
+    return DROP;
+  }
   if (isSentinel(value)) {
     // Only known at runtime: rename/prop-map it, never inspect it.
     const entry = properties[property];
@@ -203,6 +369,8 @@ function lowerLeaf(
       : { style: { [entry?.native ?? property]: value } };
   }
   if (value === null) {
+    const unset = UNSET_PROPS[property];
+    if (unset) return { props: Object.fromEntries(unset.map((k) => [k, null])) };
     const entry = properties[property];
     return entry?.prop
       ? { props: { [entry.prop]: null } }
@@ -271,12 +439,34 @@ export function lowerDeclarations(expanded: Expanded): LoweredRule {
       : toGrouped(lowerLeaf(property, value, diagnostics, property));
     const d = expanded.depth[property] ?? 0;
     for (const [k, v] of Object.entries(lowered.style)) {
-      style[k] = v;
+      const merged =
+        k === "fontVariant" && style[k] !== undefined ? mergeFontVariant(style[k], v) : null;
+      style[k] = merged ?? v;
       if (d > 0) depth[k] = d;
     }
     Object.assign(props, lowered.props);
   }
   return { style, props, depth, diagnostics };
+}
+
+/** fontVariant entries of a static leaf, or null for a conditional or runtime value. */
+function fontVariantList(value: LoweredValue): string[] | null {
+  if (Array.isArray(value)) return [...(value as readonly string[])];
+  if (typeof value !== "string" || value.includes("var(") || isSentinel(value)) return null;
+  return splitSpace(value).filter((v) => v !== "normal");
+}
+
+/**
+ * fontVariant, fontVariantNumeric/Ligatures/Caps and fontFeatureSettings are
+ * separate CSS properties that all land on React Native's one fontVariant
+ * key. Within a rule, static values are unioned; when either side is
+ * conditional or only known at runtime, the later declaration wins.
+ */
+function mergeFontVariant(earlier: LoweredValue, later: LoweredValue): string[] | null {
+  const a = fontVariantList(earlier);
+  const b = fontVariantList(later);
+  if (!a || !b) return null;
+  return [...new Set([...a, ...b])];
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +493,7 @@ const SIDE_STYLES: Readonly<Record<string, string>> = {
  * - per-side border styles -> one `borderStyle` (`none` zeroes that side's width)
  * - `outlineStyle: none` -> `outlineWidth: 0`
  * - `textShadowOffsetX/Y` -> `textShadowOffset: { width, height }`
- * - duplicate `fontVariant` sources are already merged by key; arrays pass through
+ * - `fontVariant` sources were merged per rule when lowering; arrays pass through
  */
 export function finalizeStyle(input: FinalStyle): Readonly<{
   style: FinalStyle;

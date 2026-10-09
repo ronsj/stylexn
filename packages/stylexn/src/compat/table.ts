@@ -59,6 +59,7 @@ const no = <const E extends Extra = Record<never, never>>(note: string, extra?: 
 const LENGTH = ["<length>", "<percentage>"] as const;
 const SIZE = [...LENGTH, "auto"] as const;
 const ALIGN = ["flex-start", "flex-end", "center", "stretch", "baseline"] as const;
+const SNAP_AXES = ["x", "y", "both", "block", "inline"] as const;
 
 const NO_FLOW = "React Native has no CSS flow layout; only flexbox.";
 const NO_GRID = "React Native has no grid layout.";
@@ -533,7 +534,11 @@ export const properties = {
   fontVariantCaps: some(["normal", "small-caps"], "Merged into fontVariant.", {
     native: "fontVariant",
   }),
-  fontFeatureSettings: no("No OpenType feature settings API."),
+  fontFeatureSettings: some(
+    ["normal", "<string>"],
+    "Feature tags with a fontVariant counterpart (tnum, pnum, lnum, onum, smcp, liga, dlig, hlig, calt, ss01-ss20) become fontVariant entries; a 0/off flag selects the no-* form where one exists. Merged with fontVariant* in the same rule.",
+    { native: "fontVariant" },
+  ),
   fontStretch: no("Font stretch is not exposed by React Native."),
   fontKerning: no("Kerning is not exposed by React Native."),
   fontOpticalSizing: no("Not exposed by React Native."),
@@ -574,7 +579,11 @@ export const properties = {
   wordBreak: no("Not supported by React Native text layout."),
   overflowWrap: no("Not supported by React Native text layout."),
   wordWrap: no("Not supported by React Native text layout."),
-  hyphens: no("Not supported by React Native text layout."),
+  hyphens: some(
+    ["none", "manual", "auto"],
+    "Android only: becomes the android_hyphenationFrequency prop on <Text> (auto: full, manual: normal, none: none).",
+    { platform: "android", prop: "android_hyphenationFrequency" },
+  ),
   lineClamp: poly("Becomes the numberOfLines prop on <Text>.", { prop: "numberOfLines" }),
   WebkitLineClamp: poly("Becomes the numberOfLines prop on <Text>.", { prop: "numberOfLines" }),
   verticalAlign: some(["auto", "top", "bottom", "middle"], "Android only.", {
@@ -599,12 +608,39 @@ export const properties = {
   appearance: web("No native form-control appearance switch."),
   resize: web("No resizable elements."),
   scrollBehavior: web("Use scrollTo({ animated }) on native."),
-  scrollSnapType: no("Use pagingEnabled/snapToInterval props on ScrollView."),
-  scrollSnapAlign: no("Use pagingEnabled/snapToInterval props on ScrollView."),
-  scrollSnapStop: no("Use pagingEnabled/snapToInterval props on ScrollView."),
+  // The scroll-snap and overscroll entries become props on the scroll
+  // container (ScrollView/FlatList `sx`). Unlike CSS, where scroll-snap-align
+  // sits on the children, React Native keeps the snap geometry on the container.
+  scrollSnapType: some(
+    [
+      "none",
+      ...SNAP_AXES,
+      ...SNAP_AXES.map((a) => `${a} mandatory` as const),
+      ...SNAP_AXES.map((a) => `${a} proximity` as const),
+    ],
+    "Becomes the pagingEnabled prop on the scroll container: snaps by page (the ScrollView's size). Other snap geometries: pass snapToInterval/snapToOffsets to the primitive.",
+    { prop: "pagingEnabled" },
+  ),
+  scrollSnapAlign: some(
+    ["none", "start", "center", "end"],
+    "Set on the scroll container, not its children: becomes the snapToAlignment prop, which takes effect with pagingEnabled or snapToInterval. none leaves React Native's default.",
+    { prop: "snapToAlignment" },
+  ),
+  scrollSnapStop: some(
+    ["normal", "always"],
+    "Set on the scroll container: always becomes disableIntervalMomentum: true.",
+    { prop: "disableIntervalMomentum" },
+  ),
   scrollMargin: no("Not supported."),
-  scrollPadding: no("Not supported."),
-  overscrollBehavior: no("Use bounces/overScrollMode props on ScrollView."),
+  scrollPadding: some(
+    ["<length>"],
+    "iOS only: absolute lengths (one to four, CSS order) become the contentInset prop on the scroll container.",
+    { platform: "ios", prop: "contentInset" },
+  ),
+  overscrollBehavior: some(
+    ["auto", "contain", "none"],
+    "One keyword. Becomes bounces (iOS) and overScrollMode (Android) on the scroll container: auto bounces, contain and none do not.",
+  ),
   scrollbarWidth: web("Use showsVerticalScrollIndicator on native."),
   scrollbarColor: web("Use indicatorStyle on native."),
   scrollbarGutter: web("No scrollbar gutters on native."),

@@ -95,14 +95,12 @@ export default function stylexnBabelPlugin(
     if (typeof value === "number") return T.numericLiteral(value);
     if (typeof value === "boolean") return T.booleanLiteral(value);
     if (Array.isArray(value)) return T.arrayExpression(value.map((v) => leafToNode(v, exprs)));
-    if (!("width" in value && "height" in value)) {
-      throw new Error("stylexn: unexpected object in compiled output");
-    }
-    const obj = value as Readonly<{ width: CompiledLeaf; height: CompiledLeaf }>;
-    return T.objectExpression([
-      T.objectProperty(T.identifier("width"), leafToNode(obj.width, exprs)),
-      T.objectProperty(T.identifier("height"), leafToNode(obj.height, exprs)),
-    ]);
+    // A box value: { width, height } or contentInset's { top, right, bottom, left }.
+    return T.objectExpression(
+      Object.entries(value).map(([k, v]) =>
+        T.objectProperty(T.identifier(k), leafToNode(v as CompiledLeaf, exprs)),
+      ),
+    );
   }
 
   function recordToNode(

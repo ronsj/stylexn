@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import { expandDeclarations } from "../expand/expand.ts";
 import type { Declarations } from "../expand/types.ts";
 import { makeSentinel } from "../sentinel.ts";
-import { checkDeclarations, isBlocking } from "./check.ts";
+import { lookupProperty } from "../compat/index.ts";
+import { acceptsValue, checkDeclarations, isBlocking } from "./check.ts";
 
 const check = (decls: Declarations, options = {}) =>
   checkDeclarations(expandDeclarations(decls).style, options);
@@ -75,6 +76,14 @@ describe("values", () => {
   test("multi-keyword values check each token", () => {
     expect(check({ textDecorationLine: "underline line-through" })).toEqual([]);
     expect(check({ textDecorationLine: "overline" })).toHaveLength(1);
+  });
+
+  test("multi-word values the table lists whole are accepted as written", () => {
+    expect(check({ scrollSnapType: "x mandatory" })).toEqual([]);
+    expect(check({ scrollSnapType: "inline  proximity" })).toEqual([]);
+    expect(kinds({ scrollSnapType: "mandatory" })).toEqual(["value:partial:scrollSnapType"]);
+    expect(acceptsValue(lookupProperty("scrollSnapType"), "both mandatory")).toBe(true);
+    expect(acceptsValue(lookupProperty("scrollSnapType"), "x always")).toBe(false);
   });
 
   test("sentinels and null are skipped", () => {

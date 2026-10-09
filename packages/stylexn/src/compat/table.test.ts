@@ -110,6 +110,9 @@ describe("properties", () => {
     expect(properties.backgroundImage.native).toBe("experimental_backgroundImage");
     expect(properties.caretColor.prop).toBe("cursorColor");
     expect(properties.textOverflow.prop).toBe("ellipsizeMode");
+    expect(properties.scrollPadding.platform).toBe("ios");
+    expect(properties.hyphens.platform).toBe("android");
+    expect(properties.scrollMargin.status).toBe("unsupported");
     expect(properties.transform.values).not.toContain("translate");
     expect(properties.transform.values).toContain("translateX");
   });

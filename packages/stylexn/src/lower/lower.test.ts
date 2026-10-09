@@ -2,9 +2,12 @@ import { describe, expect, test } from "vitest";
 import { expandDeclarations } from "../expand/expand.ts";
 import { mergeExpanded } from "../expand/merge.ts";
 import type { Declarations } from "../expand/types.ts";
+import { makeSentinel } from "../sentinel.ts";
 import { finalizeStyle, lowerDeclarations } from "./lower.ts";
 
 const lower = (decls: Declarations) => lowerDeclarations(expandDeclarations(decls));
+const inset = (v: string | number) => lower({ scrollPadding: v }).props.contentInset;
+const fv = (v: string) => lower({ fontFeatureSettings: v }).style.fontVariant;
 
 describe("lowerDeclarations: units and numbers", () => {
   test("absolute units become numbers, everything else stays", () => {
@@ -82,6 +85,78 @@ describe("lowerDeclarations: renames and props", () => {
   });
 });
 
+describe("lowerDeclarations: scroll container props", () => {
+  test("scrollSnapType becomes pagingEnabled", () => {
+    expect(lower({ scrollSnapType: "x mandatory" }).props).toEqual({ pagingEnabled: true });
+    expect(lower({ scrollSnapType: "y" }).props).toEqual({ pagingEnabled: true });
+    expect(lower({ scrollSnapType: "both proximity" }).props).toEqual({ pagingEnabled: true });
+    expect(lower({ scrollSnapType: "none" }).props).toEqual({ pagingEnabled: false });
+    const bad = lower({ scrollSnapType: "mandatory" });
+    expect(bad.props).toEqual({});
+    expect(bad.diagnostics.map((d) => d.property)).toEqual(["scrollSnapType"]);
+    expect(lower({ scrollSnapType: "x mandatory always" }).diagnostics).toHaveLength(1);
+  });
+
+  test("scrollSnapAlign becomes snapToAlignment; none unsets it", () => {
+    expect(lower({ scrollSnapAlign: "center" }).props).toEqual({ snapToAlignment: "center" });
+    expect(lower({ scrollSnapAlign: "none" }).props).toEqual({ snapToAlignment: null });
+    expect(
+      lower({ scrollSnapAlign: { default: "start", "@media (min-width: 600px)": "none" } }).props,
+    ).toEqual({ snapToAlignment: { default: "start", "@media (min-width: 600px)": null } });
+    const bad = lower({ scrollSnapAlign: "start end" });
+    expect(bad.props).toEqual({});
+    expect(bad.diagnostics[0]?.message).toMatch(/scrollSnapAlign "start end"/);
+  });
+
+  test("scrollSnapStop becomes disableIntervalMomentum", () => {
+    expect(lower({ scrollSnapStop: "always" }).props).toEqual({ disableIntervalMomentum: true });
+    expect(lower({ scrollSnapStop: "normal" }).props).toEqual({ disableIntervalMomentum: false });
+    expect(lower({ scrollSnapStop: "sometimes" }).diagnostics).toHaveLength(1);
+  });
+
+  test("overscrollBehavior becomes bounces and overScrollMode", () => {
+    expect(lower({ overscrollBehavior: "auto" }).props).toEqual({
+      bounces: true,
+      overScrollMode: "auto",
+    });
+    for (const value of ["contain", "none"]) {
+      expect(lower({ overscrollBehavior: value }).props).toEqual({
+        bounces: false,
+        overScrollMode: "never",
+      });
+    }
+    expect(lower({ overscrollBehavior: null }).props).toEqual({
+      bounces: null,
+      overScrollMode: null,
+    });
+    const bad = lower({ overscrollBehavior: "contain auto" });
+    expect(bad.props).toEqual({});
+    expect(bad.diagnostics).toHaveLength(1);
+  });
+
+  test("scrollPadding becomes contentInset in CSS side order", () => {
+    expect(inset(8)).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(inset("8px 16px")).toEqual({ top: 8, right: 16, bottom: 8, left: 16 });
+    expect(inset("1px 2px 3px")).toEqual({ top: 1, right: 2, bottom: 3, left: 2 });
+    expect(inset("1px 2px 3px 4px")).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(inset("calc(4px * 2)")).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+  });
+
+  test("scrollPadding needs one to four absolute lengths", () => {
+    for (const value of ["10%", "1em", "auto", "1px 2px 3px 4px 5px", "8px auto"]) {
+      const { props, diagnostics } = lower({ scrollPadding: value });
+      expect(props, value).toEqual({});
+      expect(diagnostics[0]?.message, value).toMatch(/scrollPadding/);
+    }
+  });
+
+  test("value-reading properties need static values", () => {
+    const { props, diagnostics } = lower({ scrollSnapType: makeSentinel(0) });
+    expect(props).toEqual({});
+    expect(diagnostics[0]?.message).toMatch(/needs a static value/);
+  });
+});
+
 describe("lowerDeclarations: text", () => {
   test("lineHeight", () => {
     expect(lower({ lineHeight: 1.5 }).style.lineHeight).toBe("1.5"); // a multiplier
@@ -102,6 +177,68 @@ describe("lowerDeclarations: text", () => {
       "tabular-nums",
     ]);
     expect(lower({ fontVariant: "normal" }).style.fontVariant).toEqual([]);
+  });
+
+  test("hyphens becomes android_hyphenationFrequency", () => {
+    expect(lower({ hyphens: "auto" }).props).toEqual({ android_hyphenationFrequency: "full" });
+    expect(lower({ hyphens: "manual" }).props).toEqual({ android_hyphenationFrequency: "normal" });
+    expect(lower({ hyphens: "none" }).props).toEqual({ android_hyphenationFrequency: "none" });
+    const bad = lower({ hyphens: "always" });
+    expect(bad.props).toEqual({});
+    expect(bad.diagnostics).toHaveLength(1);
+  });
+
+  test("fontFeatureSettings becomes fontVariant entries", () => {
+    expect(fv(`"tnum"`)).toEqual(["tabular-nums"]);
+    expect(fv(`"tnum" 1, 'smcp' on`)).toEqual(["tabular-nums", "small-caps"]);
+    expect(fv(`"pnum", "lnum", "onum"`)).toEqual([
+      "proportional-nums",
+      "lining-nums",
+      "oldstyle-nums",
+    ]);
+    expect(fv(`"liga" 0, "dlig", "hlig" off, "calt" 0`)).toEqual([
+      "no-common-ligatures",
+      "discretionary-ligatures",
+      "no-historical-ligatures",
+      "no-contextual",
+    ]);
+    expect(fv(`"ss01", "ss12", "ss20"`)).toEqual([
+      "stylistic-one",
+      "stylistic-twelve",
+      "stylistic-twenty",
+    ]);
+    // Off is already the default for features without a no-* form.
+    expect(fv(`"tnum" 0`)).toEqual([]);
+    expect(fv("normal")).toEqual([]);
+  });
+
+  test("unknown feature tags are diagnostics; the known ones stay", () => {
+    const mixed = lower({ fontFeatureSettings: `"zero", "tnum", "ss21"` });
+    expect(mixed.style.fontVariant).toEqual(["tabular-nums"]);
+    expect(mixed.diagnostics.map((d) => d.message)).toEqual([
+      `fontFeatureSettings "zero" has no React Native fontVariant counterpart`,
+      `fontFeatureSettings "ss21" has no React Native fontVariant counterpart`,
+    ]);
+    const none = lower({ fontFeatureSettings: `"kern", tnum` });
+    expect(none.style).toEqual({});
+    expect(none.diagnostics).toHaveLength(2);
+  });
+
+  test("fontVariant sources in one rule are merged", () => {
+    expect(
+      lower({
+        fontVariantNumeric: "tabular-nums",
+        fontVariantCaps: "small-caps",
+        fontFeatureSettings: `"liga" 0, "tnum"`,
+      }).style.fontVariant,
+    ).toEqual(["tabular-nums", "small-caps", "no-common-ligatures"]);
+    // A conditional source cannot be merged statically: the later one wins.
+    expect(
+      lower({
+        fontVariantNumeric: "tabular-nums",
+        fontFeatureSettings: { default: `"smcp"`, ":hover": "normal" },
+      }).style.fontVariant,
+    ).toEqual({ default: ["small-caps"], ":hover": [] });
   });
 
   test("relative font weights and overline are diagnostics", () => {

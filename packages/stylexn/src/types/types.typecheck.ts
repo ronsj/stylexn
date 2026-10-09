@@ -88,6 +88,27 @@ webCreate({
   },
 });
 
+// --- style-to-prop mappings narrow to the listed values ----------------------
+
+nativeCreate({
+  list: {
+    scrollSnapType: "x mandatory",
+    scrollSnapAlign: "center",
+    scrollSnapStop: "always",
+    overscrollBehavior: "contain",
+    scrollPadding: "8px 16px",
+  },
+  text: { hyphens: "auto", fontFeatureSettings: `"tnum" 1, "smcp"` },
+});
+nativeCreate({
+  a: {
+    // @ts-expect-error a strictness alone is not a snap type
+    scrollSnapType: "mandatory",
+    // @ts-expect-error one keyword: React Native has no per-axis overscroll
+    overscrollBehavior: "contain none",
+  },
+});
+
 // --- keyframes: selectors and plain values --------------------------------------
 
 import { keyframes as webKeyframes } from "../web.ts";
