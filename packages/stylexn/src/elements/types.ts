@@ -133,6 +133,8 @@ export type TextInputOwnProps = Readonly<{
   secureTextEntry?: boolean;
   multiline?: boolean;
   disabled?: boolean;
+  /** Focusable and selectable but not editable; matches `:read-only`. */
+  readOnly?: boolean;
   autoFocus?: boolean;
   /** Web: `inputMode` and `type`. */
   keyboardType?: KeyboardType;

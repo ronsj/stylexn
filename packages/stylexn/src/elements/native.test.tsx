@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // React Native primitives stand in as DOM elements that expose their style.
@@ -48,6 +48,12 @@ const styles = create({
     borderBottomWidth: 1,
   },
   clamp: { lineClamp: 2, textOverflow: "ellipsis" },
+  formState: {
+    opacity: { default: 1, ":checked": 0.9 },
+    color: { default: "black", ":placeholder-shown": "gray" },
+    borderBottomColor: { default: "blue", ":read-only": "silver" },
+    backgroundColor: { default: "white", ":read-write": "ivory" },
+  },
   scroll: { color: "red", padding: 4 },
   content: { gap: 8 },
 });
@@ -220,6 +226,72 @@ describe("Image, TextInput, ScrollView", () => {
     expect(propsOf("off").editable).toBe(false);
   });
 
+  test("TextInput :placeholder-shown follows a controlled value", () => {
+    const { rerender } = render(
+      <TextInput sx={styles.formState} placeholder="Name" value="" testID="in" />,
+    );
+    expect(styleOf("in").color).toBe("gray");
+    rerender(<TextInput sx={styles.formState} placeholder="Name" value="Ada" testID="in" />);
+    expect(styleOf("in").color).toBe("black");
+    rerender(<TextInput sx={styles.formState} placeholder="Name" value="" testID="in" />);
+    expect(styleOf("in").color).toBe("gray");
+  });
+
+  test("TextInput :placeholder-shown tracks typing when uncontrolled", () => {
+    const onChangeText = vi.fn();
+    render(
+      <TextInput
+        sx={styles.formState}
+        placeholder="Name"
+        onChangeText={onChangeText}
+        testID="in"
+      />,
+    );
+    const input = screen.getByTestId("in");
+    expect(styleOf("in").color).toBe("gray");
+    fireEvent.change(input, { target: { value: "A" } }); // the double maps onChangeText to change
+    expect(styleOf("in").color).toBe("black");
+    expect(onChangeText).toHaveBeenCalledWith("A");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(styleOf("in").color).toBe("gray");
+  });
+
+  test("TextInput :placeholder-shown starts from defaultValue and needs a placeholder", () => {
+    render(<TextInput sx={styles.formState} placeholder="Name" defaultValue="Ada" testID="in" />);
+    expect(styleOf("in").color).toBe("black");
+    render(<TextInput sx={styles.formState} value="" testID="bare" />);
+    expect(styleOf("bare").color).toBe("black");
+  });
+
+  test("TextInput ref.clear() shows the placeholder again", () => {
+    const input = createRef<TextInputHandle>();
+    render(
+      <TextInput
+        sx={styles.formState}
+        placeholder="Name"
+        defaultValue="Ada"
+        ref={input}
+        testID="in"
+      />,
+    );
+    const clear = vi.fn();
+    Object.assign(screen.getByTestId("in"), { clear });
+    expect(styleOf("in").color).toBe("black");
+    act(() => input.current?.clear());
+    expect(clear).toHaveBeenCalledOnce();
+    expect(styleOf("in").color).toBe("gray");
+  });
+
+  test("TextInput forwards readOnly and matches :read-only/:read-write", () => {
+    render(<TextInput sx={styles.formState} testID="rw" />);
+    expect(styleOf("rw")).toMatchObject({ borderBottomColor: "blue", backgroundColor: "ivory" });
+    render(<TextInput sx={styles.formState} readOnly testID="ro" />);
+    expect(propsOf("ro")).toMatchObject({ readOnly: true, editable: true });
+    expect(styleOf("ro")).toMatchObject({ borderBottomColor: "silver", backgroundColor: "white" });
+    render(<TextInput sx={styles.formState} disabled testID="off" />);
+    expect(styleOf("off")).toMatchObject({ borderBottomColor: "silver", backgroundColor: "white" });
+  });
+
   test("Text gets numberOfLines and ellipsizeMode from lineClamp/textOverflow", () => {
     render(
       <Text sx={styles.clamp} testID="t">
@@ -374,6 +446,14 @@ describe("more elements", () => {
     expect(onValueChange).toHaveBeenCalledWith(false);
     render(<Switch value={false} disabled testID="off" />);
     expect(propsOf("off")).toMatchObject({ value: false, disabled: true });
+  });
+
+  test("Switch matches :checked from its value and is always :read-only", () => {
+    const { rerender } = render(<Switch sx={styles.formState} value={false} testID="sw" />);
+    expect(styleOf("sw")).toMatchObject({ opacity: 1, borderBottomColor: "silver" });
+    expect(styleOf("sw").backgroundColor).toBe("white");
+    rerender(<Switch sx={styles.formState} value testID="sw" />);
+    expect(styleOf("sw").opacity).toBe(0.9);
   });
 
   test("Pressable composes the author's press callbacks with the runtime's tracking", () => {

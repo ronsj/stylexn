@@ -171,7 +171,14 @@ const NO_INTERACTION: InteractionState = {};
 export type UsePropsOptions = Readonly<{
   /** Interaction state supplied by the caller (e.g. from a Pressable's render prop). */
   interaction?: InteractionState;
+  /** `:disabled` / `:enabled`. */
   disabled?: boolean;
+  /** `:checked`. */
+  checked?: boolean;
+  /** `:placeholder-shown`. */
+  placeholderShown?: boolean;
+  /** `:read-only` / `:read-write` (a disabled element is read-only too). */
+  readOnly?: boolean;
 }>;
 
 export type UsePropsResult = Readonly<{
@@ -215,7 +222,15 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     reducedMotion,
     pointer: config.pointer,
     interaction: needs.interaction
-      ? { ...ownInteraction, ...options.interaction, disabled: options.disabled }
+      ? {
+          ...ownInteraction,
+          ...options.interaction,
+          // Element state from props; a top-level option wins over `interaction`.
+          disabled: options.disabled ?? options.interaction?.disabled,
+          checked: options.checked ?? options.interaction?.checked,
+          placeholderShown: options.placeholderShown ?? options.interaction?.placeholderShown,
+          readOnly: options.readOnly ?? options.interaction?.readOnly,
+        }
       : NO_INTERACTION,
     vars,
     rootFontSize: config.rootFontSize,

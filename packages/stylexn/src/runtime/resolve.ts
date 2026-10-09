@@ -179,6 +179,15 @@ function conditionHolds(condition: string, env: Env): boolean {
       return i.disabled === true;
     case ":enabled":
       return i.disabled !== true;
+    case ":checked":
+      return i.checked === true;
+    case ":placeholder-shown":
+      return i.placeholderShown === true;
+    // CSS: a form control is read-write unless it is read-only or disabled.
+    case ":read-write":
+      return i.readOnly !== true && i.disabled !== true;
+    case ":read-only":
+      return i.readOnly === true || i.disabled === true;
     default:
       return false;
   }

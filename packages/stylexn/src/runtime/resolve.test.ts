@@ -69,6 +69,30 @@ describe("merge", () => {
     expect(resolve([r], env()).style.opacity).toBe(1);
   });
 
+  test("form states: checked, placeholder-shown, read-only and read-write", () => {
+    const r = rule({
+      opacity: { default: 1, ":checked": 0.9 },
+      color: { default: "black", ":placeholder-shown": "gray" },
+      borderBottomColor: { default: "blue", ":read-only": "silver" },
+      backgroundColor: { default: "white", ":read-write": "ivory" },
+    });
+    const at = (interaction: object) => resolve([r], env({ interaction })).style;
+    expect(at({ checked: true }).opacity).toBe(0.9);
+    expect(at({ checked: false }).opacity).toBe(1);
+    expect(at({ placeholderShown: true }).color).toBe("gray");
+    expect(at({}).color).toBe("black");
+    // Read-write unless read-only or disabled; read-only is the negation.
+    expect(at({})).toMatchObject({ borderBottomColor: "blue", backgroundColor: "ivory" });
+    expect(at({ readOnly: true })).toMatchObject({
+      borderBottomColor: "silver",
+      backgroundColor: "white",
+    });
+    expect(at({ disabled: true })).toMatchObject({
+      borderBottomColor: "silver",
+      backgroundColor: "white",
+    });
+  });
+
   test("props merge and resolve too", () => {
     const r = rule({ lineClamp: { default: 1, ":hover": 3 }, color: { "::placeholder": "gray" } });
     const out = resolve([r], env({ interaction: { hover: true } }));

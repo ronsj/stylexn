@@ -13,11 +13,12 @@ import type { NativeProperty, SupportedPseudoClass, UnsupportedProperty } from "
 const unsupported: UnsupportedProperty = "float";
 const native: NativeProperty = "marginTop";
 const pseudo: SupportedPseudoClass = ":hover";
+const checked: SupportedPseudoClass = ":checked";
 // @ts-expect-error float has no native behavior
 const notNative: NativeProperty = "float";
 // @ts-expect-error structural selectors are unsupported
 const notPseudo: SupportedPseudoClass = ":first-child";
-void [unsupported, native, pseudo, notNative, notPseudo];
+void [unsupported, native, pseudo, checked, notNative, notPseudo];
 
 // --- valid rules compile on both entries ------------------------------------
 

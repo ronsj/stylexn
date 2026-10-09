@@ -655,6 +655,8 @@ export const rnOnlyKeys: ReadonlySet<string> = new Set([
 const INTERACTION = "Tracked at runtime via Pressable/focus state on the styled element.";
 const STRUCTURAL = "Structural selectors need sibling context React Native does not expose.";
 const FORM_STATE = "Form control state is prop-driven; pass it to the style function instead.";
+const READ_ONLY =
+  "Derived from the readOnly and disabled props on <TextInput>; a <Switch> is always read-only, as on the web.";
 
 export const pseudoClasses = {
   ":hover": poly(`${INTERACTION} Only fires with a pointer device.`),
@@ -664,7 +666,7 @@ export const pseudoClasses = {
   ":focus-within": poly(`${INTERACTION} Requires descendant focus tracking.`),
   ":disabled": poly("Derived from the disabled prop."),
   ":enabled": poly("Derived from the disabled prop."),
-  ":checked": no(FORM_STATE),
+  ":checked": poly("Derived from the value prop on <Switch>."),
   ":indeterminate": no(FORM_STATE),
   ":default": no(FORM_STATE),
   ":required": no(FORM_STATE),
@@ -673,9 +675,9 @@ export const pseudoClasses = {
   ":invalid": no(FORM_STATE),
   ":in-range": no(FORM_STATE),
   ":out-of-range": no(FORM_STATE),
-  ":read-only": no(FORM_STATE),
-  ":read-write": no(FORM_STATE),
-  ":placeholder-shown": no(FORM_STATE),
+  ":read-only": poly(READ_ONLY),
+  ":read-write": poly(READ_ONLY),
+  ":placeholder-shown": poly("<TextInput> with a placeholder and no text."),
   ":autofill": web("Autofill state is a browser concept."),
   ":first-child": no(STRUCTURAL),
   ":last-child": no(STRUCTURAL),

@@ -21,7 +21,7 @@ This file is rendered from `src/compat/table.ts`, the table that the types, the 
 | Table           | Entries | supported | polyfilled | partial | web-only | unsupported |
 | --------------- | ------- | --------- | ---------- | ------- | -------- | ----------- |
 | Properties      | 302     | 33        | 54         | 98      | 23       | 94          |
-| Pseudo-classes  | 35      | 0         | 7          | 0       | 6        | 22          |
+| Pseudo-classes  | 35      | 0         | 11         | 0       | 6        | 18          |
 | Pseudo-elements | 11      | 0         | 0          | 1       | 4        | 6           |
 | At-rules        | 4       | 0         | 0          | 1       | 2        | 1           |
 | Media features  | 28      | 0         | 20         | 0       | 5        | 3           |
@@ -439,43 +439,43 @@ Keys are camelCase CSS property names, as written in `stylex.create`. Custom pro
 
 As StyleX condition keys, for example `{ default: 1, ":hover": 0.8 }`.
 
-| Pseudo-class         | Status      | Notes                                                                                                   |
-| -------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
-| `:hover`             | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Only fires with a pointer device.   |
-| `:active`            | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element.                                     |
-| `:focus`             | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element.                                     |
-| `:focus-visible`     | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Treated like :focus.                |
-| `:focus-within`      | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Requires descendant focus tracking. |
-| `:disabled`          | polyfilled  | Derived from the disabled prop.                                                                         |
-| `:enabled`           | polyfilled  | Derived from the disabled prop.                                                                         |
-| `:checked`           | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:indeterminate`     | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:default`           | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:required`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:optional`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:valid`             | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:invalid`           | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:in-range`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:out-of-range`      | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:read-only`         | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:read-write`        | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:placeholder-shown` | unsupported | Form control state is prop-driven; pass it to the style function instead.                               |
-| `:autofill`          | web-only    | Autofill state is a browser concept.                                                                    |
-| `:first-child`       | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:last-child`        | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:only-child`        | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:first-of-type`     | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:last-of-type`      | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:only-of-type`      | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:nth-child`         | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:nth-last-child`    | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:nth-of-type`       | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:empty`             | unsupported | Structural selectors need sibling context React Native does not expose.                                 |
-| `:link`              | web-only    | Link states are a browser concept.                                                                      |
-| `:visited`           | web-only    | Link states are a browser concept.                                                                      |
-| `:any-link`          | web-only    | Link states are a browser concept.                                                                      |
-| `:target`            | web-only    | URL fragments are a browser concept.                                                                    |
-| `:fullscreen`        | web-only    | Fullscreen API is a browser concept.                                                                    |
+| Pseudo-class         | Status      | Notes                                                                                                           |
+| -------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `:hover`             | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Only fires with a pointer device.           |
+| `:active`            | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element.                                             |
+| `:focus`             | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element.                                             |
+| `:focus-visible`     | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Treated like :focus.                        |
+| `:focus-within`      | polyfilled  | Tracked at runtime via Pressable/focus state on the styled element. Requires descendant focus tracking.         |
+| `:disabled`          | polyfilled  | Derived from the disabled prop.                                                                                 |
+| `:enabled`           | polyfilled  | Derived from the disabled prop.                                                                                 |
+| `:checked`           | polyfilled  | Derived from the value prop on `<Switch>`.                                                                      |
+| `:indeterminate`     | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:default`           | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:required`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:optional`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:valid`             | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:invalid`           | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:in-range`          | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:out-of-range`      | unsupported | Form control state is prop-driven; pass it to the style function instead.                                       |
+| `:read-only`         | polyfilled  | Derived from the readOnly and disabled props on `<TextInput>`; a `<Switch>` is always read-only, as on the web. |
+| `:read-write`        | polyfilled  | Derived from the readOnly and disabled props on `<TextInput>`; a `<Switch>` is always read-only, as on the web. |
+| `:placeholder-shown` | polyfilled  | `<TextInput>` with a placeholder and no text.                                                                   |
+| `:autofill`          | web-only    | Autofill state is a browser concept.                                                                            |
+| `:first-child`       | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:last-child`        | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:only-child`        | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:first-of-type`     | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:last-of-type`      | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:only-of-type`      | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:nth-child`         | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:nth-last-child`    | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:nth-of-type`       | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:empty`             | unsupported | Structural selectors need sibling context React Native does not expose.                                         |
+| `:link`              | web-only    | Link states are a browser concept.                                                                              |
+| `:visited`           | web-only    | Link states are a browser concept.                                                                              |
+| `:any-link`          | web-only    | Link states are a browser concept.                                                                              |
+| `:target`            | web-only    | URL fragments are a browser concept.                                                                            |
+| `:fullscreen`        | web-only    | Fullscreen API is a browser concept.                                                                            |
 
 ## Pseudo-elements
 

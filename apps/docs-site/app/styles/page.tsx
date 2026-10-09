@@ -81,6 +81,13 @@ export default function AuthoringStyles() {
             <Code>:disabled</Code> (from the <Code>disabled</Code> prop).
           </li>
           <li>
+            Form states, from element props: <Code>:checked</Code> (a <Code>Switch</Code>&apos;s{" "}
+            <Code>value</Code>), <Code>:placeholder-shown</Code> (a <Code>TextInput</Code> with a{" "}
+            <Code>placeholder</Code> and no text), <Code>:read-only</Code> and{" "}
+            <Code>:read-write</Code> (a <Code>TextInput</Code>&apos;s <Code>readOnly</Code> and{" "}
+            <Code>disabled</Code> props; a <Code>Switch</Code> is always read-only, as on the web).
+          </li>
+          <li>
             <Code>@media</Code> with <Code>width</Code>, <Code>height</Code>,{" "}
             <Code>orientation</Code>, <Code>prefers-color-scheme</Code>,{" "}
             <Code>prefers-reduced-motion</Code>, <Code>hover</Code> and <Code>pointer</Code>.
@@ -106,8 +113,8 @@ export default function AuthoringStyles() {
           <ColorSchemeCard />
         </Example>
         <Note title="No structural selectors">
-          <Code>:nth-child</Code>, <Code>:first-child</Code>, <Code>:checked</Code> and similar
-          conditions need context React Native does not have. Pass the state to the style instead:{" "}
+          <Code>:nth-child</Code>, <Code>:first-child</Code> and similar conditions need context
+          React Native does not have. Pass the state to the style instead:{" "}
           <Code>sx={"{[styles.row, index % 2 === 1 && styles.odd]}"}</Code>. See{" "}
           <A href="/checking/">Checking styles</A> for the error they produce.
         </Note>

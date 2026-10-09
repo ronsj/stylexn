@@ -31,7 +31,7 @@ vi.mock("react-native", () => ({
 }));
 
 import { create } from "./api.ts";
-import { FontSizeProvider, ThemeProvider, useProps } from "./hooks.ts";
+import { FontSizeProvider, ThemeProvider, useProps, type UsePropsOptions } from "./hooks.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "./vars.ts";
 
 beforeEach(() => {
@@ -108,6 +108,36 @@ describe("useProps interaction", () => {
       useProps([styles.a], { interaction: { active: true }, disabled: true }),
     );
     expect(result.current.style.opacity).toBe(0.4); // later condition keys win, as in StyleX
+  });
+
+  test("checked, placeholderShown and readOnly options drive the form-state conditions", () => {
+    const styles = compiled({
+      a: {
+        opacity: { default: 1, ":checked": 0.9 },
+        color: { default: "black", ":placeholder-shown": "gray" },
+        borderBottomColor: { default: "blue", ":read-only": "silver" },
+      },
+    });
+    const { result, rerender } = renderHook(
+      (options: UsePropsOptions) => useProps([styles.a], options),
+      { initialProps: {} },
+    );
+    expect(result.current.style).toMatchObject({
+      opacity: 1,
+      color: "black",
+      borderBottomColor: "blue",
+    });
+    rerender({ checked: true, placeholderShown: true, readOnly: true });
+    expect(result.current.style).toMatchObject({
+      opacity: 0.9,
+      color: "gray",
+      borderBottomColor: "silver",
+    });
+    // Disabled implies read-only; caller-supplied interaction state fills in unset options.
+    rerender({ disabled: true });
+    expect(result.current.style.borderBottomColor).toBe("silver");
+    rerender({ interaction: { checked: true } });
+    expect(result.current.style.opacity).toBe(0.9);
   });
 });
 

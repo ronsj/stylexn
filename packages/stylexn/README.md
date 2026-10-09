@@ -108,9 +108,11 @@ import "stylexn/elements.css";
   wrapper is in the way, including for native-only props.
   For safe areas use `react-native-safe-area-context` (React Native's own
   `SafeAreaView` is deprecated) and, on web, CSS `env(safe-area-inset-*)`.
-- **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, `@media`
-  (width, height, orientation, `prefers-color-scheme`,
-  `prefers-reduced-motion`, `hover`, `pointer`), nested conditions.
+- **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, the form
+  states `:checked` (`Switch`), `:placeholder-shown`, `:read-only` and
+  `:read-write` (`TextInput`), `@media` (width, height, orientation,
+  `prefers-color-scheme`, `prefers-reduced-motion`, `hover`, `pointer`),
+  nested conditions.
 - **Units and values**: `rem`, `em`, `vw`/`vh`, `calc()`/`min()`/`max()`/
   `clamp()` (folded at compile time, or at runtime for relative units and
   `var()`), `lab()`/`lch()`/`oklab()`/`oklch()`/`color()`/`color-mix()`

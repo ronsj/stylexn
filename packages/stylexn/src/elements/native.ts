@@ -14,6 +14,7 @@ import {
   isValidElement,
   useImperativeHandle,
   useRef,
+  useState,
   type ComponentType,
   type ReactElement,
   type ReactNode,
@@ -209,6 +210,9 @@ export function Switch({ sx, value, onValueChange, disabled, ...rest }: SwitchPr
     ...extra
   } = useProps(toList(sx), {
     disabled,
+    checked: value,
+    // A checkbox is always :read-only in CSS (only text-like controls are read-write).
+    readOnly: true,
   });
   return createElement(animated ? AnimatedSwitch : RNSwitch, {
     ...rest,
@@ -255,6 +259,11 @@ type TextInputLike = { focus(): void; blur(): void; clear(): void };
  * `placeholderTextColor`, `caretColor` becomes `cursorColor`. `:focus`
  * conditions attach onFocus/onBlur from the runtime.
  *
+ * `:placeholder-shown` needs to know whether the field is empty: from
+ * `value` when controlled, otherwise tracked as one boolean that changes
+ * only when the text goes from empty to non-empty or back (typing does not
+ * re-render per keystroke).
+ *
  * Deliberately not part of the text cascade: on web the UA stylesheet gives
  * inputs their own font and colour, so `color`/`fontSize` on an enclosing
  * View do not reach an input there either. Style the input itself.
@@ -262,6 +271,11 @@ type TextInputLike = { focus(): void; blur(): void; clear(): void };
 export function TextInput({
   sx,
   disabled,
+  readOnly,
+  value,
+  defaultValue,
+  placeholder,
+  onChangeText,
   onFocus,
   onBlur,
   onSubmitEditing,
@@ -270,15 +284,21 @@ export function TextInput({
   ...rest
 }: TextInputProps) {
   const inner = useRef<TextInputLike | null>(null);
+  // Uncontrolled emptiness; ignored while `value` is set.
+  const [typedEmpty, setTypedEmpty] = useState(() => !defaultValue);
   useImperativeHandle(
     ref,
     () => ({
       focus: () => inner.current?.focus(),
       blur: () => inner.current?.blur(),
-      clear: () => inner.current?.clear(),
+      clear: () => {
+        inner.current?.clear();
+        setTypedEmpty(true);
+      },
     }),
     [],
   );
+  const empty = value === undefined ? typedEmpty : value === "";
   const {
     style,
     animated,
@@ -289,13 +309,25 @@ export function TextInput({
     onFocus: trackFocus,
     onBlur: trackBlur,
     ...extra
-  } = useProps(toList(sx), { disabled });
+  } = useProps(toList(sx), {
+    disabled,
+    readOnly,
+    placeholderShown: !!placeholder && empty,
+  });
   return createElement(withRef(animated ? AnimatedTextInput : RNTextInput), {
     ...rest,
     ...extra,
     ref: inner,
+    value,
+    defaultValue,
+    placeholder,
     editable: !disabled,
+    readOnly,
     autoCorrect,
+    onChangeText: (text: string) => {
+      if ((text === "") !== typedEmpty) setTypedEmpty(text === "");
+      onChangeText?.(text);
+    },
     // The runtime tracks focus for `:focus`; the author's callbacks run after it.
     onFocus: () => {
       trackFocus?.();

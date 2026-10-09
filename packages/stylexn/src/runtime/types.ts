@@ -27,6 +27,12 @@ export type InteractionState = Readonly<{
   focusVisible?: boolean;
   focusWithin?: boolean;
   disabled?: boolean;
+  /** `:checked`: a Switch's value. */
+  checked?: boolean;
+  /** `:placeholder-shown`: a TextInput with a placeholder and no text. */
+  placeholderShown?: boolean;
+  /** `:read-only` / `:read-write` (together with `disabled`). */
+  readOnly?: boolean;
 }>;
 
 export type WindowMetrics = Readonly<{
