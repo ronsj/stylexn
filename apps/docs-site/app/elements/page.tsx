@@ -264,7 +264,8 @@ export default function Elements() {
         <Platforms
           web={
             <>
-              a checkbox <Code>&lt;input&gt;</Code> with <Code>role=&quot;switch&quot;</Code>.
+              a checkbox <Code>&lt;input&gt;</Code> with <Code>role=&quot;switch&quot;</Code>, drawn
+              as an iOS-style switch (a pill track with a sliding thumb).
             </>
           }
           native={<Code>Switch</Code>}

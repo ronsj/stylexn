@@ -51,10 +51,9 @@ const styles = stylex.create({
   // :checked from the Switch's value: a done todo's switch steps back.
   toggle: {
     opacity: { default: 1, ":checked": 0.65 },
-    transitionProperty: "opacity",
+    // Listed with background-color so the web switch's track still fades.
+    transitionProperty: "opacity, background-color",
     transitionDuration: "200ms",
-    // The web checkbox picks up the theme's accent; native switches keep the platform colours.
-    ...web({ accentColor: colors.accent }),
   },
   title: {
     flexGrow: 1,

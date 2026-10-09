@@ -110,10 +110,52 @@ const base = stylex.create({
   contentHorizontal: {
     flexDirection: "row",
   },
-  // <Switch>: the platform checkbox with a switch role; margins come from sx.
+  // <Switch>: a checkbox with the switch role, drawn like React Native's iOS
+  // switch (a 51x31 pill track, a round white thumb on ::before that slides
+  // when :checked) in the platform's own colours. Margins come from sx.
   switch: {
-    margin: 0,
+    appearance: "none",
+    display: "inline-block",
+    verticalAlign: "middle",
+    position: "relative",
+    boxSizing: "border-box",
     flexShrink: 0,
+    width: 51,
+    height: 31,
+    margin: 0,
+    borderRadius: 999,
+    cursor: { default: "pointer", ":disabled": "default" },
+    opacity: { default: null, ":disabled": 0.4 },
+    backgroundColor: {
+      default: "#e9e9ea",
+      ":checked": "#34c759",
+      "@media (prefers-color-scheme: dark)": { default: "#39393d", ":checked": "#30d158" },
+    },
+    outline: { default: null, ":focus-visible": "2px solid #0a84ff" },
+    outlineOffset: { default: null, ":focus-visible": 2 },
+    transitionProperty: {
+      default: "background-color",
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
+    transitionDuration: "200ms",
+    "::before": {
+      content: '""',
+      position: "absolute",
+      top: 2,
+      left: 2,
+      width: 27,
+      height: 27,
+      borderRadius: 999,
+      backgroundColor: "#ffffff",
+      boxShadow: "0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16)",
+      transform: { default: "translateX(0)", ":checked": "translateX(20px)" },
+      transitionProperty: {
+        default: "transform",
+        "@media (prefers-reduced-motion: reduce)": "none",
+      },
+      transitionDuration: "200ms",
+      transitionTimingFunction: "ease",
+    },
   },
 });
 
@@ -202,7 +244,7 @@ export function Pressable({
 
 export type SwitchProps = CommonProps & SwitchOwnProps & Readonly<{ sx?: SxProp }>;
 
-/** A toggle: a checkbox with the switch role. `sx` styles the control itself. */
+/** A toggle: a checkbox with the switch role, drawn as an iOS-style switch. `sx` styles the track. */
 export function Switch({ sx, value, onValueChange, disabled, testID, ...rest }: SwitchProps) {
   return createElement("input", {
     ...rest,

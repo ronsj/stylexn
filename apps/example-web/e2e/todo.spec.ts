@@ -27,7 +27,13 @@ test("todo flow: add, complete, filter, paginate, edit, delete and persist", asy
 
   // Add, then mark done.
   await add(page, "Buy milk");
-  await item(page, "Buy milk").getByTestId("todo-toggle").check();
+  // The web Switch is drawn like the iOS switch: no UA checkbox, a 51px pill
+  // track that turns the platform green when on.
+  const toggle = item(page, "Buy milk").getByTestId("todo-toggle");
+  await expect(toggle).toHaveCSS("appearance", "none");
+  await expect(toggle).toHaveCSS("width", "51px");
+  await toggle.check();
+  await expect(toggle).toHaveCSS("background-color", "rgb(52, 199, 89)");
   await expect(page.getByTestId("todo-summary")).toHaveText("0 left · 1 done");
 
   // Filter.
