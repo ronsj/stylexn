@@ -27,7 +27,7 @@ This file is rendered from `src/compat/table.ts`, the table that the types, the 
 | Media features  | 29      | 0         | 22         | 0       | 5        | 2           |
 | Units           | 39      | 6         | 23         | 1       | 0        | 9           |
 | Functions       | 30      | 7         | 11         | 4       | 0        | 8           |
-| StyleX API      | 14      | 6         | 4          | 0       | 1        | 3           |
+| StyleX API      | 15      | 6         | 6          | 1       | 1        | 1           |
 
 ## Properties
 
@@ -627,19 +627,20 @@ Value functions inside strings, such as `calc()` or `linear-gradient()`.
 
 The `stylex.*` functions themselves.
 
-| API                   | Status      | Notes                                                                                                                                       |
-| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create`              | supported   |                                                                                                                                             |
-| `props`               | supported   | Returns { style, ...props }; extra props come from entries with `prop`.                                                                     |
-| `attrs`               | supported   | Alias of props on native.                                                                                                                   |
-| `defineVars`          | polyfilled  | Variables become a React context value.                                                                                                     |
-| `defineConsts`        | supported   | Inlined at compile time.                                                                                                                    |
-| `createTheme`         | polyfilled  | Themes become a context provider for the subtree.                                                                                           |
-| `keyframes`           | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver. |
-| `firstThatWorks`      | polyfilled  | Picks the first value the compat table accepts, at compile time.                                                                            |
-| `positionTry`         | unsupported | Anchor positioning does not exist on native.                                                                                                |
-| `viewTransitionClass` | web-only    | View transitions are a web API.                                                                                                             |
-| `defineMarker`        | unsupported | Markers depend on CSS selectors.                                                                                                            |
-| `when`                | unsupported | Ancestor/sibling conditions (stylex.when.*) depend on CSS selectors.                                                                        |
-| `types`               | supported   | Typed variables are compile-time only.                                                                                                      |
-| `env`                 | supported   | Compile-time constants.                                                                                                                     |
+| API                   | Status      | Notes                                                                                                                                                                                                                      |
+| --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`              | supported   |                                                                                                                                                                                                                            |
+| `props`               | supported   | Returns { style, ...props }; extra props come from entries with `prop`.                                                                                                                                                    |
+| `attrs`               | supported   | Alias of props on native.                                                                                                                                                                                                  |
+| `defineVars`          | polyfilled  | Variables become a React context value.                                                                                                                                                                                    |
+| `defineConsts`        | supported   | Inlined at compile time.                                                                                                                                                                                                   |
+| `createTheme`         | polyfilled  | Themes become a context provider for the subtree.                                                                                                                                                                          |
+| `keyframes`           | polyfilled  | Run by the StyleXN runtime with Animated: opacity, transform, colours, radii and shadows on the native driver, other keys on the JS driver.                                                                                |
+| `firstThatWorks`      | polyfilled  | Picks the first value the compat table accepts, at compile time.                                                                                                                                                           |
+| `positionTry`         | unsupported | Anchor positioning does not exist on native.                                                                                                                                                                               |
+| `viewTransitionClass` | web-only    | View transitions are a web API.                                                                                                                                                                                            |
+| `defineMarker`        | polyfilled  | Pass the marker to props()/sx on the ancestor; that element publishes its interaction state to its descendants through context.                                                                                            |
+| `defaultMarker`       | polyfilled  | The shared default marker, as on the web.                                                                                                                                                                                  |
+| `when`                | partial     | when.ancestor(pseudo, marker) reads the marked ancestor's interaction state (hover, active, focus, disabled, checked, …). descendant and sibling conditions need selectors React Native does not have. Values: `ancestor`. |
+| `types`               | supported   | Typed variables are compile-time only.                                                                                                                                                                                     |
+| `env`                 | supported   | Compile-time constants.                                                                                                                                                                                                    |

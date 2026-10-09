@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -14,7 +14,14 @@ import {
 } from "../testing/react-native.ts";
 import { create } from "./api.ts";
 import { resetAccessibilityForTesting } from "./env.ts";
-import { FontSizeProvider, ThemeProvider, useProps, type UsePropsOptions } from "./hooks.ts";
+import {
+  FontSizeProvider,
+  MarkerProvider,
+  ThemeProvider,
+  useProps,
+  type UsePropsOptions,
+} from "./hooks.ts";
+import { defineMarker, when } from "./markers.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "./vars.ts";
 
 const listeners = testEnv.listeners;
@@ -203,6 +210,68 @@ describe("useProps interaction", () => {
     expect(result.current.style.borderBottomColor).toBe("silver");
     rerender({ interaction: { checked: true } });
     expect(result.current.style.opacity).toBe(0.9);
+  });
+});
+
+const card = defineMarker("card");
+
+/** A Switch-like element: a marker plus checked/disabled state, published to its children. */
+function Toggle({
+  checked,
+  disabled,
+  children,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  children?: ReactNode;
+}) {
+  const { marked } = useProps([card], { checked, disabled });
+  return marked ? createElement(MarkerProvider, { marked }, children) : children;
+}
+
+describe("useProps markers", () => {
+  const styles = compiled({
+    plain: { color: "red" },
+    label: {
+      color: { default: "black", [when.ancestor(":checked", card)]: "green" },
+      opacity: { default: 1, [when.ancestor(":disabled", card)]: 0.5 },
+    },
+  });
+
+  test("a marker makes the element track and report its interaction state", () => {
+    const { result } = renderHook(() => useProps([card, styles.plain], { disabled: true }));
+    expect(result.current.style).toEqual({ color: "red" });
+    expect(result.current.marked).toEqual({
+      markers: ["card"],
+      state: expect.objectContaining({ disabled: true }),
+    });
+    expect(result.current.onPressIn).toBeTypeOf("function");
+    act(() => result.current.onPressIn?.());
+    expect(result.current.marked?.state.active).toBe(true);
+    // Without a marker: no `marked`, no handlers for static rules.
+    const plain = renderHook(() => useProps([styles.plain])).result.current;
+    expect(plain).toEqual({ style: { color: "red" } });
+  });
+
+  test("MarkerProvider publishes element state (checked, disabled) to descendants from the first render", () => {
+    const seen: unknown[] = [];
+    function Label() {
+      const { style } = useProps([styles.label]);
+      seen.push([style.color, style.opacity]);
+      return null;
+    }
+    const label = createElement(Label);
+    const { rerender } = render(createElement(Toggle, { checked: true }, label));
+    expect(seen).toEqual([["green", 1]]); // seeded: no first frame in the old state
+    rerender(createElement(Toggle, { checked: false, disabled: true }, label));
+    expect(seen.at(-1)).toEqual(["black", 0.5]);
+    rerender(createElement(Toggle, { checked: false }, label));
+    expect(seen.at(-1)).toEqual(["black", 1]);
+    // Outside any marked ancestor the conditions never hold.
+    expect(renderHook(() => useProps([styles.label])).result.current.style).toEqual({
+      color: "black",
+      opacity: 1,
+    });
   });
 });
 

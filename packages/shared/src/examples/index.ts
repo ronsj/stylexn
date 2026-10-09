@@ -1,5 +1,6 @@
 // Live examples for the docs site (apps/docs-site). Each file is one small
 // component with its styles; the same files run on React Native.
+export { AncestorPress } from "./AncestorPress";
 export { BadgeVariants } from "./BadgeVariants";
 export { ChipScroller } from "./ChipScroller";
 export { ColorFunctions } from "./ColorFunctions";

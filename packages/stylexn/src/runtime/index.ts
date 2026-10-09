@@ -5,10 +5,12 @@
 export { attrs, create, firstThatWorks, keyframes, native, props, web } from "./api.ts";
 export type { Props } from "./api.ts";
 export { createTheme, defineConsts, defineVars } from "./vars.ts";
+export { defaultMarker, defineMarker, when } from "./markers.ts";
 export type { VarGroup } from "./vars.ts";
 export { config, configure } from "./env.ts";
 export {
   FontSizeProvider,
+  MarkerProvider,
   TextStyleProvider,
   ThemeProvider,
   useInheritedTextStyle,
@@ -17,6 +19,8 @@ export {
 } from "./hooks.ts";
 export type {
   InteractionHandlers,
+  Marked,
+  MarkerProviderProps,
   TextStyleProviderProps,
   ThemeProviderProps,
   UsePropsOptions,
@@ -33,9 +37,11 @@ export type { AnimationSpec, EasingSpec, Motion, Timing, TransitionSpec } from "
 export { analyzeNeeds, resolve } from "./resolve.ts";
 export { matchesMedia } from "./media.ts";
 export type {
+  Ancestors,
   CompiledRule,
   Env,
   InteractionState,
+  Marker,
   Needs,
   Resolved,
   RuntimeValue,
@@ -59,6 +65,7 @@ export type {
 } from "./types.ts";
 
 import * as api from "./api.ts";
+import * as markers from "./markers.ts";
 import * as vars from "./vars.ts";
 
 /** Default export for `import stylex from "@stylexjs/stylex"`. */
@@ -73,5 +80,8 @@ const stylex = {
   defineVars: vars.defineVars,
   defineConsts: vars.defineConsts,
   createTheme: vars.createTheme,
+  defineMarker: markers.defineMarker,
+  defaultMarker: markers.defaultMarker,
+  when: markers.when,
 };
 export default stylex;

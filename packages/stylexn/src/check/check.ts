@@ -11,8 +11,8 @@ import {
   UNKNOWN,
 } from "../compat/index.ts";
 import type { Entry, RNVersion, Status } from "../compat/types.ts";
-import { rnOnlyKeys } from "../compat/table.ts";
-import { isSentinel } from "../sentinel.ts";
+import { apis, rnOnlyKeys } from "../compat/table.ts";
+import { describeSentinels, isSentinel } from "../sentinel.ts";
 import { isFunction, looksLikeColor, splitSpace } from "../expand/tokenize.ts";
 import type { Leaf, Value } from "../expand/types.ts";
 import { isConditional } from "../expand/types.ts";
@@ -165,6 +165,46 @@ function checkLeaf(
 
 const MEDIA_FEATURE = /\(\s*([a-z-]+)\s*(?::|\)|>=|<=|>|<)/gi;
 
+/** A `when.*` condition key: `:where-ancestor(:hover, <marker>)`. Markers are opaque. */
+const RELATIONAL = /^:where-([a-z-]+)\((.*), ([^,]*)\)$/s;
+const WHEN_API: Readonly<Record<string, string>> = {
+  ancestor: "ancestor",
+  descendant: "descendant",
+  "sibling-before": "siblingBefore",
+  "sibling-after": "siblingAfter",
+  "any-sibling": "anySibling",
+};
+const WHEN_SUPPORTED: readonly string[] = apis.when.values;
+
+/**
+ * Findings for a `when.*` condition: `ancestor` is judged by its
+ * pseudo-class like a plain one; the other kinds by the `when` API entry.
+ */
+function checkRelational(
+  property: string,
+  condition: string,
+  conditions: readonly string[],
+  out: Finding[],
+): void {
+  const m = condition.match(RELATIONAL);
+  const api = m ? WHEN_API[m[1] as string] : undefined;
+  const pseudo = m?.[2] as string;
+  const shown = api ? `when.${api}(${pseudo})` : describeSentinels(condition, "marker");
+  let entry: Entry;
+  if (!api) entry = { status: "unsupported", note: "Not a condition StyleXN understands." };
+  else if (!WHEN_SUPPORTED.includes(api)) entry = { status: "unsupported", note: apis.when.note };
+  else entry = lookupPseudoClass(pseudo);
+  if (entry.status === "unsupported" || entry.status === "web-only") {
+    out.push({
+      kind: "condition",
+      status: entry.status,
+      property,
+      conditions,
+      message: `${shown} on ${property} — ${entry.note ?? "not supported on React Native"}`,
+    });
+  }
+}
+
 function checkCondition(
   property: string,
   condition: string,
@@ -172,6 +212,10 @@ function checkCondition(
   out: Finding[],
 ): void {
   if (condition === "default") return;
+  if (condition.startsWith(":where-")) {
+    checkRelational(property, condition, conditions, out);
+    return;
+  }
   let entry: Entry;
   if (condition.startsWith("::")) {
     entry = lookupPseudoElement(condition);

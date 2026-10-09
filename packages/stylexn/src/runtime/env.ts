@@ -81,6 +81,7 @@ export function snapshotEnv(
     ...accessibility,
     pointer: config.pointer,
     interaction: {},
+    ancestors: null,
     vars: {},
     rootFontSize: config.rootFontSize,
     fontSize: config.fontSize,

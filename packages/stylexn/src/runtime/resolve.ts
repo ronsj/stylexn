@@ -15,15 +15,34 @@ import { parseLength, RELATIVE_UNITS } from "../lower/units.ts";
 import { splitSpace } from "../expand/tokenize.ts";
 import { matchesMedia } from "./media.ts";
 import { MOTION_KEY, parseMotion } from "./motion.ts";
-import type { Env, Needs, Resolved, RuntimeValue, StyleArg, Theme } from "./types.ts";
-import { isCompiledRule, isTheme, isVarRef } from "./types.ts";
+import type {
+  Env,
+  InteractionState,
+  Needs,
+  Resolved,
+  RuntimeValue,
+  StyleArg,
+  Theme,
+} from "./types.ts";
+import { isCompiledRule, isMarker, isTheme, isVarRef } from "./types.ts";
 import { lookupVar } from "./vars.ts";
 import { warnOnce } from "./warn.ts";
 
-/** Split `props()` arguments into rules and element-level themes, in order. */
-export function flattenArgs(args: readonly StyleArg[]): { rules: CompiledRule[]; themes: Theme[] } {
+const NO_MARKERS: readonly string[] = [];
+
+/**
+ * Split `props()` arguments into rules, element-level themes and the ids of
+ * markers (`defineMarker`), in order. Markers are rare, so their list is
+ * only allocated when there is one.
+ */
+export function flattenArgs(args: readonly StyleArg[]): {
+  rules: CompiledRule[];
+  themes: Theme[];
+  markers: readonly string[];
+} {
   const rules: CompiledRule[] = [];
   const themes: Theme[] = [];
+  let markers: string[] | null = null;
   const visit = (arg: StyleArg): void => {
     if (!arg) return;
     if (Array.isArray(arg)) {
@@ -32,11 +51,18 @@ export function flattenArgs(args: readonly StyleArg[]): { rules: CompiledRule[];
       rules.push(arg);
     } else if (isTheme(arg)) {
       themes.push(arg);
+    } else if (isMarker(arg)) {
+      markers ??= [];
+      if (!markers.includes(arg.$$stylexnMarker)) markers.push(arg.$$stylexnMarker);
     }
   };
   for (const a of args) visit(a);
-  return { rules, themes };
+  return { rules, themes, markers: markers ?? NO_MARKERS };
 }
+
+/** Prefix of the `when.*` condition keys: `:where-ancestor(:hover, <marker id>)`. */
+const RELATIONAL = ":where-";
+const ANCESTOR = ":where-ancestor(";
 
 const DIMENSION_FEATURE = /\b(width|height|aspect-ratio|orientation|resolution)\b/;
 const VIEWPORT_UNIT = /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/i;
@@ -70,12 +96,15 @@ function analyzeRule(rule: CompiledRule): Needs {
   let contrast = false;
   let reducedTransparency = false;
   let invertedColors = false;
+  let ancestors = false;
   let motion = false;
   let constant =
     !rule.usesVars && rule.conditional.length === 0 && rule.conditionalProps.length === 0;
   const visitWhen = (when: readonly string[]) => {
     for (const c of when) {
-      if (c.startsWith(":")) interaction = true;
+      // when.* conditions read marked ancestors, not the element's own state.
+      if (c.startsWith(RELATIONAL)) ancestors ||= c.startsWith(ANCESTOR);
+      else if (c.startsWith(":")) interaction = true;
       else if (c.startsWith("@media")) {
         if (DIMENSION_FEATURE.test(c)) dimensions = true;
         if (c.includes("prefers-color-scheme")) colorScheme = true;
@@ -128,6 +157,7 @@ function analyzeRule(rule: CompiledRule): Needs {
     reducedTransparency,
     invertedColors,
     vars: rule.usesVars,
+    ancestors,
     motion,
     constant,
   };
@@ -144,6 +174,7 @@ const NO_NEEDS: Needs = {
   reducedTransparency: false,
   invertedColors: false,
   vars: false,
+  ancestors: false,
   motion: false,
   constant: true,
 };
@@ -160,6 +191,7 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
   let reducedTransparency = false;
   let invertedColors = false;
   let vars = false;
+  let ancestors = false;
   let motion = false;
   let constant = true;
   for (const rule of rules) {
@@ -172,6 +204,7 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
     reducedTransparency ||= n.reducedTransparency;
     invertedColors ||= n.invertedColors;
     vars ||= n.vars;
+    ancestors ||= n.ancestors;
     motion ||= n.motion;
     constant &&= n.constant;
   }
@@ -184,16 +217,51 @@ export function analyzeNeeds(rules: readonly CompiledRule[]): Needs {
     reducedTransparency,
     invertedColors,
     vars,
+    ancestors,
     motion,
     constant,
   };
 }
 
+/** `[pseudo, marker id]` of an ancestor condition key, parsed once per key. */
+const ancestorKeys = new Map<string, readonly [string, string]>();
+
+function parseAncestor(condition: string): readonly [string, string] {
+  let parsed = ancestorKeys.get(condition);
+  if (!parsed) {
+    const inner = condition.slice(ANCESTOR.length, -1);
+    const comma = inner.lastIndexOf(", ");
+    parsed =
+      comma === -1 ? [inner, "default-marker"] : [inner.slice(0, comma), inner.slice(comma + 2)];
+    ancestorKeys.set(condition, parsed);
+  }
+  return parsed;
+}
+
+/**
+ * `when.ancestor(pseudo, marker)`: holds when the pseudo-class holds for any
+ * marked ancestor with that marker (false without one). Descendant and
+ * sibling conditions never hold: React Native has no such selectors.
+ */
+function relationalHolds(condition: string, env: Env): boolean {
+  if (!condition.startsWith(ANCESTOR)) return false;
+  const [pseudo, id] = parseAncestor(condition);
+  const states = env.ancestors?.get(id);
+  if (!states) return false;
+  for (const state of states) if (pseudoHolds(pseudo, state)) return true;
+  return false;
+}
+
 function conditionHolds(condition: string, env: Env): boolean {
   if (condition.startsWith("@media")) return matchesMedia(condition, env);
   if (condition.startsWith("@")) return false; // @supports, @container: never on native
-  const i = env.interaction;
-  switch (condition) {
+  if (condition.startsWith(RELATIONAL)) return relationalHolds(condition, env);
+  return pseudoHolds(condition, env.interaction);
+}
+
+/** Whether a pseudo-class condition holds for an element's interaction state. */
+function pseudoHolds(pseudo: string, i: InteractionState): boolean {
+  switch (pseudo) {
     case ":hover":
       return i.hover === true;
     case ":active":

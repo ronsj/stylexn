@@ -7,6 +7,11 @@
  * Escape hatches: `...web({ ... })` and `...native({ ... })` spreads inside a
  * rule. Which side is kept depends on `platform`; native blocks are marked
  * `trusted` so the compat check leaves them alone.
+ *
+ * Relational conditions: a computed key `[stylex.when.ancestor(":hover",
+ * marker)]` becomes the condition key `:where-ancestor(:hover, <marker>)`,
+ * where `<marker>` is `default-marker` or a sentinel for the marker
+ * expression (the Babel plugin emits it as `${marker.$$stylexnMarker}`).
  */
 import type { Declarations, Value } from "../expand/types.ts";
 import { makeSentinel } from "../sentinel.ts";
@@ -27,12 +32,27 @@ export class ExtractError extends Error {
 
 export type Platform = "native" | "web";
 export type HelperKind = "web" | "native";
+/** The `stylex.when.*` relational conditions. */
+export type WhenKind = "ancestor" | "descendant" | "siblingBefore" | "siblingAfter" | "anySibling";
+
+/** Condition-key spelling of each kind: `:where-<kind>(...)`, as StyleX writes it. */
+export const WHEN_CONDITIONS: Readonly<Record<WhenKind, string>> = {
+  ancestor: "ancestor",
+  descendant: "descendant",
+  siblingBefore: "sibling-before",
+  siblingAfter: "sibling-after",
+  anySibling: "any-sibling",
+};
+
+const isWhenKind = (name: string): name is WhenKind => Object.hasOwn(WHEN_CONDITIONS, name);
 
 export type ExtractOptions = Readonly<{
   /** Value of a `const` string binding for computed keys, or null if unknown. */
   resolveConst: (name: string, node: AstNode) => string | null;
   /** Which escape-hatch helper a call expression is, if any. */
   helper?: (call: AstNode) => HelperKind | null;
+  /** Which `when.*` condition a call expression is, if any (computed condition keys). */
+  when?: (call: AstNode) => WhenKind | null;
   /** Which platform's blocks to keep. Default native. */
   platform?: Platform;
 }>;
@@ -83,8 +103,16 @@ function literalValue(n: AstNode): Value | undefined {
   return undefined;
 }
 
-/** Name of an object property key: identifier, string literal, or a resolvable const. */
-export function propertyName(prop: AstNode, options: ExtractOptions): string {
+/**
+ * Name of an object property key: identifier, string literal, a resolvable
+ * const, or a `when.*` call. `expression` turns a non-literal node (the
+ * marker argument) into a sentinel.
+ */
+export function propertyName(
+  prop: AstNode,
+  options: ExtractOptions,
+  expression: (node: AstNode) => string,
+): string {
   const key = prop.key as AstNode;
   if (!prop.computed && key.type === "Identifier") return key.name as string;
   const literal = stringValue(key);
@@ -93,7 +121,29 @@ export function propertyName(prop: AstNode, options: ExtractOptions): string {
     const resolved = options.resolveConst(key.name as string, key);
     if (resolved !== null) return resolved;
   }
-  throw new ExtractError("style keys must be identifiers, string literals or const strings", key);
+  if (prop.computed && key.type === "CallExpression") {
+    const kind = options.when?.(key) ?? null;
+    if (kind) return whenCondition(kind, key, expression);
+  }
+  throw new ExtractError(
+    "style keys must be identifiers, string literals, const strings or stylex.when.* calls",
+    key,
+  );
+}
+
+/** `when.<kind>(pseudo, marker?)` as the condition key `:where-<kind>(<pseudo>, <marker>)`. */
+function whenCondition(
+  kind: WhenKind,
+  call: AstNode,
+  expression: (node: AstNode) => string,
+): string {
+  const [pseudoNode, marker] = call.arguments as AstNode[];
+  const pseudo = pseudoNode && stringValue(pseudoNode);
+  if (pseudo === undefined) {
+    throw new ExtractError(`when.${kind}() expects a string literal pseudo-class`, call);
+  }
+  const id = marker ? expression(marker) : "default-marker";
+  return `:where-${WHEN_CONDITIONS[kind]}(${pseudo}, ${id})`;
 }
 
 /** The object literal a rule provides: the value itself, or an arrow function's expression body. */
@@ -137,6 +187,10 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
   const locations = new Map<string, AstNode>();
   const expressions: AstNode[] = [];
   const trusted = new Set<string>();
+  const expression = (node: AstNode): string => {
+    expressions.push(node);
+    return makeSentinel(expressions.length - 1);
+  };
 
   const toValue = (node: AstNode, path: string): Value => {
     const literal = literalValue(node);
@@ -147,15 +201,14 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
         if (!isProperty(prop)) {
           throw new ExtractError("conditional values only accept plain properties", prop);
         }
-        const name = propertyName(prop, options);
+        const name = propertyName(prop, options, expression);
         const branchPath = `${path}[${name}]`;
         locations.set(branchPath, prop);
         out[name] = toValue(prop.value as AstNode, branchPath);
       }
       return out;
     }
-    expressions.push(node);
-    return makeSentinel(expressions.length - 1);
+    return expression(node);
   };
 
   const declarations: Record<string, Value> = {};
@@ -163,7 +216,7 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
     if (!isProperty(prop)) {
       throw new ExtractError("style rules only accept plain properties (no spread/methods)", prop);
     }
-    const name = propertyName(prop, options);
+    const name = propertyName(prop, options, expression);
     locations.set(name, prop);
     declarations[name] = toValue(prop.value as AstNode, name);
     if (trust) trusted.add(name);
@@ -188,12 +241,17 @@ export function extractRule(object: AstNode, options: ExtractOptions): Extracted
 
 export const DEFAULT_IMPORT_SOURCES: readonly string[] = ["@stylexjs/stylex", "stylex", "stylexn"];
 
-/** Tracks StyleX imports in a file and recognises `create`, `defineVars`, `web` and `native` through them. */
+/**
+ * Tracks StyleX imports in a file and recognises `create`, `defineVars`,
+ * `defineMarker`, `keyframes`, `when.*`, `web` and `native` through them.
+ */
 export class CreateCallTracker {
   private readonly namespaces = new Set<string>();
   private readonly creates = new Set<string>();
   private readonly defineVars = new Set<string>();
+  private readonly defineMarkers = new Set<string>();
   private readonly keyframes = new Set<string>();
+  private readonly whens = new Set<string>();
   private readonly helpers = new Map<string, HelperKind>();
   private readonly sources: ReadonlySet<string>;
 
@@ -214,6 +272,8 @@ export class CreateCallTracker {
           imported.type === "Identifier" ? (imported.name as string) : (imported.value as string);
         if (name === "create") this.creates.add(local);
         if (name === "defineVars") this.defineVars.add(local);
+        if (name === "defineMarker") this.defineMarkers.add(local);
+        if (name === "when") this.whens.add(local);
         if (name === "keyframes") this.keyframes.add(local);
         if (name === "web" || name === "native") this.helpers.set(local, name);
       }
@@ -244,6 +304,26 @@ export class CreateCallTracker {
     const callee = node.callee as AstNode;
     if (callee.type === "Identifier") return this.defineVars.has(callee.name as string);
     return this.memberOf(callee) === "defineVars";
+  }
+
+  isDefineMarkerCall(node: AstNode): boolean {
+    const callee = node.callee as AstNode;
+    if (callee.type === "Identifier") return this.defineMarkers.has(callee.name as string);
+    return this.memberOf(callee) === "defineMarker";
+  }
+
+  /** The kind of a `stylex.when.<kind>(...)` / `when.<kind>(...)` call from a StyleX import. */
+  whenKind(node: AstNode): WhenKind | null {
+    const callee = node.callee as AstNode;
+    if (callee.type !== "MemberExpression" || callee.computed) return null;
+    const property = callee.property as AstNode;
+    if (property.type !== "Identifier" || !isWhenKind(property.name as string)) return null;
+    const object = callee.object as AstNode;
+    const isWhen =
+      object.type === "Identifier"
+        ? this.whens.has(object.name as string)
+        : this.memberOf(object) === "when";
+    return isWhen ? (property.name as WhenKind) : null;
   }
 
   /** `web` or `native` when the call is an escape-hatch helper from a StyleX import. */

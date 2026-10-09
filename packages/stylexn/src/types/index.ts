@@ -137,11 +137,29 @@ export type SupportedAtRule = {
   [A in keyof AR]: AR[A]["status"] extends "unsupported" ? never : `${A & string}${string}`;
 }[keyof AR];
 
+/**
+ * `when.ancestor(pseudo, marker)` keys the runtime evaluates. Descendant and
+ * sibling keys (`:where-descendant(...)`, ...) are not supported.
+ */
+export type SupportedAncestorCondition = `:where-ancestor(${SupportedPseudoClass}, ${string})`;
+
+/**
+ * A computed key whose type is just `string` cannot be checked: StyleX's
+ * `when.*` are typed that way (their template type embeds a symbol), and an
+ * object literal widens any non-literal computed key to a `string` index
+ * signature. Such keys pass; the build check judges the real condition.
+ */
 type CheckCondition<K extends keyof P & string, C, V> = C extends "default"
   ? CheckValue<K, V>
-  : C extends SupportedPseudoClass | SupportedPseudoElement<K> | SupportedAtRule
+  : C extends
+        | SupportedPseudoClass
+        | SupportedPseudoElement<K>
+        | SupportedAtRule
+        | SupportedAncestorCondition
     ? CheckValue<K, V>
-    : Message<`condition "${C & string}" is not supported on React Native for ${K}`>;
+    : string extends C
+      ? CheckValue<K, V>
+      : Message<`condition "${C & string}" is not supported on React Native for ${K}`>;
 
 type CheckConditional<K extends keyof P & string, V> = {
   readonly [C in keyof V]: CheckCondition<K, C, V[C]>;

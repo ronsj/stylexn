@@ -173,8 +173,13 @@ describe("units and functions", () => {
 
 describe("apis", () => {
   test("selector-dependent APIs are unsupported", () => {
-    expect(apis.when.status).toBe("unsupported");
     expect(apis.positionTry.status).toBe("unsupported");
-    expect(apis.defineMarker.status).toBe("unsupported");
+  });
+
+  test("markers are polyfilled and when.* covers ancestor conditions only", () => {
+    expect(apis.defineMarker.status).toBe("polyfilled");
+    expect(apis.defaultMarker.status).toBe("polyfilled");
+    expect(apis.when.status).toBe("partial");
+    expect(apis.when.values).toEqual(["ancestor"]);
   });
 });

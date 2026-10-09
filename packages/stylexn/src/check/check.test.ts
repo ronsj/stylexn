@@ -132,6 +132,45 @@ describe("conditions", () => {
     });
   });
 
+  test("when.ancestor: judged by its pseudo-class; markers are opaque", () => {
+    const marker = makeSentinel(0);
+    expect(
+      check({
+        color: {
+          default: "a",
+          [`:where-ancestor(:hover, ${marker})`]: "b",
+          ":where-ancestor(:active, default-marker)": "c",
+          [`:where-ancestor(:checked, ${marker})`]: { default: "d", ":hover": "e" },
+        },
+      }),
+    ).toEqual([]);
+    const [f] = check({ color: { [`:where-ancestor(:first-child, ${marker})`]: "b" } });
+    expect(f).toMatchObject({
+      kind: "condition",
+      status: "unsupported",
+      conditions: [`:where-ancestor(:first-child, ${marker})`],
+    });
+    expect(f?.message).toMatch(/^when\.ancestor\(:first-child\) on color — /);
+    expect(kinds({ color: { ":where-ancestor(:visited, m1)": "b" } })).toEqual([
+      "condition:web-only:color",
+    ]);
+    expect(kinds({ color: { ":where-ancestor([data-open], m1)": "b" } })).toEqual([
+      "condition:unsupported:color",
+    ]);
+  });
+
+  test("descendant and sibling conditions are unsupported", () => {
+    for (const kind of ["descendant", "sibling-before", "sibling-after", "any-sibling"]) {
+      const [f, ...rest] = check({ color: { [`:where-${kind}(:hover, m1)`]: "b" } });
+      expect(rest).toEqual([]);
+      expect(f).toMatchObject({ kind: "condition", status: "unsupported", property: "color" });
+      expect(f?.message).toMatch(/descendant and sibling conditions need selectors/);
+    }
+    expect(kinds({ color: { ":where-nonsense(:hover, m1)": "b" } })).toEqual([
+      "condition:unsupported:color",
+    ]);
+  });
+
   test("::placeholder is only for color", () => {
     expect(check({ color: { "::placeholder": "gray" } })).toEqual([]);
     expect(kinds({ opacity: { "::placeholder": 0.5 } })).toEqual(["condition:unsupported:opacity"]);

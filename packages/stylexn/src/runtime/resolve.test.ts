@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { compileRule } from "../compile/compile.ts";
+import type { CompiledRule } from "../compile/compile.ts";
 import type { Declarations } from "../expand/types.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
 import type { Env } from "./types.ts";
 import { createTheme, defineVars, resetVarsForTesting, scopeWith } from "./vars.ts";
+import { defaultMarker, defineMarker, when } from "./markers.ts";
 
 const rule = (decls: Declarations) => compileRule(decls).rule;
 
@@ -16,6 +18,7 @@ const env = (overrides: Partial<Env> = {}): Env => ({
   invertedColors: false,
   pointer: "coarse",
   interaction: {},
+  ancestors: null,
   vars: {},
   rootFontSize: 16,
   fontSize: 14,
@@ -226,6 +229,7 @@ describe("analyzeNeeds", () => {
       reducedTransparency: false,
       invertedColors: false,
       vars: false,
+      ancestors: false,
       motion: false,
       constant: true,
     });
@@ -339,7 +343,112 @@ describe("analyzeNeeds", () => {
     const vars = defineVars({ a: 1 });
     const theme = createTheme(vars, { a: 2 });
     const r = rule({ color: "red" });
-    expect(flattenArgs([r, [theme, [r]], null])).toEqual({ rules: [r, r], themes: [theme] });
+    expect(flattenArgs([r, [theme, [r]], null])).toEqual({
+      rules: [r, r],
+      themes: [theme],
+      markers: [],
+    });
+  });
+
+  test("flattenArgs collects marker ids once each, in order", () => {
+    const r = rule({ color: "red" });
+    const card = defineMarker("card");
+    expect(flattenArgs([card, r, [defaultMarker(), card]]).markers).toEqual([
+      "card",
+      "default-marker",
+    ]);
+  });
+});
+
+const ancestors = (entries: Record<string, Env["interaction"][]>): Env["ancestors"] =>
+  new Map(Object.entries(entries));
+
+describe("ancestor conditions (when.ancestor)", () => {
+  const card = defineMarker("card");
+  const row = defineMarker("row");
+
+  test("hold when the marked ancestor is in the state; false without one", () => {
+    const r = rule({
+      color: { default: "black", [when.ancestor(":active", card)]: "red" },
+      opacity: { default: 1, [when.ancestor(":hover")]: 0.5 },
+    });
+    expect(resolve([r], env()).style).toEqual({ color: "black", opacity: 1 });
+    expect(resolve([r], env({ ancestors: ancestors({}) })).style.color).toBe("black");
+    expect(resolve([r], env({ ancestors: ancestors({ card: [{}] }) })).style.color).toBe("black");
+    expect(
+      resolve([r], env({ ancestors: ancestors({ card: [{ active: true }] }) })).style.color,
+    ).toBe("red");
+    // The element's own state does not count, and other markers do not either.
+    expect(resolve([r], env({ interaction: { active: true } })).style.color).toBe("black");
+    expect(
+      resolve([r], env({ ancestors: ancestors({ row: [{ active: true }] }) })).style.color,
+    ).toBe("black");
+    // when.ancestor without a marker reads the default marker.
+    expect(
+      resolve([r], env({ ancestors: ancestors({ "default-marker": [{ hover: true }] }) })).style
+        .opacity,
+    ).toBe(0.5);
+  });
+
+  test("every pseudo-class the runtime evaluates works on an ancestor", () => {
+    const r = rule({
+      color: {
+        default: "black",
+        [when.ancestor(":disabled", row)]: "gray",
+        [when.ancestor(":checked", row)]: "green",
+        [when.ancestor(":focus-visible", row)]: "blue",
+      },
+      opacity: { default: 1, [when.ancestor(":enabled", row)]: 0.9 },
+    });
+    const of = (state: Env["interaction"]) =>
+      resolve([r], env({ ancestors: ancestors({ row: [state] }) })).style;
+    expect(of({ disabled: true })).toEqual({ color: "gray", opacity: 1 });
+    expect(of({ checked: true })).toEqual({ color: "green", opacity: 0.9 });
+    expect(of({ focus: true })).toEqual({ color: "blue", opacity: 0.9 });
+  });
+
+  test("any ancestor with the marker counts, like .marker:hover * on the web", () => {
+    const r = rule({ color: { default: "black", [when.ancestor(":active", card)]: "red" } });
+    const nested = ancestors({ card: [{}, { active: true }] });
+    expect(resolve([r], env({ ancestors: nested })).style.color).toBe("red");
+  });
+
+  test("descendant and sibling conditions never hold", () => {
+    // The compiler strips (or rejects) them; a rule built by hand reaches the resolver.
+    const keys = [
+      when.descendant(":hover", card),
+      when.siblingBefore(":hover", card),
+      when.siblingAfter(":hover", card),
+      when.anySibling(":hover", card),
+    ];
+    expect(rule({ color: { default: "black", [keys[0] as string]: "red" } }).conditional).toEqual(
+      [],
+    );
+    const r: CompiledRule = {
+      $$stylexn: 1,
+      static: { color: "black" },
+      conditional: keys.map((k) => ({ key: "color", when: [k], value: "red" })),
+      props: {},
+      conditionalProps: [],
+      depth: {},
+      usesVars: false,
+    };
+    const all = ancestors({ card: [{ hover: true }] });
+    expect(resolve([r], env({ ancestors: all, interaction: { hover: true } })).style.color).toBe(
+      "black",
+    );
+  });
+
+  test("analyzeNeeds: ancestor conditions need ancestors, not the element's own interaction", () => {
+    const needs = analyzeNeeds([rule({ color: { [when.ancestor(":hover", card)]: "red" } })]);
+    expect(needs).toMatchObject({ ancestors: true, interaction: false, constant: false });
+    const other = analyzeNeeds([rule({ color: { [when.descendant(":hover")]: "red" } })]);
+    expect(other).toMatchObject({ ancestors: false, interaction: false });
+    const both = analyzeNeeds([
+      rule({ color: { ":hover": "red" } }),
+      rule({ opacity: { [when.ancestor(":active")]: 0.5 } }),
+    ]);
+    expect(both).toMatchObject({ ancestors: true, interaction: true });
   });
 });
 

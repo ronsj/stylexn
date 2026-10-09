@@ -32,10 +32,12 @@ import {
   View as RNView,
 } from "react-native";
 import {
+  MarkerProvider,
   TextStyleProvider,
   ThemeProvider,
   useInheritedTextStyle,
   useProps,
+  type Marked,
 } from "../runtime/hooks.ts";
 import { flattenArgs } from "../runtime/resolve.ts";
 import { config } from "../runtime/env.ts";
@@ -122,15 +124,27 @@ function cascade(
   return themes.length ? createElement(ThemeProvider, { theme: themes }, out) : out;
 }
 
+/**
+ * An element with a marker in its `sx` (`defineMarker`) publishes its
+ * interaction state to its descendants for `when.ancestor`. The provider
+ * wraps the element itself, so FlatList (whose items React Native renders)
+ * works the same as the others.
+ */
+const publish = (marked: Marked | undefined, element: ReactNode): ReactNode =>
+  marked ? createElement(MarkerProvider, { marked }, element) : element;
+
 export type ViewProps = CommonProps & Readonly<{ sx?: SxProp; children?: ReactNode }>;
 
 export function View({ sx, children, ...rest }: ViewProps) {
-  const { style, animated, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
-  return createElement(
-    animated ? Animated.View : RNView,
-    { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
-    cascade(sx, inherited, children),
+  return publish(
+    marked,
+    createElement(
+      animated ? Animated.View : RNView,
+      { ...rest, ...extra, onPointerEnter: onHoverIn, onPointerLeave: onHoverOut, style: own },
+      cascade(sx, inherited, children),
+    ),
   );
 }
 
@@ -141,6 +155,7 @@ export function Text({ sx, children, ...rest }: TextProps) {
   const {
     style,
     animated,
+    marked,
     onHoverIn: _h,
     onHoverOut: _o,
     onFocus: _f,
@@ -151,10 +166,13 @@ export function Text({ sx, children, ...rest }: TextProps) {
   const inherited = useInheritedTextStyle();
   const merged = mergeInherited(inherited, style as Record<string, RNLeaf>, config.fontSize);
   // Nested text and `em` units are relative to this element's text style.
-  return createElement(
-    animated ? Animated.Text : RNText,
-    { ...rest, ...extra, style: merged },
-    cascade(sx, splitInherited(style as Record<string, RNLeaf>).inherited, children),
+  return publish(
+    marked,
+    createElement(
+      animated ? Animated.Text : RNText,
+      { ...rest, ...extra, style: merged },
+      cascade(sx, splitInherited(style as Record<string, RNLeaf>).inherited, children),
+    ),
   );
 }
 
@@ -176,25 +194,29 @@ export function Pressable({
   const {
     style,
     animated,
+    marked,
     onPressIn: trackIn,
     onPressOut: trackOut,
     ...extra
   } = useProps(toList(sx), { disabled });
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
-  return createElement(
-    animated ? AnimatedPressable : RNPressable,
-    {
-      ...rest,
-      ...extra,
-      disabled,
-      onPress,
-      onPressIn: compose(trackIn, onPressIn),
-      onPressOut: compose(trackOut, onPressOut),
-      onLongPress,
-      style: own,
-      role: "button",
-    },
-    cascade(sx, inherited, children),
+  return publish(
+    marked,
+    createElement(
+      animated ? AnimatedPressable : RNPressable,
+      {
+        ...rest,
+        ...extra,
+        disabled,
+        onPress,
+        onPressIn: compose(trackIn, onPressIn),
+        onPressOut: compose(trackOut, onPressOut),
+        onLongPress,
+        style: own,
+        role: "button",
+      },
+      cascade(sx, inherited, children),
+    ),
   );
 }
 
@@ -205,6 +227,7 @@ export function Switch({ sx, value, onValueChange, disabled, ...rest }: SwitchPr
   const {
     style,
     animated,
+    marked,
     onHoverIn: _h,
     onHoverOut: _o,
     ...extra
@@ -214,14 +237,17 @@ export function Switch({ sx, value, onValueChange, disabled, ...rest }: SwitchPr
     // A checkbox is always :read-only in CSS (only text-like controls are read-write).
     readOnly: true,
   });
-  return createElement(animated ? AnimatedSwitch : RNSwitch, {
-    ...rest,
-    ...extra,
-    value,
-    onValueChange,
-    disabled,
-    style,
-  });
+  return publish(
+    marked,
+    createElement(animated ? AnimatedSwitch : RNSwitch, {
+      ...rest,
+      ...extra,
+      value,
+      onValueChange,
+      disabled,
+      style,
+    }),
+  );
 }
 
 export type ImageProps = CommonProps & ImageOwnProps & Readonly<{ sx?: SxProp }>;
@@ -236,16 +262,19 @@ function toSource(src: ImageSource): number | { uri: string } {
 
 export function Image({ sx, src, alt, onLoad, onError, ...rest }: ImageProps) {
   // Image has no pointer events on native: hover conditions never hold.
-  const { style, animated, onHoverIn: _h, onHoverOut: _o, ...extra } = useProps(toList(sx));
-  return createElement(animated ? Animated.Image : RNImage, {
-    ...rest,
-    ...extra,
-    source: toSource(src),
-    alt,
-    onLoad: onLoad && (() => onLoad()),
-    onError: onError && (() => onError()),
-    style,
-  });
+  const { style, animated, marked, onHoverIn: _h, onHoverOut: _o, ...extra } = useProps(toList(sx));
+  return publish(
+    marked,
+    createElement(animated ? Animated.Image : RNImage, {
+      ...rest,
+      ...extra,
+      source: toSource(src),
+      alt,
+      onLoad: onLoad && (() => onLoad()),
+      onError: onError && (() => onError()),
+      style,
+    }),
+  );
 }
 
 export type TextInputProps = CommonProps &
@@ -302,6 +331,7 @@ export function TextInput({
   const {
     style,
     animated,
+    marked,
     onHoverIn: _h,
     onHoverOut: _o,
     onPressIn: _i,
@@ -314,7 +344,7 @@ export function TextInput({
     readOnly,
     placeholderShown: !!placeholder && empty,
   });
-  return createElement(withRef(animated ? AnimatedTextInput : RNTextInput), {
+  const input = createElement(withRef(animated ? AnimatedTextInput : RNTextInput), {
     ...rest,
     ...extra,
     ref: inner,
@@ -340,6 +370,7 @@ export function TextInput({
     onSubmitEditing: onSubmitEditing && (() => onSubmitEditing()),
     style,
   });
+  return publish(marked, input);
 }
 
 export type ScrollViewProps = CommonProps &
@@ -359,7 +390,7 @@ type ScrollViewLike = {
 
 /** `sx` styles the scroll container, `contentSx` its content (contentContainerStyle). */
 export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: ScrollViewProps) {
-  const { style, animated, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
   const content = useProps(toList(contentSx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   const inner = useRef<ScrollViewLike | null>(null);
@@ -373,7 +404,7 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
     }),
     [],
   );
-  return createElement(
+  const scroll = createElement(
     withRef(animated ? Animated.ScrollView : RNScrollView),
     {
       ...rest,
@@ -388,6 +419,7 @@ export function ScrollView({ sx, contentSx, children, onScroll, ref, ...rest }: 
     },
     cascade(sx, inherited, children),
   );
+  return publish(marked, scroll);
 }
 
 /**
@@ -432,7 +464,7 @@ export function FlatList<T>({
   ref,
   ...rest
 }: FlatListProps<T>) {
-  const { style, animated, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
+  const { style, animated, marked, onHoverIn, onHoverOut, ...extra } = useProps(toList(sx));
   const content = useProps(toList(contentSx));
   const { own, inherited } = splitInherited(style as Record<string, RNLeaf>);
   const inner = useRef<FlatListLike | null>(null);
@@ -469,5 +501,5 @@ export function FlatList<T>({
     style: own,
     contentContainerStyle: content.style,
   });
-  return cascade(sx, inherited, list);
+  return publish(marked, cascade(sx, inherited, list));
 }

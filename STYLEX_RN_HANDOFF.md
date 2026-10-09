@@ -78,7 +78,7 @@ StyleX and Babel:
 - `packages/stylexn/src/web.ts` ships uncompiled, so it cannot call `stylex.create` itself.
 - `["stylexn/babel", { platform: "web" }]` must precede `@stylexjs/babel-plugin`; each app's PostCSS config reuses the plugin list from its `babel.config.js`. Next also needs `transpilePackages` and an explicit PostCSS `include` glob to reach `packages/shared` (auto-discovery stays inside the app).
 - Babel plugins share one traversal: do not rely on untransformed source in a visitor (`const` may already be `var`, JSX may be gone). Use scope information (`binding.constant`).
-- Fast Refresh keeps `defineVars` and `keyframes` references valid only because `stylexn/babel` injects stable ids (hash of the file path and export name); without the plugin both fall back to a process counter.
+- Fast Refresh keeps `defineVars`, `defineMarker` and `keyframes` references valid only because `stylexn/babel` injects stable ids (hash of the file path and export name); without the plugin they fall back to a process counter.
 - Everything in `packages/stylexn/src` must stay erasable-syntax TypeScript (no parameter properties, enums, namespaces) so Node and oxlint load the source directly.
 - `elements/web.ts` and `elements/native.ts` start with `"use client"` so Server Components can import them; keep the directive on any new element entry.
 

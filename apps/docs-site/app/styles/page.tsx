@@ -1,4 +1,5 @@
 import {
+  AncestorPress,
   BadgeVariants,
   ColorFunctions,
   ColorSchemeCard,
@@ -98,6 +99,13 @@ export default function AuthoringStyles() {
             <Code>::placeholder</Code> on a <Code>TextInput</Code>, which becomes the{" "}
             <Code>placeholderTextColor</Code> prop.
           </li>
+          <li>
+            Ancestor conditions: <Code>stylex.when.ancestor(&quot;:active&quot;, marker)</Code> as a
+            key holds while the nearest element carrying <Code>marker</Code> (from{" "}
+            <Code>defineMarker</Code>, or <Code>defaultMarker()</Code> when none is given) is in
+            that state. On native the marked element publishes its interaction state to its
+            descendants through context.
+          </li>
         </Ul>
         <Example name="InteractionStates">
           <InteractionStates />
@@ -114,9 +122,27 @@ export default function AuthoringStyles() {
         <Example name="ColorSchemeCard">
           <ColorSchemeCard />
         </Example>
-        <Note title="No structural selectors">
+        <P>
+          A marker lets a child react to an ancestor&apos;s state. Like <Code>defineVars</Code>,{" "}
+          <Code>defineMarker</Code> is a named export of a <Code>*.stylex.ts</Code> file:
+        </P>
+        <CodeBlock
+          code={readRepoFile(`${EXAMPLES_DIR}/cardMarker.stylex.ts`)}
+          lang="ts"
+          caption={`${EXAMPLES_DIR}/cardMarker.stylex.ts`}
+        />
+        <P>
+          Put the marker in the card&apos;s <Code>sx</Code>, and the text inside styles itself with{" "}
+          <Code>stylex.when.ancestor</Code>:
+        </P>
+        <Example name="AncestorPress">
+          <AncestorPress />
+        </Example>
+        <Note title="No structural or sibling selectors">
           <Code>:nth-child</Code>, <Code>:first-child</Code> and similar conditions need context
-          React Native does not have. Pass the state to the style instead:{" "}
+          React Native does not have, and so do <Code>when.descendant</Code> and the sibling
+          conditions; <Code>when.ancestor</Code> is the one relational condition native supports.
+          Pass the state to the style instead:{" "}
           <Code>sx={"{[styles.row, index % 2 === 1 && styles.odd]}"}</Code>. See{" "}
           <A href="/checking/">Checking styles</A> for the error they produce.
         </Note>

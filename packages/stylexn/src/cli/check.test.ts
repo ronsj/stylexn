@@ -48,6 +48,24 @@ const styles = stylex.create({
     expect(p?.message).toMatch(/plain properties/);
   });
 
+  test("when.* computed keys: ancestor passes, descendant is an error", () => {
+    expect(
+      checkSource(
+        `${HEADER}stylex.create({ a: { color: { default: "red", [stylex.when.ancestor(":active", m)]: "blue" } } });`,
+        "x.ts",
+      ),
+    ).toEqual([]);
+    const [p, ...rest] = checkSource(
+      `${HEADER}stylex.create({ a: { color: { [stylex.when.anySibling(":hover")]: "blue" } } });`,
+      "x.ts",
+    );
+    expect(rest).toEqual([]);
+    expect(p).toMatchObject({
+      severity: "error",
+      message: expect.stringMatching(/when\.anySibling/),
+    });
+  });
+
   test("web-only reporting is opt-in", () => {
     const src = `${HEADER}stylex.create({ a: { willChange: "x" } });`;
     expect(checkSource(src, "x.ts")).toEqual([]);

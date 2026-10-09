@@ -102,6 +102,7 @@ export function checkSource(code: string, file: string, options: CheckOptions = 
           const { declarations, locations, trusted } = extractRule(object, {
             resolveConst,
             helper: (call) => tracker.helperKind(call as unknown as AstNode),
+            when: (call) => tracker.whenKind(call as unknown as AstNode),
             platform: "native",
           });
           const messages = lintDeclarations(declarations, locations, {

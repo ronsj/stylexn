@@ -140,6 +140,8 @@ type FlatListProps<T> = {
   testID?: string;
   ref?: Ref<unknown>;
   onScroll?: (event: { nativeEvent: { contentOffset: { x: number; y: number } } }) => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
   [prop: string]: unknown;
 };
 
@@ -168,6 +170,8 @@ export function FlatList<T>({
   testID,
   ref,
   onScroll,
+  onPointerEnter,
+  onPointerLeave,
   ...rest
 }: FlatListProps<T>) {
   const serialisable = Object.fromEntries(
@@ -190,6 +194,8 @@ export function FlatList<T>({
       "data-testid": testID,
       "data-style": JSON.stringify(style ?? null),
       "data-props": JSON.stringify({ ...serialisable, contentContainerStyle }),
+      onPointerEnter,
+      onPointerLeave,
       onScroll:
         onScroll &&
         ((event: { currentTarget: { scrollLeft: number; scrollTop: number } }) =>

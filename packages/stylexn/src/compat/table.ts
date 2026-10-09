@@ -932,8 +932,14 @@ export const apis = {
   firstThatWorks: poly("Picks the first value the compat table accepts, at compile time."),
   positionTry: no("Anchor positioning does not exist on native."),
   viewTransitionClass: web("View transitions are a web API."),
-  defineMarker: no("Markers depend on CSS selectors."),
-  when: no("Ancestor/sibling conditions (stylex.when.*) depend on CSS selectors."),
+  defineMarker: poly(
+    "Pass the marker to props()/sx on the ancestor; that element publishes its interaction state to its descendants through context.",
+  ),
+  defaultMarker: poly("The shared default marker, as on the web."),
+  when: some(
+    ["ancestor"],
+    "when.ancestor(pseudo, marker) reads the marked ancestor's interaction state (hover, active, focus, disabled, checked, …). descendant and sibling conditions need selectors React Native does not have.",
+  ),
   types: ok({ note: "Typed variables are compile-time only." }),
   env: ok({ note: "Compile-time constants." }),
 } as const satisfies Table;

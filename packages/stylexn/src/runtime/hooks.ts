@@ -2,6 +2,7 @@ import {
   createContext,
   createElement,
   useContext,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -22,7 +23,15 @@ import {
 } from "./env.ts";
 import { registerInherit, shallowEqual, type InheritedTextStyle } from "./inherit.ts";
 import { analyzeNeeds, flattenArgs, resolve } from "./resolve.ts";
-import type { Env, InteractionState, StyleArg, Theme, VarScope, WindowMetrics } from "./types.ts";
+import type {
+  Ancestors,
+  Env,
+  InteractionState,
+  StyleArg,
+  Theme,
+  VarScope,
+  WindowMetrics,
+} from "./types.ts";
 import { scopeWith } from "./vars.ts";
 
 // ---------------------------------------------------------------------------
@@ -243,6 +252,108 @@ export function FontSizeProvider({
 }
 
 // ---------------------------------------------------------------------------
+// Markers: an element with a marker in its styles publishes its interaction
+// state to its descendants for `when.ancestor(pseudo, marker)`. The context
+// value is a store that keeps its identity, so a state change re-renders
+// only the descendants that read it (through useSyncExternalStore), not the
+// subtree.
+// ---------------------------------------------------------------------------
+
+/** What a marked element publishes: its marker ids and its interaction state. */
+export type Marked = Readonly<{ markers: readonly string[]; state: InteractionState }>;
+
+type AncestorScope = Readonly<{
+  /** Called when this scope's or any enclosing scope's state changes. */
+  subscribe: (onChange: () => void) => () => void;
+  /** Marked ancestors by marker id; the same object until something changes. */
+  snapshot: () => Ancestors;
+}>;
+
+type PublishingScope = AncestorScope & Readonly<{ publish: (marked: Marked) => void }>;
+
+const NO_ANCESTORS: Ancestors = new Map();
+const ROOT_SCOPE: AncestorScope = { subscribe: () => () => {}, snapshot: () => NO_ANCESTORS };
+const AncestorContext = createContext<AncestorScope>(ROOT_SCOPE);
+
+const INTERACTION_KEYS = [
+  "hover",
+  "active",
+  "focus",
+  "focusVisible",
+  "focusWithin",
+  "disabled",
+  "checked",
+  "placeholderShown",
+  "readOnly",
+] as const satisfies readonly (keyof InteractionState)[];
+
+const sameMarked = (a: Marked, b: Marked): boolean =>
+  a.markers.length === b.markers.length &&
+  a.markers.every((m, i) => m === b.markers[i]) &&
+  INTERACTION_KEYS.every((k) => a.state[k] === b.state[k]);
+
+/** A marked element's scope, chained to the enclosing one for the other markers. */
+function createScope(parent: AncestorScope, initial: Marked): PublishingScope {
+  let own = initial;
+  let cached: Ancestors | null = null;
+  let cachedOuter: Ancestors | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe(onChange) {
+      listeners.add(onChange);
+      const off = parent.subscribe(onChange);
+      return () => {
+        listeners.delete(onChange);
+        off();
+      };
+    },
+    snapshot() {
+      const outer = parent.snapshot();
+      if (cached && outer === cachedOuter) return cached;
+      const next = new Map(outer);
+      // Nearest first; an outer element with the same marker still counts.
+      for (const id of own.markers) next.set(id, [own.state, ...(outer.get(id) ?? [])]);
+      cached = next;
+      cachedOuter = outer;
+      return next;
+    },
+    publish(marked) {
+      if (sameMarked(marked, own)) return;
+      own = marked;
+      cached = null;
+      for (const onChange of listeners) onChange();
+    },
+  };
+}
+
+export type MarkerProviderProps = Readonly<{
+  /** `useProps(...).marked`: the element's markers and interaction state. */
+  marked: Marked;
+  children?: ReactNode;
+}>;
+
+/**
+ * Publish a marked element's interaction state to its subtree. The elements
+ * wrap themselves in it when `useProps` returns `marked`; wrap a custom
+ * component styled with `useProps` the same way.
+ */
+export function MarkerProvider({ marked, children }: MarkerProviderProps) {
+  const parent = useContext(AncestorContext);
+  // Seeded with the current state so descendants render right the first
+  // time; a new enclosing scope (rare) gets a new scope (derived state).
+  const [held, setHeld] = useState(() => ({ parent, scope: createScope(parent, marked) }));
+  let scope = held.scope;
+  if (held.parent !== parent) {
+    scope = createScope(parent, marked);
+    setHeld({ parent, scope });
+  }
+  // After commit: notifying subscribers during render would update other
+  // components mid-render. Layout effect, so they re-render before paint.
+  useLayoutEffect(() => scope.publish(marked), [scope, marked]);
+  return createElement(AncestorContext.Provider, { value: scope }, children);
+}
+
+// ---------------------------------------------------------------------------
 // Interaction state
 // ---------------------------------------------------------------------------
 
@@ -295,6 +406,12 @@ export type UsePropsResult = Readonly<{
   style: AnimatedStyle;
   /** Set (true) when the rules mention motion: render on an Animated component then. */
   animated?: true;
+  /**
+   * Set when the arguments include a marker (`defineMarker`): wrap the
+   * element in `MarkerProvider` with it so `when.ancestor` conditions below
+   * see its state. Not a prop for the underlying component.
+   */
+  marked?: Marked;
   [prop: string]: unknown;
 }> &
   Partial<InteractionHandlers>;
@@ -307,7 +424,10 @@ export type UsePropsResult = Readonly<{
 export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {}): UsePropsResult {
   // Per-rule analysis is cached on the rules, so this is cheap every render
   // (the args array is usually new each time, which defeats useMemo).
-  const needs = analyzeNeeds(flattenArgs(args).rules);
+  const { rules, markers } = flattenArgs(args);
+  const needs = analyzeNeeds(rules);
+  // A marked element tracks its own interaction to publish it.
+  const tracked = needs.interaction || markers.length > 0;
 
   const window = useSyncExternalStore(
     needs.dimensions ? subscribeWindow : noop,
@@ -326,6 +446,11 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     a11yMask === 0 ? noop : subscribeAccessibility(a11yMask),
     a11yMask === 0 ? getDefaultAccessibility : getAccessibility,
   );
+  const scope = useContext(AncestorContext);
+  const ancestors = useSyncExternalStore(
+    needs.ancestors ? scope.subscribe : noop,
+    needs.ancestors ? scope.snapshot : getNull,
+  );
   const vars = useContext(VarsContext);
   const inheritedFontSize = useContext(TextStyleContext).fontSize;
   const [ownInteraction, handlers] = useInteraction();
@@ -338,7 +463,7 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     reducedTransparency: accessibility.reducedTransparency,
     invertedColors: accessibility.invertedColors,
     pointer: config.pointer,
-    interaction: needs.interaction
+    interaction: tracked
       ? {
           ...ownInteraction,
           ...options.interaction,
@@ -349,6 +474,7 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
           readOnly: options.readOnly ?? options.interaction?.readOnly,
         }
       : NO_INTERACTION,
+    ancestors,
     vars,
     rootFontSize: config.rootFontSize,
     fontSize: typeof inheritedFontSize === "number" ? inheritedFontSize : config.fontSize,
@@ -363,7 +489,8 @@ export function useProps(args: readonly StyleArg[], options: UsePropsOptions = {
     (rule: CompiledRule) => resolve([rule], env).style,
   );
   const result: Record<string, unknown> = { ...extra };
-  if (needs.interaction) Object.assign(result, handlers);
+  if (tracked) Object.assign(result, handlers);
+  if (markers.length > 0) result.marked = { markers, state: env.interaction };
   if (motion.animated) result.animated = true;
   if (inherit) registerInherit(motion.style, inherit);
   result.style = motion.style;

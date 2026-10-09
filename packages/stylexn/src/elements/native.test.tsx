@@ -7,6 +7,7 @@ vi.mock("react-native", () => import("../testing/react-native.ts"));
 
 import { create } from "../runtime/api.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "../runtime/vars.ts";
+import { defaultMarker, defineMarker, when } from "../runtime/markers.ts";
 import { createRef } from "react";
 import { FlatList, Image, Pressable, ScrollView, Switch, Text, TextInput, View } from "./native.ts";
 import type { FlatListHandle, ScrollViewHandle, TextInputHandle } from "./native.ts";
@@ -568,5 +569,170 @@ describe("more elements", () => {
     list.current?.scrollToOffset({ offset: 10, animated: false });
     expect(scrollToIndex).toHaveBeenCalledWith({ index: 3, animated: true });
     expect(scrollToOffset).toHaveBeenCalledWith({ offset: 10, animated: false });
+  });
+});
+
+describe("markers and when.ancestor", () => {
+  const card = defineMarker("card");
+  const row = defineMarker("row");
+  const m = create({
+    surface: { padding: 4 },
+    label: { color: { default: "black", [when.ancestor(":active", card)]: "red" } },
+    rowLabel: {
+      color: {
+        default: "black",
+        [when.ancestor(":hover", row)]: "blue",
+        [when.ancestor(":active", card)]: "red",
+      },
+    },
+    anyLabel: { color: { default: "black", [when.ancestor(":active")]: "green" } },
+    hoverLabel: { color: { default: "black", [when.ancestor(":hover", card)]: "purple" } },
+  });
+
+  test("a marked Pressable's press reaches a Text inside it, not one outside", () => {
+    let probeRenders = 0;
+    function Probe() {
+      probeRenders++;
+      return null;
+    }
+    render(
+      <>
+        <Pressable sx={[card, m.surface]} testID="p">
+          <View>
+            <Text sx={m.label} testID="inside">
+              hi
+            </Text>
+          </View>
+          <Probe />
+        </Pressable>
+        <Text sx={m.label} testID="outside">
+          out
+        </Text>
+      </>,
+    );
+    expect(styleOf("inside").color).toBe("black");
+    expect(propsOf("p")).not.toHaveProperty("marked");
+    expect(styleOf("p")).toEqual({
+      paddingTop: 4,
+      paddingRight: 4,
+      paddingBottom: 4,
+      paddingLeft: 4,
+    });
+    const before = probeRenders;
+    fireEvent.mouseDown(screen.getByTestId("p"));
+    expect(styleOf("inside").color).toBe("red");
+    expect(styleOf("outside").color).toBe("black");
+    // The scope is a store: only descendants that read it re-render.
+    expect(probeRenders).toBe(before);
+    fireEvent.mouseUp(screen.getByTestId("p"));
+    expect(styleOf("inside").color).toBe("black");
+  });
+
+  test("nested markers: each id reads its own element, outer state stays visible", () => {
+    render(
+      <View sx={row} testID="row">
+        <Pressable sx={card} testID="card">
+          <Text sx={m.rowLabel} testID="label">
+            hi
+          </Text>
+        </Pressable>
+      </View>,
+    );
+    expect(styleOf("label").color).toBe("black");
+    fireEvent.pointerEnter(screen.getByTestId("row"));
+    expect(styleOf("label").color).toBe("blue");
+    fireEvent.mouseDown(screen.getByTestId("card"));
+    expect(styleOf("label").color).toBe("red");
+    fireEvent.mouseUp(screen.getByTestId("card"));
+    expect(styleOf("label").color).toBe("blue");
+    fireEvent.pointerLeave(screen.getByTestId("row"));
+    expect(styleOf("label").color).toBe("black");
+  });
+
+  test("the same marker on nested elements: any of them counts, as on the web", () => {
+    render(
+      <Pressable sx={card} testID="outer">
+        <View sx={card}>
+          <Text sx={m.label} testID="label">
+            hi
+          </Text>
+        </View>
+      </Pressable>,
+    );
+    fireEvent.mouseDown(screen.getByTestId("outer"));
+    expect(styleOf("label").color).toBe("red");
+  });
+
+  test("when.ancestor without a marker reads the default marker", () => {
+    render(
+      <>
+        <Pressable sx={defaultMarker()} testID="p">
+          <Text sx={m.anyLabel} testID="label">
+            hi
+          </Text>
+        </Pressable>
+        <Pressable sx={card} testID="other">
+          <Text sx={m.anyLabel} testID="other-label">
+            hi
+          </Text>
+        </Pressable>
+      </>,
+    );
+    fireEvent.mouseDown(screen.getByTestId("p"));
+    expect(styleOf("label").color).toBe("green");
+    fireEvent.mouseDown(screen.getByTestId("other"));
+    expect(styleOf("other-label").color).toBe("black");
+  });
+
+  test("a marked View publishes hover from its pointer events", () => {
+    render(
+      <View sx={[card, m.surface]} testID="v">
+        <Text sx={m.hoverLabel} testID="label">
+          hi
+        </Text>
+      </View>,
+    );
+    expect(propsOf("v")).not.toHaveProperty("marked");
+    fireEvent.pointerEnter(screen.getByTestId("v"));
+    expect(styleOf("label").color).toBe("purple");
+    fireEvent.pointerLeave(screen.getByTestId("v"));
+    expect(styleOf("label").color).toBe("black");
+  });
+
+  test("a marked FlatList publishes to its items", () => {
+    render(
+      <FlatList
+        sx={card}
+        data={["a"]}
+        renderItem={({ item }) => (
+          <Text sx={m.hoverLabel} testID="item">
+            {item}
+          </Text>
+        )}
+        testID="list"
+      />,
+    );
+    expect(propsOf("list")).not.toHaveProperty("marked");
+    fireEvent.pointerEnter(screen.getByTestId("list"));
+    expect(styleOf("item").color).toBe("purple");
+  });
+
+  test("markers on the other elements do not leak a prop", () => {
+    render(
+      <>
+        <Text sx={card} testID="t">
+          x
+        </Text>
+        <Switch sx={card} value testID="sw" />
+        <Image sx={card} src="a.png" alt="" testID="img" />
+        <TextInput sx={card} testID="in" />
+        <ScrollView sx={card} testID="sv">
+          <Text sx={m.hoverLabel}>x</Text>
+        </ScrollView>
+      </>,
+    );
+    for (const id of ["t", "sw", "img", "in", "sv"]) {
+      expect(propsOf(id), id).not.toHaveProperty("marked");
+    }
   });
 });

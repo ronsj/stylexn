@@ -8,6 +8,13 @@ export type { CompiledRule };
 /** A reference to a variable from `defineVars`, as it appears in style values. */
 export type VarRef = Readonly<{ $$stylexnVar: string }>;
 
+/**
+ * A marker from `defineMarker()` / `defaultMarker()`. On the web StyleX makes
+ * it a class; on native, passed to `props()`/`sx`, it makes the element
+ * publish its interaction state to its descendants for `when.ancestor`.
+ */
+export type Marker = Readonly<{ $$stylexnMarker: string }>;
+
 /** A theme from `createTheme`: overrides for a var group, applied per element or via ThemeProvider. */
 export type Theme = Readonly<{ $$stylexnTheme: Readonly<Record<string, RuntimeValue>> }>;
 
@@ -42,6 +49,13 @@ export type WindowMetrics = Readonly<{
   fontScale: number;
 }>;
 
+/**
+ * Interaction states of marked ancestors by marker id, nearest first. A
+ * `when.ancestor` condition holds when it holds for any of them, like
+ * `.marker:hover *` matching any marked ancestor on the web.
+ */
+export type Ancestors = ReadonlyMap<string, readonly InteractionState[]>;
+
 export type Env = Readonly<{
   window: WindowMetrics;
   colorScheme: "light" | "dark";
@@ -55,6 +69,8 @@ export type Env = Readonly<{
   /** Assumed input capabilities for `hover`/`pointer` media features. */
   pointer: "coarse" | "fine" | "none";
   interaction: InteractionState;
+  /** Marked ancestors for `when.ancestor` conditions; null when the rules have none. */
+  ancestors: Ancestors | null;
   vars: VarScope;
   /** Pixel size of 1rem. */
   rootFontSize: number;
@@ -76,6 +92,8 @@ export type Needs = Readonly<{
   /** An `inverted-colors` media condition. */
   invertedColors: boolean;
   vars: boolean;
+  /** A `when.ancestor` condition: the element reads its marked ancestors' state. */
+  ancestors: boolean;
   /** Any transition or animation declaration: the element needs a motion controller. */
   motion: boolean;
   /**
@@ -86,8 +104,15 @@ export type Needs = Readonly<{
   constant: boolean;
 }>;
 
-/** What `props()` accepts: compiled rules, themes, falsy, or nested arrays of those. */
-export type StyleArg = CompiledRule | Theme | null | undefined | false | readonly StyleArg[];
+/** What `props()` accepts: compiled rules, themes, markers, falsy, or nested arrays of those. */
+export type StyleArg =
+  | CompiledRule
+  | Theme
+  | Marker
+  | null
+  | undefined
+  | false
+  | readonly StyleArg[];
 
 export type Resolved = Readonly<{
   style: Readonly<Record<string, RNLeaf>>;
@@ -141,4 +166,8 @@ export function isVarRef(value: unknown): value is VarRef {
 
 export function isTheme(value: unknown): value is Theme {
   return typeof value === "object" && value !== null && "$$stylexnTheme" in value;
+}
+
+export function isMarker(value: unknown): value is Marker {
+  return typeof value === "object" && value !== null && "$$stylexnMarker" in value;
 }

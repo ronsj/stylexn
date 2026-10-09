@@ -8,7 +8,7 @@ vi.mock("react-native", () => ({
 
 import { compileRule } from "../compile/compile.ts";
 import { create, firstThatWorks, props } from "./api.ts";
-import stylex from "./index.ts";
+import stylex, { defaultMarker, defineMarker, when } from "./index.ts";
 import { createTheme, defineVars, resetVarsForTesting } from "./vars.ts";
 
 beforeEach(() => {
@@ -35,6 +35,27 @@ describe("create", () => {
     });
     expect(styles.b.$$stylexn).toBe(1);
     expect(console.warn).toHaveBeenCalledOnce();
+  });
+
+  test("a when.ancestor computed key compiles to a condition on the marker id", () => {
+    const card = defineMarker();
+    const styles = create({
+      label: {
+        color: {
+          default: "black",
+          [when.ancestor(":active", card)]: "red",
+          [when.ancestor(":hover")]: "blue",
+        },
+      },
+    });
+    expect(styles.label.conditional).toEqual([
+      { key: "color", when: [`:where-ancestor(:active, ${card.$$stylexnMarker})`], value: "red" },
+      { key: "color", when: [":where-ancestor(:hover, default-marker)"], value: "blue" },
+    ]);
+    // Markers without the plugin get distinct ids from a counter.
+    expect(defineMarker().$$stylexnMarker).not.toBe(card.$$stylexnMarker);
+    expect(defineMarker("fixed").$$stylexnMarker).toBe("fixed");
+    expect(defaultMarker()).toBe(defaultMarker());
   });
 
   test("dynamic rules", () => {
@@ -80,13 +101,16 @@ describe("misc API", () => {
       "attrs",
       "create",
       "createTheme",
+      "defaultMarker",
       "defineConsts",
+      "defineMarker",
       "defineVars",
       "firstThatWorks",
       "keyframes",
       "native",
       "props",
       "web",
+      "when",
     ]);
   });
 });

@@ -55,11 +55,11 @@ module.exports = (api) => {
 
 The plugin compiles `stylex.create`, `stylex.keyframes` and `defineVars`,
 checks every style against the compatibility table (errors when `CI` is
-set, warnings otherwise), gives `defineVars` groups and `keyframes` names
-ids that survive Fast Refresh, and detects the React Native version from
-your `react-native` package. `stylexn` resolves to the native runtime through
-the `react-native` export condition. If shared code imports
-`@stylexjs/stylex` by name, alias it in `metro.config.js`:
+set, warnings otherwise), gives `defineVars` groups, `defineMarker` markers
+and `keyframes` names ids that survive Fast Refresh, and detects the React
+Native version from your `react-native` package. `stylexn` resolves to the
+native runtime through the `react-native` export condition. If shared code
+imports `@stylexjs/stylex` by name, alias it in `metro.config.js`:
 
 ```js
 config.resolver.resolveRequest = (context, moduleName, platform) =>
@@ -92,8 +92,10 @@ import "stylexn/elements.css";
 ## What you get
 
 - **`stylexn`**: the StyleX API (`create`, `props`, `defineVars`,
-  `createTheme`, `keyframes`, `firstThatWorks`), typed so that styles with
-  no native equivalent are editor errors. On native, `useProps` and the
+  `createTheme`, `keyframes`, `firstThatWorks`, `defineMarker`,
+  `defaultMarker`, `when.ancestor`), typed so that styles with no native
+  equivalent are editor errors. Markers follow the `defineVars` rule: a
+  named export, kept in a `*.stylex.ts` file. On native, `useProps` and the
   elements subscribe to dimensions, colour scheme, accessibility settings,
   theme context and interaction state only when a rule needs them.
 - **`stylexn/elements`**: `View`, `Text`, `Pressable`, `Image`,
@@ -105,7 +107,8 @@ import "stylexn/elements.css";
   the like; `Pressable` has `onPressIn`/`onPressOut`/`onLongPress`.
   `FlatList` is virtualised on native and a plain scrolling list on web.
   Any React Native component also works directly with `useProps` when a
-  wrapper is in the way, including for native-only props.
+  wrapper is in the way, including for native-only props (with a marker in
+  its arguments, wrap it in `MarkerProvider` with `useProps(...).marked`).
   For safe areas use `react-native-safe-area-context` (React Native's own
   `SafeAreaView` is deprecated) and, on web, CSS `env(safe-area-inset-*)`.
 - **Conditions**: `:hover`, `:active`, `:focus`, `:disabled`, the form
@@ -113,7 +116,11 @@ import "stylexn/elements.css";
   `:read-write` (`TextInput`), `@media` (width, height, orientation,
   `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`,
   `prefers-reduced-transparency`, `inverted-colors`, `hover`, `pointer`),
-  nested conditions.
+  nested conditions, and ancestor conditions: with a marker in an
+  element's `sx` (or `useProps()` arguments), a descendant's
+  `[stylex.when.ancestor(":active", marker)]` key follows that element's
+  state (`when.descendant` and the sibling conditions have no native
+  equivalent).
 - **Units and values**: `rem`, `em`, `vw`/`vh`, `calc()`/`min()`/`max()`/
   `clamp()` (folded at compile time, or at runtime for relative units and
   `var()`), `lab()`/`lch()`/`oklab()`/`oklch()`/`color()`/`color-mix()`

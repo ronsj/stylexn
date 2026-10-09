@@ -280,3 +280,47 @@ webEntryNative({
   // @ts-expect-error partial values are still checked inside native()
   display: "grid",
 });
+
+// --- relational conditions (when.*) -------------------------------------------
+
+import { defineMarker as nativeDefineMarker, when as nativeWhen } from "../runtime/markers.ts";
+import { defineMarker as webDefineMarker, when as webWhen } from "../web.ts";
+
+const cardMarker = nativeDefineMarker();
+nativeCreate({
+  a: {
+    color: {
+      default: "black",
+      [nativeWhen.ancestor(":hover", cardMarker)]: "blue",
+      [nativeWhen.ancestor(":active")]: "red",
+    },
+    opacity: { default: 1, ":where-ancestor(:disabled, m1)": 0.5 },
+  },
+});
+// @ts-expect-error a structural pseudo-class cannot be evaluated on an ancestor either
+void nativeWhen.ancestor(":first-child", cardMarker);
+nativeCreate({
+  a: {
+    color: {
+      default: "black",
+      // @ts-expect-error a structural pseudo-class on an ancestor
+      ":where-ancestor(:first-child, m1)": "blue",
+    },
+  },
+});
+webCreate({
+  a: {
+    color: {
+      default: "black",
+      // @ts-expect-error descendant conditions need selectors React Native does not have
+      ":where-descendant(:hover, m1)": "blue",
+    },
+  },
+});
+// StyleX's when.* return `string`: an unknown computed key passes (the build check judges it).
+const webMarker = webDefineMarker();
+webCreate({
+  a: { color: { default: "black", [webWhen.ancestor(":hover", webMarker)]: "blue" } },
+});
+declare const anyCondition: string;
+nativeCreate({ a: { color: { default: "black", [anyCondition]: "blue" } } });

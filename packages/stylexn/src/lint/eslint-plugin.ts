@@ -109,6 +109,7 @@ const compat = {
             const { declarations, locations, trusted } = extractRule(object, {
               resolveConst,
               helper: (call) => tracker.helperKind(call),
+              when: (call) => tracker.whenKind(call),
               platform: "native",
             });
             for (const m of lintDeclarations(declarations, locations, { ...options, trusted })) {

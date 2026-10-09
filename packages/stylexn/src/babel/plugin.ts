@@ -12,7 +12,7 @@ import {
   ruleObject,
 } from "../lint/extract.ts";
 import { detectRNVersionFor } from "../node/rn-version.ts";
-import { isSentinel, sentinelIndex } from "../sentinel.ts";
+import { isSentinel, sentinelIndex, splitSentinels } from "../sentinel.ts";
 
 export type StyleXNPluginOptions = Readonly<{
   /**
@@ -85,11 +85,7 @@ export default function stylexnBabelPlugin(
   // -------------------------------------------------------------------------
 
   function leafToNode(value: CompiledLeaf, exprs: readonly t.Expression[]): t.Expression {
-    if (isSentinel(value)) {
-      const expr = exprs[sentinelIndex(value)];
-      if (!expr) throw new Error("stylexn: dangling expression placeholder");
-      return T.cloneNode(expr, true);
-    }
+    if (isSentinel(value)) return expressionAt(exprs, sentinelIndex(value));
     if (value === null) return T.nullLiteral();
     if (typeof value === "string") return T.stringLiteral(value);
     if (typeof value === "number") return T.numericLiteral(value);
@@ -99,6 +95,33 @@ export default function stylexnBabelPlugin(
     return T.objectExpression(
       Object.entries(value).map(([k, v]) =>
         T.objectProperty(T.identifier(k), leafToNode(v as CompiledLeaf, exprs)),
+      ),
+    );
+  }
+
+  function expressionAt(exprs: readonly t.Expression[], index: number): t.Expression {
+    const expr = exprs[index];
+    if (!expr) throw new Error("stylexn: dangling expression placeholder");
+    return T.cloneNode(expr, true);
+  }
+
+  /**
+   * A condition key. A `when.*` key with a marker expression becomes a
+   * template literal reading the marker's id at runtime:
+   * `:where-ancestor(:hover, ${marker.$$stylexnMarker})`.
+   */
+  function conditionToNode(condition: string, exprs: readonly t.Expression[]): t.Expression {
+    const { strings, indices } = splitSentinels(condition);
+    if (indices.length === 0) return T.stringLiteral(condition);
+    return T.templateLiteral(
+      strings.map((raw, i) =>
+        T.templateElement(
+          { raw: raw.replace(/[\\`]|\$\{/g, (m) => `\\${m}`), cooked: raw },
+          i === strings.length - 1,
+        ),
+      ),
+      indices.map((index) =>
+        T.memberExpression(expressionAt(exprs, index), T.identifier("$$stylexnMarker")),
       ),
     );
   }
@@ -124,7 +147,7 @@ export default function stylexnBabelPlugin(
           T.objectProperty(T.identifier("key"), T.stringLiteral(e.key)),
           T.objectProperty(
             T.identifier("when"),
-            T.arrayExpression(e.when.map((w) => T.stringLiteral(w))),
+            T.arrayExpression(e.when.map((w) => conditionToNode(w, exprs))),
           ),
           T.objectProperty(T.identifier("value"), leafToNode(e.value, exprs)),
         ]),
@@ -180,6 +203,7 @@ export default function stylexnBabelPlugin(
     const { declarations, expressions, trusted } = extractRule(asNode(object), {
       resolveConst: resolveConstIn(path),
       helper: (call) => state.stylexn.helperKind(call),
+      when: (call) => state.stylexn.whenKind(call),
       platform: "native",
     });
     const exprs = expressions as unknown as t.Expression[];
@@ -258,18 +282,23 @@ export default function stylexnBabelPlugin(
   }
 
   // -------------------------------------------------------------------------
-  // native: give defineVars and keyframes a stable id (see runtime/vars.ts
-  // and runtime/keyframes.ts)
+  // native: give defineVars, defineMarker and keyframes a stable id (see
+  // runtime/vars.ts, runtime/markers.ts and runtime/keyframes.ts)
   // -------------------------------------------------------------------------
 
   /**
-   * Appends `"<prefix><hash>"` to a one-argument call, hashing the file path
-   * (relative to `rootDir`) and the binding the result is assigned to, so the
-   * id is the same on every build and Fast Refresh of the module.
+   * Appends `"<prefix><hash>"` to a call with `arity` arguments, hashing the
+   * file path (relative to `rootDir`) and the binding the result is assigned
+   * to, so the id is the same on every build and Fast Refresh of the module.
    */
-  function stabilizeId(path: NodePath<t.CallExpression>, state: State, prefix: string): void {
+  function stabilizeId(
+    path: NodePath<t.CallExpression>,
+    state: State,
+    prefix: string,
+    arity = 1,
+  ): void {
     const args = path.node.arguments;
-    if (args.length !== 1) return; // already carries an id
+    if (args.length !== arity) return; // already carries an id
     const parent = path.parentPath;
     let name: string;
     if (parent.isVariableDeclarator() && T.isIdentifier(parent.node.id)) {
@@ -346,6 +375,10 @@ export default function stylexnBabelPlugin(
         if (platform === "web") return;
         if (state.stylexn.isDefineVarsCall(asNode(path.node))) {
           stabilizeId(path, state, "v");
+          return;
+        }
+        if (state.stylexn.isDefineMarkerCall(asNode(path.node))) {
+          stabilizeId(path, state, "m", 0);
           return;
         }
         if (state.stylexn.isKeyframesCall(asNode(path.node))) {

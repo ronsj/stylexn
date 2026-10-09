@@ -11,6 +11,7 @@ const env = (overrides: Partial<Env> = {}): Env => ({
   invertedColors: false,
   pointer: "coarse",
   interaction: {},
+  ancestors: null,
   vars: {},
   rootFontSize: 16,
   fontSize: 14,

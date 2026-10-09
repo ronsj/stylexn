@@ -95,3 +95,21 @@ export const s = stylex.create({
     expect(diagnostics.map((d) => d.line)).toEqual([6]);
   });
 });
+
+describe("when.* conditions through oxlint", () => {
+  test("ancestor conditions pass; descendant conditions are reported at their key", () => {
+    const diagnostics = lint(`import * as stylex from "stylexn";
+import { when } from "stylexn";
+import { card } from "./card.stylex";
+export const s = stylex.create({
+  a: {
+    color: { default: "black", [stylex.when.ancestor(":active", card)]: "red" },
+    opacity: { default: 1, [when.ancestor(":hover")]: 0.5 },
+    backgroundColor: { default: "white", [when.descendant(":hover", card)]: "gray" },
+  },
+});`);
+    expect(diagnostics).toEqual([
+      { message: expect.stringMatching(/when\.descendant\(:hover\) on backgroundColor/), line: 8 },
+    ]);
+  });
+});

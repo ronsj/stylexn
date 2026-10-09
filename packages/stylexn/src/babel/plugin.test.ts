@@ -417,3 +417,127 @@ describe("keyframes ids", () => {
     expect(keyframesIds(code)).toEqual([]);
   });
 });
+
+describe("when.* conditions", () => {
+  test("when.ancestor without a marker is a plain condition on the default marker", () => {
+    const styles = compiled(`${HEADER}const styles = stylex.create({
+      label: { color: { default: "black", [stylex.when.ancestor(":hover")]: "blue" } },
+    });`);
+    expect(styles.label.conditional).toEqual([
+      { key: "color", when: [":where-ancestor(:hover, default-marker)"], value: "blue" },
+    ]);
+  });
+
+  test("a marker expression is read at runtime through a template literal", () => {
+    const src = `${HEADER}import { card } from "./card.stylex";
+      const styles = stylex.create({
+        label: {
+          color: { default: "black", [stylex.when.ancestor(":active", card)]: "red" },
+          opacity: { default: 1, [stylex.when.ancestor(":disabled", markers.row)]: { default: 0.5, ":hover": 0.6 } },
+        },
+      });`;
+    const { code } = transform(src, { strict: true });
+    expect(code).toContain("`:where-ancestor(:active, ${card.$$stylexnMarker})`");
+    expect(code).toContain("`:where-ancestor(:disabled, ${markers.row.$$stylexnMarker})`");
+    const styles = compiled(
+      src,
+      { strict: true },
+      { card: { $$stylexnMarker: "mcard" }, markers: { row: { $$stylexnMarker: "mrow" } } },
+    );
+    expect(styles.label.conditional).toEqual([
+      { key: "color", when: [":where-ancestor(:active, mcard)"], value: "red" },
+      { key: "opacity", when: [":where-ancestor(:disabled, mrow)"], value: 0.5 },
+      { key: "opacity", when: [":where-ancestor(:disabled, mrow)", ":hover"], value: 0.6 },
+    ]);
+  });
+
+  test("a named when import is recognised; a when from elsewhere is not", () => {
+    const styles = compiled(
+      `import { create, when } from "stylexn";
+       const styles = create({ a: { color: { default: "black", [when.ancestor(":focus", m)]: "blue" } } });`,
+      {},
+      { m: { $$stylexnMarker: "m1" } },
+    );
+    expect(styles.a.conditional[0].when).toEqual([":where-ancestor(:focus, m1)"]);
+    expect(() =>
+      transform(
+        `${HEADER}const when = { ancestor: () => ":hover" };
+         stylex.create({ a: { color: { [when.ancestor(":hover")]: "blue" } } });`,
+      ),
+    ).toThrow(/stylex\.when\.\* calls/);
+  });
+
+  test("the pseudo-class must be a string literal", () => {
+    expect(() =>
+      transform(
+        `${HEADER}const p = ":hover"; stylex.create({ a: { color: { [stylex.when.ancestor(p)]: "b" } } });`,
+      ),
+    ).toThrow(/when\.ancestor\(\) expects a string literal pseudo-class/);
+  });
+
+  test("unsupported pseudo-classes and descendant/sibling conditions follow the policy", () => {
+    const descendant = `${HEADER}const s = stylex.create({
+      a: { color: { default: "black", [stylex.when.descendant(":hover", m)]: "red" } },
+    });`;
+    expect(() => transform(descendant, { strict: true })).toThrow(
+      /when\.descendant\(:hover\) on color — [\s\S]*descendant and sibling conditions/,
+    );
+    const warnings: string[] = [];
+    const styles = compiled(descendant, { strict: false, onWarning: (m) => warnings.push(m) });
+    expect(styles.a.conditional).toEqual([]);
+    expect(styles.a.static).toEqual({ color: "black" });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/when\.descendant\(:hover\)/);
+    expect(() =>
+      transform(
+        `${HEADER}stylex.create({ a: { color: { [stylex.when.ancestor(":first-child")]: "red" } } });`,
+        { strict: true },
+      ),
+    ).toThrow(/when\.ancestor\(:first-child\) on color/);
+  });
+
+  test("web: computed when.* keys are left for StyleX", () => {
+    const src = `${HEADER}const s = stylex.create({
+      a: { color: { default: "black", [stylex.when.ancestor(":hover", card)]: "red" }, ...stylex.web({ cursor: "pointer" }) },
+    });`;
+    const { code } = transform(src, { platform: "web" });
+    expect(code).toContain('[stylex.when.ancestor(":hover", card)]: "red"');
+    expect(code).toContain('cursor: "pointer"');
+  });
+});
+
+/** Injected defineMarker ids in plugin output, in order. */
+const markerIds = (code: string) =>
+  [...code.matchAll(/defineMarker\("(m[a-z0-9]+)"\)/g)].map((m) => m[1]);
+
+describe("defineMarker ids", () => {
+  const MARKERS = `${HEADER}
+    export const card = stylex.defineMarker();
+    export const row = stylex.defineMarker();`;
+  const at = (file: string, rootDir = "/repo") =>
+    markerIds(transform(MARKERS, { rootDir }, file).code);
+
+  test("native: a stable id per file and export is injected", () => {
+    const a = at("/repo/packages/shared/markers.stylex.ts");
+    expect(a).toHaveLength(2);
+    expect(new Set(a).size).toBe(2);
+    expect(at("/repo/packages/shared/markers.stylex.ts")).toEqual(a);
+    expect(at("/elsewhere/packages/shared/markers.stylex.ts", "/elsewhere")).toEqual(a);
+    expect(at("/repo/packages/shared/other.stylex.ts")).not.toEqual(a);
+  });
+
+  test("named imports, explicit ids, defaultMarker and the web platform", () => {
+    expect(
+      markerIds(
+        transform(`import { defineMarker } from "stylexn";\nexport const m = defineMarker();`).code,
+      ),
+    ).toHaveLength(1);
+    expect(transform(`${HEADER}export const m = stylex.defineMarker("custom");`).code).toContain(
+      'defineMarker("custom")',
+    );
+    expect(transform(`${HEADER}const m = stylex.defaultMarker();`).code).toContain(
+      "defaultMarker()",
+    );
+    expect(markerIds(transform(MARKERS, { platform: "web" }).code)).toEqual([]);
+  });
+});
