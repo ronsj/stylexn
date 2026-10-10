@@ -30,5 +30,3 @@ pnpm verify
 ```
 
 `STYLEX_RN_HANDOFF.md` holds the decisions, commands and gotchas.
-
-MIT
