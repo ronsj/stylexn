@@ -1,6 +1,7 @@
 packages:
-  - apps/*
-  - packages/*
+  - stylexn/*
+  - examples/*
+  - docs/*
 allowBuilds:
   lefthook: false
   esbuild: false

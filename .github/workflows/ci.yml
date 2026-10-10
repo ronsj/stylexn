@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      # Also runs the root "prepare" script, which builds packages/stylexn/dist.
+      # Also runs the root "prepare" script, which builds stylexn/stylexn/dist.
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
@@ -48,21 +48,21 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @stylexn/example-web build
+      - run: pnpm --filter @stylexn/todo-web build
       # The browser download is the slowest step; key it on the lockfile so a
       # Playwright bump refreshes it.
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - run: pnpm --filter @stylexn/example-web exec playwright install --with-deps chromium
+      - run: pnpm --filter @stylexn/todo-web exec playwright install --with-deps chromium
       # With CI set, playwright.config.ts serves the production build (next start).
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
-          path: apps/example-web/playwright-report/
+          path: examples/todo-web/playwright-report/
           retention-days: 7
 
   docs:
@@ -76,20 +76,20 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Static export to apps/docs-site/out.
+      # Static export to docs/site/out.
       - run: pnpm build:docs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - run: pnpm --filter @stylexn/docs-site exec playwright install --with-deps chromium
+      - run: pnpm --filter @stylexn/docs exec playwright install --with-deps chromium
       # With CI set, playwright.config.ts serves out/ with scripts/serve.mjs.
       - run: pnpm test:e2e:docs
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: docs-playwright-report
-          path: apps/docs-site/playwright-report/
+          path: docs/site/playwright-report/
           retention-days: 7
 
   mobile:
@@ -104,4 +104,4 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Bundles through Metro with stylexn/babel in strict mode; no simulator needed.
-      - run: pnpm --filter @stylexn/example-mobile exec expo export --platform ios
+      - run: pnpm --filter @stylexn/todo-ios exec expo export --platform ios

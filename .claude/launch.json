@@ -2,15 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "example-web",
+      "name": "todo-web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@stylexn/example-web", "dev"],
+      "runtimeArgs": ["--filter", "@stylexn/todo-web", "dev"],
       "port": 3000
     },
     {
-      "name": "docs-site",
+      "name": "docs",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@stylexn/docs-site", "dev"],
+      "runtimeArgs": ["--filter", "@stylexn/docs", "dev"],
       "port": 3001
     }
   ]

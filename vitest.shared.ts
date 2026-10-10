@@ -1,6 +1,6 @@
 import { transformAsync } from "@babel/core";
 import stylexBabelPlugin from "@stylexjs/babel-plugin";
-import stylexnBabelPlugin from "./packages/stylexn/src/babel/plugin.ts";
+import stylexnBabelPlugin from "./stylexn/stylexn/src/babel/plugin.ts";
 import type { Plugin } from "vite";
 
 const monorepoRoot = import.meta.dirname;
@@ -8,7 +8,7 @@ const monorepoRoot = import.meta.dirname;
 // Runs the StyleX compiler over test modules so unit tests see the same
 // compiled output (class names, injected CSS) the web build produces,
 // rather than StyleX's uncompiled runtime fallback. Mirrors the options in
-// apps/example-web/babel.config.js.
+// examples/todo-web/babel.config.js.
 export function stylexTestPlugin(): Plugin {
   return {
     name: "stylexn:stylex-test-transform",

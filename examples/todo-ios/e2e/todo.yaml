@@ -1,0 +1,95 @@
+# Maestro flow against Expo Go. Start Metro first (`pnpm exec expo start` in
+# examples/todo-ios) and run `pnpm --filter @stylexn/todo-ios test:e2e` with a booted
+# simulator/emulator. Expo Go opens the project through the deep link.
+appId: host.exp.Exponent
+---
+# Start from a fresh Expo Go so a previous run's state (or error screen) is gone.
+- stopApp
+- openLink: exp://127.0.0.1:8081
+- extendedWaitUntil:
+    visible: "Todos"
+    timeout: 60000
+# Todos persist (expo-sqlite's localStorage): clear what an earlier run left.
+- tapOn:
+    id: "filter-all"
+- repeat:
+    while:
+      visible:
+        id: "todo-delete"
+    commands:
+      - tapOn:
+          id: "todo-delete"
+          index: 0
+- assertVisible: "Nothing to do yet. Add a todo above."
+- assertVisible: "Page 1 of 1"
+
+# Add with the button, then mark it done.
+- tapOn:
+    id: "todo-input"
+- inputText: "Buy milk"
+- tapOn:
+    id: "todo-add"
+- assertVisible: "Buy milk"
+- tapOn:
+    id: "todo-toggle"
+- assertVisible: "0 left · 1 done"
+
+# Filter.
+- tapOn:
+    id: "filter-active"
+- assertVisible: "Nothing left to do."
+- tapOn:
+    id: "filter-done"
+- assertVisible: "Buy milk"
+- tapOn:
+    id: "filter-all"
+
+# Six more (Return adds and dismisses the keyboard): a second page appears.
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 1"
+- pressKey: Enter
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 2"
+- pressKey: Enter
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 3"
+- pressKey: Enter
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 4"
+- pressKey: Enter
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 5"
+- pressKey: Enter
+- tapOn:
+    id: "todo-input"
+- inputText: "Todo 6"
+- pressKey: Enter
+- assertVisible: "Todo 6"
+- assertVisible: "Page 1 of 2"
+- assertNotVisible: "Buy milk"
+- tapOn:
+    id: "page-next"
+- assertVisible: "Page 2 of 2"
+- assertVisible: "Buy milk"
+- assertVisible: "Todo 1"
+- tapOn:
+    id: "page-prev"
+- assertVisible: "Page 1 of 2"
+
+# Delete the newest twice: the list closes up and the second page goes away.
+- tapOn:
+    id: "todo-delete"
+    index: 0
+- assertNotVisible: "Todo 6"
+- assertVisible: "Page 1 of 2"
+- tapOn:
+    id: "todo-delete"
+    index: 0
+- assertNotVisible: "Todo 5"
+- assertVisible: "Page 1 of 1"
+- assertVisible: "Buy milk"

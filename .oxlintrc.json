@@ -11,13 +11,13 @@
   },
   "overrides": [
     {
-      "files": ["apps/example-mobile/**", "**/*.native.{ts,tsx}"],
+      "files": ["examples/todo-ios/**", "**/*.native.{ts,tsx}"],
       "rules": {
         "react/style-prop-object": "off"
       }
     },
     {
-      "files": ["packages/shared/**", "apps/example-mobile/**"],
+      "files": ["examples/shared/**", "examples/todo-ios/**"],
       "rules": {
         "stylexn/compat": [
           "error",
@@ -32,5 +32,5 @@
     "builtin": true
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/out/**", "**/.expo/**"],
-  "jsPlugins": ["./packages/stylexn/src/lint/eslint-plugin.ts"]
+  "jsPlugins": ["./stylexn/stylexn/src/lint/eslint-plugin.ts"]
 }

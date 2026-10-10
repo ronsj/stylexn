@@ -8,17 +8,17 @@ apps, and note what's missing for our use case so we can decide
 
 ## What was built
 
-- `packages/shared/src/HelloStrict.tsx` — a single component, no platform
+- `src/HelloStrict.tsx` in the shared package — a single component, no platform
   forks, using `html.div/h2/p/button` and `css.create` with:
   `:hover` / `:active`, `@media (min-width: 800px)`, `rem` units, a
   `transition`, a dynamic style function, and `css.defineVars` (with a
   `prefers-color-scheme: dark` variant, in `tokens.css.ts`) plus a
   `css.createTheme` override applied to a subtree.
-- `apps/web/app/rsd/page.tsx` renders it; `apps/mobile/App.tsx` renders it
-  next to the existing plain-StyleX `Hello`.
-- Toolchain wiring in `apps/web` (`babelLoader.config.js`, `next.config.ts`,
-  `postcss.config.js`, `globals.css`), `apps/mobile/babel.config.js`, and
-  `vitest.shared.ts`.
+- The web app's `app/rsd/page.tsx` renders it; the mobile app's `App.tsx`
+  renders it next to the existing plain-StyleX `Hello`.
+- Toolchain wiring in the web app (`babelLoader.config.js`, `next.config.ts`,
+  `postcss.config.js`, `globals.css`), the mobile app's `babel.config.js`, and
+  the root `vitest.shared.ts`.
 
 ## What worked
 
