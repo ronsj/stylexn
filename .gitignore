@@ -14,3 +14,6 @@ expo-env.d.ts
 test-results/
 playwright-report/
 .vitest/
+
+# Claude Code dev-server launch config is per machine
+.claude/launch.json
